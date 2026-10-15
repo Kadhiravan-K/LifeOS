@@ -7,10 +7,15 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.preferences.UserPreferences
 import com.example.data.repository.LifeRepository
+import com.example.domain.model.ChallengePreset
 import com.example.domain.model.ChallengeRule
 import com.example.domain.model.ChallengeState
+import com.example.domain.model.DefaultHoneycombShortcuts
 import com.example.domain.model.HabitItem
+import com.example.domain.model.HoneycombAppearanceConfig
+import com.example.domain.model.HoneycombShortcut
 import com.example.domain.model.RecurrenceType
+import com.example.domain.model.ShortcutType
 import com.example.domain.model.Subtask
 import com.example.domain.model.TaskItem
 import com.example.domain.model.TaskPriority
@@ -18,6 +23,11 @@ import com.example.domain.schedule.ScheduleConflict
 import com.example.domain.schedule.ScheduleConflictEngine
 import com.example.notifications.NotificationHelper
 import com.example.utils.DateUtils
+import com.example.ui.theme.engine.ThemeDefinition
+import com.example.ui.theme.engine.ThemeId
+import com.example.ui.theme.engine.ThemeRegistry
+import com.example.ui.theme.engine.PremiumEntitlementRepository
+import com.example.ui.theme.engine.LocalPremiumEntitlementRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -54,7 +64,9 @@ data class DashboardUiState(
     val challengeProgressPercentage: Float = 0f,
     val challengeRulesCompletedToday: Int = 0,
     val challengeRulesTotal: Int = 6,
-    val hasInstalledDefaults: Boolean = false
+    val hasInstalledDefaults: Boolean = false,
+    val honeycombShortcuts: List<HoneycombShortcut> = emptyList(),
+    val isHoneycombEditMode: Boolean = false
 )
 
 data class TasksUiState(
@@ -114,6 +126,12 @@ class LifeViewModel(
 ) : AndroidViewModel(application) {
 
     private val todayIso = DateUtils.todayString()
+
+    init {
+        viewModelScope.launch {
+            repository.seedDefaultHoneycombShortcuts()
+        }
+    }
 
     // --- Search & Filter States ---
     private val _taskSearchQuery = MutableStateFlow("")
@@ -191,6 +209,37 @@ class LifeViewModel(
         initialValue = "SYSTEM"
     )
 
+    val activeThemeIdFlow: StateFlow<String> = preferences.activeThemeId.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "default"
+    )
+
+    private val entitlementRepo: PremiumEntitlementRepository = LocalPremiumEntitlementRepository(application)
+    val isPremiumActive: StateFlow<Boolean> = entitlementRepo.isPremiumActive.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    private val _previewThemeId = MutableStateFlow<ThemeId?>(null)
+    val previewThemeId: StateFlow<ThemeId?> = _previewThemeId.asStateFlow()
+
+    val activeThemeDefinition: StateFlow<ThemeDefinition> = combine(
+        activeThemeIdFlow,
+        _previewThemeId
+    ) { persistedId, previewId ->
+        if (previewId != null) {
+            ThemeRegistry.getTheme(previewId)
+        } else {
+            ThemeRegistry.getTheme(persistedId)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ThemeRegistry.DEFAULT_THEME
+    )
+
     val waterGoalFlow: StateFlow<Int> = preferences.waterGoalMl.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -251,6 +300,100 @@ class LifeViewModel(
         initialValue = 30
     )
 
+    // --- Honeycomb Appearance & Edit State ---
+    private val _isHoneycombEditMode = MutableStateFlow(false)
+    val isHoneycombEditMode: StateFlow<Boolean> = _isHoneycombEditMode.asStateFlow()
+
+    val honeycombAppearance: StateFlow<HoneycombAppearanceConfig> = combine(
+        preferences.honeycombDefaultColorHex,
+        preferences.honeycombBorderColor,
+        preferences.honeycombBorderWidthDp,
+        preferences.honeycombSizeDp,
+        preferences.honeycombSpacingDp
+    ) { color, border, width, size, spacing ->
+        HoneycombAppearanceConfig(
+            defaultColorHex = color,
+            borderColorType = border,
+            borderWidthDp = width,
+            hexagonSizeDp = size,
+            spacingDp = spacing,
+            iconSizeSp = 26,
+            isAnimationEnabled = true
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = HoneycombAppearanceConfig()
+    )
+
+    val rawHoneycombShortcuts: StateFlow<List<HoneycombShortcut>> = repository.allHoneycombShortcutsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val resolvedHoneycombShortcuts: StateFlow<List<HoneycombShortcut>> = combine(
+        rawHoneycombShortcuts,
+        todayTasks,
+        allTasks,
+        habits,
+        challengeState
+    ) { rawList, todayTaskList, allTaskList, habitList, challenge ->
+        val effectiveList = if (rawList.isEmpty()) DefaultHoneycombShortcuts.list else rawList
+        val waterCurrent = todayWaterLog.value.amountMl
+        val waterGoal = waterGoalFlow.value.coerceAtLeast(1000)
+
+        effectiveList.map { shortcut ->
+            when (shortcut.type) {
+                ShortcutType.TASK -> {
+                    val matchedTask = todayTaskList.find { it.id.toString() == shortcut.targetId || it.title.contains(shortcut.targetId, ignoreCase = true) }
+                        ?: allTaskList.find { it.id.toString() == shortcut.targetId || it.title.contains(shortcut.targetId, ignoreCase = true) }
+                    val isDone = matchedTask?.isCompletedForDate ?: false
+                    shortcut.copy(
+                        isCompletedToday = isDone,
+                        subtitle = matchedTask?.dueTime ?: matchedTask?.category ?: "",
+                        isBinary = true
+                    )
+                }
+                ShortcutType.HABIT -> {
+                    val matchedHabit = habitList.find { it.id.toString() == shortcut.targetId || it.title.contains(shortcut.targetId, ignoreCase = true) }
+                    val isDone = matchedHabit?.completedDates?.contains(todayIso) ?: false
+                    shortcut.copy(
+                        isCompletedToday = isDone,
+                        subtitle = "${matchedHabit?.currentStreak ?: 0}d streak",
+                        isBinary = true
+                    )
+                }
+                ShortcutType.CHALLENGE_RULE -> {
+                    val rule = challenge.rules.find { it.id == shortcut.targetId || it.title.contains(shortcut.targetId, ignoreCase = true) }
+                    val todayLog = challenge.logs[todayIso]
+                    val isDone = rule != null && (todayLog?.completedRuleIds?.contains(rule.id) == true)
+                    shortcut.copy(
+                        isCompletedToday = isDone,
+                        subtitle = rule?.title ?: "",
+                        isBinary = true
+                    )
+                }
+                ShortcutType.WATER -> {
+                    val isDone = waterCurrent >= waterGoal
+                    shortcut.copy(
+                        isCompletedToday = isDone,
+                        subtitle = "$waterCurrent / $waterGoal ml",
+                        progressFraction = (waterCurrent.toFloat() / waterGoal).coerceIn(0f, 1f),
+                        isBinary = false
+                    )
+                }
+                ShortcutType.CUSTOM -> {
+                    shortcut.copy(isBinary = true)
+                }
+            }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = DefaultHoneycombShortcuts.list
+    )
+
     private val userPrefsFlow = combine(userNameFlow, hasInstalledDefaultsFlow, clockFormatFlow) { name, defaults, clock ->
         UserDashboardPrefs(name, defaults, clock == "24_HOUR")
     }
@@ -265,7 +408,7 @@ class LifeViewModel(
     }
 
     // --- Dashboard UI State ---
-    val dashboardUiState: StateFlow<DashboardUiState> = combine(
+    private val dashboardBaseState: StateFlow<DashboardUiState> = combine(
         userPrefsFlow,
         todayTasks,
         allTasks,
@@ -336,8 +479,6 @@ class LifeViewModel(
         val currentHour = DateUtils.getCurrentHour()
         val greetingText = "${DateUtils.getGreeting(currentHour)}, ${prefs.userName}"
 
-        val waterEntity = todayWaterLog.value
-
         DashboardUiState(
             userName = prefs.userName,
             greeting = greetingText,
@@ -357,8 +498,8 @@ class LifeViewModel(
             habitsCompletedTodayCount = completedHabitsToday,
             totalHabitsCount = totalHabits,
             habits = habitList,
-            waterCurrentMl = waterEntity.amountMl,
-            waterGoalMl = waterEntity.goalMl,
+            waterCurrentMl = todayWaterLog.value.amountMl,
+            waterGoalMl = todayWaterLog.value.goalMl,
             challengeDayNumber = challenge.currentDayNumber,
             challengeTargetDays = challenge.targetDays,
             challengeProgressPercentage = challenge.progressPercentage,
@@ -371,6 +512,25 @@ class LifeViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = DashboardUiState()
     )
+
+    val dashboardUiState: StateFlow<DashboardUiState> = combine(
+        dashboardBaseState,
+        todayWaterLog,
+        resolvedHoneycombShortcuts,
+        _isHoneycombEditMode
+    ) { base, water, shortcuts, editMode ->
+        base.copy(
+            waterCurrentMl = water.amountMl,
+            waterGoalMl = water.goalMl,
+            honeycombShortcuts = shortcuts,
+            isHoneycombEditMode = editMode
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = DashboardUiState()
+    )
+
 
     // --- Tasks UI State ---
     val tasksUiState: StateFlow<TasksUiState> = combine(
@@ -857,6 +1017,41 @@ class LifeViewModel(
         viewModelScope.launch { preferences.setThemeMode(mode) }
     }
 
+    fun selectTheme(themeId: ThemeId): Boolean {
+        val isUnlocked = entitlementRepo.isThemeUnlocked(themeId, isPremiumActive.value)
+        if (!isUnlocked) {
+            return false
+        }
+        viewModelScope.launch {
+            preferences.setActiveThemeId(themeId.idString)
+            _previewThemeId.value = null
+        }
+        return true
+    }
+
+    fun startThemePreview(themeId: ThemeId) {
+        _previewThemeId.value = themeId
+    }
+
+    fun applyPreviewedTheme(): Boolean {
+        val preview = _previewThemeId.value ?: return false
+        return selectTheme(preview)
+    }
+
+    fun dismissThemePreview() {
+        _previewThemeId.value = null
+    }
+
+    fun toggleSimulatedPremium(active: Boolean) {
+        viewModelScope.launch {
+            entitlementRepo.setSimulatedPremium(active)
+        }
+    }
+
+    fun isThemeUnlocked(themeId: ThemeId): Boolean {
+        return entitlementRepo.isThemeUnlocked(themeId, isPremiumActive.value)
+    }
+
     fun updateWaterGoal(goalMl: Int) {
         viewModelScope.launch { preferences.setWaterGoalMl(goalMl) }
     }
@@ -892,6 +1087,150 @@ class LifeViewModel(
 
     fun updateDefaultTaskDuration(duration: Int) {
         viewModelScope.launch { preferences.setDefaultTaskDuration(duration) }
+    }
+
+    // --- Honeycomb Actions ---
+    fun setHoneycombEditMode(enabled: Boolean) {
+        _isHoneycombEditMode.value = enabled
+    }
+
+    fun toggleHoneycombShortcut(shortcut: HoneycombShortcut) {
+        viewModelScope.launch {
+            when (shortcut.type) {
+                ShortcutType.TASK -> {
+                    val taskId = shortcut.targetId.toLongOrNull()
+                    val targetTask = if (taskId != null) {
+                        repository.getTaskById(taskId)
+                    } else {
+                        allTasks.value.find { it.title.contains(shortcut.targetId, ignoreCase = true) }
+                    }
+                    if (targetTask != null) {
+                        toggleTaskCompletion(targetTask.id, todayIso)
+                    }
+                }
+                ShortcutType.HABIT -> {
+                    val habitId = shortcut.targetId.toLongOrNull()
+                    val targetHabit = if (habitId != null) {
+                        repository.getHabitById(habitId)
+                    } else {
+                        habits.value.find { it.title.contains(shortcut.targetId, ignoreCase = true) }
+                    }
+                    if (targetHabit != null) {
+                        toggleHabit(targetHabit.id, todayIso)
+                    }
+                }
+                ShortcutType.CHALLENGE_RULE -> {
+                    val rule = challengeState.value.rules.find {
+                        it.id == shortcut.targetId || it.title.contains(shortcut.targetId, ignoreCase = true)
+                    }
+                    if (rule != null) {
+                        toggleChallengeRule(rule.id, todayIso)
+                    }
+                }
+                ShortcutType.WATER -> {
+                    addWater(250)
+                }
+                ShortcutType.CUSTOM -> {
+                    // Custom non-binary toggle
+                }
+            }
+        }
+    }
+
+    fun reorderHoneycombShortcuts(newList: List<HoneycombShortcut>) {
+        viewModelScope.launch {
+            repository.saveHoneycombShortcutsOrder(newList)
+        }
+    }
+
+    fun moveHoneycombShortcut(shortcutId: Long, delta: Int) {
+        viewModelScope.launch {
+            val currentList = resolvedHoneycombShortcuts.value.toMutableList()
+            val index = currentList.indexOfFirst { it.id == shortcutId }
+            if (index != -1) {
+                val targetIndex = (index + delta).coerceIn(0, currentList.size - 1)
+                if (targetIndex != index) {
+                    val item = currentList.removeAt(index)
+                    currentList.add(targetIndex, item)
+                    repository.saveHoneycombShortcutsOrder(currentList)
+                }
+            }
+        }
+    }
+
+    fun addHoneycombShortcut(shortcut: HoneycombShortcut) {
+        viewModelScope.launch {
+            val maxOrder = resolvedHoneycombShortcuts.value.maxOfOrNull { it.orderIndex } ?: 0
+            repository.insertHoneycombShortcut(shortcut.copy(orderIndex = maxOrder + 1))
+        }
+    }
+
+    fun removeHoneycombShortcut(shortcutId: Long) {
+        viewModelScope.launch {
+            repository.deleteHoneycombShortcut(shortcutId)
+        }
+    }
+
+    fun updateHoneycombShortcutIcon(shortcutId: Long, newEmoji: String) {
+        viewModelScope.launch {
+            val item = resolvedHoneycombShortcuts.value.find { it.id == shortcutId } ?: return@launch
+            repository.updateHoneycombShortcut(item.copy(emoji = newEmoji))
+        }
+    }
+
+    fun updateHoneycombShortcutColor(shortcutId: Long, newColorHex: Long?) {
+        viewModelScope.launch {
+            val item = resolvedHoneycombShortcuts.value.find { it.id == shortcutId } ?: return@launch
+            repository.updateHoneycombShortcut(item.copy(customColorHex = newColorHex))
+        }
+    }
+
+    fun resetHoneycombLayoutToDefault() {
+        viewModelScope.launch {
+            repository.resetHoneycombShortcutsToDefault()
+            _isHoneycombEditMode.value = false
+        }
+    }
+
+    // --- Honeycomb Appearance Settings ---
+    fun setHoneycombDefaultColor(hex: Long) = viewModelScope.launch { preferences.setHoneycombDefaultColor(hex) }
+    fun setHoneycombBorderColor(type: String) = viewModelScope.launch { preferences.setHoneycombBorderColor(type) }
+    fun setHoneycombBorderWidth(widthDp: Int) = viewModelScope.launch { preferences.setHoneycombBorderWidth(widthDp) }
+    fun setHoneycombSize(sizeDp: Int) = viewModelScope.launch { preferences.setHoneycombSize(sizeDp) }
+    fun setHoneycombSpacing(spacingDp: Int) = viewModelScope.launch { preferences.setHoneycombSpacing(spacingDp) }
+    fun setHoneycombIconSize(sizeSp: Int) = viewModelScope.launch { preferences.setHoneycombIconSize(sizeSp) }
+    fun setHoneycombAnimationEnabled(enabled: Boolean) = viewModelScope.launch { preferences.setHoneycombAnimationEnabled(enabled) }
+    fun resetHoneycombAppearance() = viewModelScope.launch { preferences.resetHoneycombAppearance() }
+
+    // --- 75 Hard Customization Actions ---
+    fun updateChallengeRules(rules: List<ChallengeRule>, resetProgress: Boolean = false) {
+        viewModelScope.launch {
+            repository.updateChallengeRules(rules, resetProgress)
+        }
+    }
+
+    fun applyChallengePreset(preset: ChallengePreset, resetProgress: Boolean = false) {
+        viewModelScope.launch {
+            repository.applyChallengePreset(preset, resetProgress)
+        }
+    }
+
+    fun addCustomChallengeRule(title: String, emoji: String, description: String) {
+        viewModelScope.launch {
+            repository.addCustomChallengeRule(title, emoji, description)
+        }
+    }
+
+    fun removeChallengeRule(ruleId: String) {
+        viewModelScope.launch {
+            repository.removeChallengeRule(ruleId)
+        }
+    }
+
+    fun editChallengeRule(ruleId: String, title: String, emoji: String, description: String) {
+        viewModelScope.launch {
+            repository.editChallengeRule(ruleId, title, emoji, description)
+        }
     }
 }
 

@@ -49,8 +49,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.FilledTonalButton
 import com.example.domain.model.ChallengeState
 import com.example.domain.model.DefaultChallengeRules
+import com.example.ui.components.CustomizeChallengePresetsDialog
 import com.example.ui.components.RestartChallengeDialog
 import com.example.ui.viewmodel.LifeViewModel
 import com.example.utils.DateUtils
@@ -62,6 +65,7 @@ fun ChallengeScreen(
     modifier: Modifier = Modifier
 ) {
     var showRestartDialog by remember { mutableStateOf(false) }
+    var showPresetsDialog by remember { mutableStateOf(false) }
     val todayIso = DateUtils.todayString()
     val todayLog = challenge.logs[todayIso]
     val completedRulesToday = todayLog?.completedRuleIds ?: emptySet()
@@ -98,18 +102,34 @@ fun ChallengeScreen(
                 )
             }
 
-            OutlinedButton(
-                onClick = { showRestartDialog = true },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.testTag("restart_challenge_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.RestartAlt,
-                    contentDescription = "Restart",
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Restart", fontSize = 12.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilledTonalButton(
+                    onClick = { showPresetsDialog = true },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.testTag("customize_challenge_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Presets",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Presets", fontSize = 12.sp)
+                }
+
+                OutlinedButton(
+                    onClick = { showRestartDialog = true },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.testTag("restart_challenge_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.RestartAlt,
+                        contentDescription = "Restart",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Restart", fontSize = 12.sp)
+                }
             }
         }
 
@@ -330,4 +350,18 @@ fun ChallengeScreen(
             }
         )
     }
+
+    if (showPresetsDialog) {
+        CustomizeChallengePresetsDialog(
+            challengeState = challenge,
+            onApplyPreset = { preset, resetProgress ->
+                viewModel.applyChallengePreset(preset, resetProgress)
+            },
+            onUpdateRules = { rules, resetProgress ->
+                viewModel.updateChallengeRules(rules, resetProgress)
+            },
+            onDismiss = { showPresetsDialog = false }
+        )
+    }
 }
+

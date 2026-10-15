@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity() {
         com.example.notifications.MaintenanceWorker.schedulePeriodic(this)
 
         setContent {
+            val activeThemeDef by viewModel.activeThemeDefinition.collectAsStateWithLifecycle()
             val themeMode by viewModel.themeModeFlow.collectAsStateWithLifecycle()
             val systemDark = isSystemInDarkTheme()
             val isDark = when (themeMode) {
@@ -71,8 +72,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            LifeOSTheme(darkTheme = isDark) {
-                Surface(modifier = Modifier.fillMaxSize()) {
+            com.example.ui.theme.engine.LifeOSThemeProvider(
+                theme = activeThemeDef,
+                isLightMode = !isDark
+            ) {
+                com.example.ui.theme.engine.ThemedAtmosphereBackground {
                     MainScreen(viewModel = viewModel)
                 }
             }

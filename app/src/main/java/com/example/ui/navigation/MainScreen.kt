@@ -2,11 +2,15 @@ package com.example.ui.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -39,9 +43,18 @@ fun MainScreen(
     modifier: Modifier = Modifier
 ) {
     var currentItem by rememberSaveable { mutableStateOf(NavigationItem.HOME) }
+    var showThemeGallery by rememberSaveable { mutableStateOf(false) }
 
-    // Intercept back button on secondary screens to return to Home
-    if (currentItem != NavigationItem.HOME) {
+    val previewThemeId by viewModel.previewThemeId.collectAsStateWithLifecycle()
+    val activeThemeDef by viewModel.activeThemeDefinition.collectAsStateWithLifecycle()
+
+    // Intercept back button
+    if (showThemeGallery) {
+        BackHandler {
+            viewModel.dismissThemePreview()
+            showThemeGallery = false
+        }
+    } else if (currentItem != NavigationItem.HOME) {
         BackHandler {
             currentItem = NavigationItem.HOME
         }
@@ -108,67 +121,127 @@ fun MainScreen(
         },
         modifier = modifier.fillMaxSize()
     ) { innerPadding ->
-        Crossfade(
-            targetState = currentItem,
-            label = "screen_transition",
-            modifier = Modifier.padding(innerPadding)
-        ) { destination ->
-            when (destination) {
-                NavigationItem.HOME -> {
-                    DashboardScreen(
-                        viewModel = viewModel,
-                        uiState = dashboardState,
-                        onNavigateToTasks = { currentItem = NavigationItem.TASKS },
-                        onNavigateToHabits = { currentItem = NavigationItem.HABITS },
-                        onNavigateToChallenge = { currentItem = NavigationItem.CHALLENGE },
-                        onNavigateToCalendar = { currentItem = NavigationItem.CALENDAR }
-                    )
+        if (showThemeGallery) {
+            com.example.ui.screens.themes.ThemeGalleryScreen(
+                viewModel = viewModel,
+                onNavigateBack = { showThemeGallery = false },
+                modifier = Modifier.padding(innerPadding)
+            )
+        } else {
+            androidx.compose.foundation.layout.Column(modifier = Modifier.padding(innerPadding)) {
+                // Persistent Preview Notification Banner across all tabs when in Preview Mode
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = previewThemeId != null,
+                    enter = androidx.compose.animation.fadeIn(),
+                    exit = androidx.compose.animation.fadeOut()
+                ) {
+                    androidx.compose.material3.Surface(
+                        color = activeThemeDef.colors.surfaceVariant,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, activeThemeDef.colors.primary),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        androidx.compose.foundation.layout.Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "${activeThemeDef.decoration.motifEmoji} Previewing ${activeThemeDef.name}",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = activeThemeDef.colors.onSurface
+                                )
+                            }
+                            androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                androidx.compose.material3.TextButton(
+                                    onClick = { viewModel.dismissThemePreview() },
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Text("Exit Preview", fontSize = 11.sp)
+                                }
+                                androidx.compose.material3.Button(
+                                    onClick = {
+                                        val applied = viewModel.applyPreviewedTheme()
+                                        if (!applied) {
+                                            showThemeGallery = true
+                                        }
+                                    },
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 2.dp)
+                                ) {
+                                    Text("Apply", fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
                 }
 
-                NavigationItem.TASKS -> {
-                    TasksScreen(
-                        viewModel = viewModel,
-                        uiState = tasksState
-                    )
-                }
+                Crossfade(
+                    targetState = currentItem,
+                    label = "screen_transition",
+                    modifier = Modifier.fillMaxSize()
+                ) { destination ->
+                    when (destination) {
+                        NavigationItem.HOME -> {
+                            DashboardScreen(
+                                viewModel = viewModel,
+                                uiState = dashboardState,
+                                onNavigateToTasks = { currentItem = NavigationItem.TASKS },
+                                onNavigateToHabits = { currentItem = NavigationItem.HABITS },
+                                onNavigateToChallenge = { currentItem = NavigationItem.CHALLENGE },
+                                onNavigateToCalendar = { currentItem = NavigationItem.CALENDAR }
+                            )
+                        }
 
-                NavigationItem.CALENDAR -> {
-                    CalendarScreen(
-                        viewModel = viewModel,
-                        uiState = calendarState
-                    )
-                }
+                        NavigationItem.TASKS -> {
+                            TasksScreen(
+                                viewModel = viewModel,
+                                uiState = tasksState
+                            )
+                        }
 
-                NavigationItem.HABITS -> {
-                    HabitsScreen(
-                        viewModel = viewModel,
-                        uiState = habitsState
-                    )
-                }
+                        NavigationItem.CALENDAR -> {
+                            CalendarScreen(
+                                viewModel = viewModel,
+                                uiState = calendarState
+                            )
+                        }
 
-                NavigationItem.CHALLENGE -> {
-                    ChallengeScreen(
-                        viewModel = viewModel,
-                        challenge = challengeState
-                    )
-                }
+                        NavigationItem.HABITS -> {
+                            HabitsScreen(
+                                viewModel = viewModel,
+                                uiState = habitsState
+                            )
+                        }
 
-                NavigationItem.SETTINGS -> {
-                    SettingsScreen(
-                        viewModel = viewModel,
-                        userName = userName,
-                        themeMode = themeMode,
-                        waterGoalMl = waterGoal,
-                        notificationsEnabled = notificationsEnabled,
-                        hasInstalledDefaults = hasInstalledDefaults,
-                        wakeUpTime = wakeUpTime,
-                        bedTime = bedTime,
-                        quietHoursStart = quietHoursStart,
-                        quietHoursEnd = quietHoursEnd,
-                        clockFormat = clockFormat,
-                        firstDayOfWeek = firstDayOfWeek,
-                        defaultDuration = defaultDuration
-                    )
+                        NavigationItem.CHALLENGE -> {
+                            ChallengeScreen(
+                                viewModel = viewModel,
+                                challenge = challengeState
+                            )
+                        }
+
+                        NavigationItem.SETTINGS -> {
+                            SettingsScreen(
+                                viewModel = viewModel,
+                                userName = userName,
+                                themeMode = themeMode,
+                                waterGoalMl = waterGoal,
+                                notificationsEnabled = notificationsEnabled,
+                                hasInstalledDefaults = hasInstalledDefaults,
+                                wakeUpTime = wakeUpTime,
+                                bedTime = bedTime,
+                                quietHoursStart = quietHoursStart,
+                                quietHoursEnd = quietHoursEnd,
+                                clockFormat = clockFormat,
+                                firstDayOfWeek = firstDayOfWeek,
+                                defaultDuration = defaultDuration,
+                                onNavigateToThemeGallery = { showThemeGallery = true }
+                            )
+                        }
+                    }
                 }
             }
         }

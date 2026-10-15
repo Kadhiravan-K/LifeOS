@@ -13,6 +13,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Hexagon
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.domain.model.HoneycombColorPresets
+import com.example.ui.components.ColorPickerDialog
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -65,6 +80,7 @@ fun SettingsScreen(
     clockFormat: String,
     firstDayOfWeek: String,
     defaultDuration: Int,
+    onNavigateToThemeGallery: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showEditNameDialog by remember { mutableStateOf(false) }
@@ -76,6 +92,9 @@ fun SettingsScreen(
     var tempBedTime by remember { mutableStateOf(bedTime) }
     var tempQuietStart by remember { mutableStateOf(quietHoursStart) }
     var tempQuietEnd by remember { mutableStateOf(quietHoursEnd) }
+    var showHoneycombColorPicker by remember { mutableStateOf(false) }
+
+    val appearance by viewModel.honeycombAppearance.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -229,15 +248,95 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Theme Mode Selection
+        // Theme & Immersive Design System Selection
+        val activeThemeDef by viewModel.activeThemeDefinition.collectAsStateWithLifecycle()
+        val isPremiumActive by viewModel.isPremiumActive.collectAsStateWithLifecycle()
+
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            modifier = Modifier.fillMaxWidth()
+            border = androidx.compose.foundation.BorderStroke(1.dp, activeThemeDef.colors.outline),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("appearance_theme_card")
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(text = "Appearance Theme", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(activeThemeDef.colors.badgeBackground),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = activeThemeDef.decoration.motifEmoji, fontSize = 18.sp)
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Design Theme: ${activeThemeDef.name}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = activeThemeDef.subtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = onNavigateToThemeGallery,
+                        modifier = Modifier.testTag("open_theme_gallery_btn"),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.Palette, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Gallery", fontSize = 12.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text("Quick Theme Switcher", style = MaterialTheme.typography.labelSmall)
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    com.example.ui.theme.engine.ThemeRegistry.allThemes.forEach { t ->
+                        val isSelected = activeThemeDef.id == t.id
+                        val isUnlocked = viewModel.isThemeUnlocked(t.id)
+
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                if (isUnlocked) {
+                                    viewModel.selectTheme(t.id)
+                                } else {
+                                    onNavigateToThemeGallery()
+                                }
+                            },
+                            label = {
+                                Text(
+                                    text = if (!isUnlocked) "🔒 ${t.name}" else "${t.decoration.motifEmoji} ${t.name.split(" ").first()}",
+                                    fontSize = 11.sp
+                                )
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text("Theme Mode", style = MaterialTheme.typography.labelSmall)
+                Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -279,6 +378,176 @@ fun SettingsScreen(
                             label = { Text("${goal}ml", fontSize = 11.sp) }
                         )
                     }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // --- ⬡ HONEYCOMB APPEARANCE CARD ---
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("honeycomb_appearance_card")
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = "⬡", fontSize = 20.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = "Honeycomb Dashboard Appearance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    TextButton(onClick = { viewModel.resetHoneycombAppearance() }) {
+                        Text("Reset", fontSize = 11.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Default Completion Color Presets
+                Text(text = "Default Completion Color", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    HoneycombColorPresets.list.forEach { (name, hex) ->
+                        val isSelected = appearance.defaultColorHex == hex
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(Color(hex))
+                                .border(
+                                    width = if (isSelected) 3.dp else 1.dp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.Transparent,
+                                    shape = CircleShape
+                                )
+                                .clickable { viewModel.setHoneycombDefaultColor(hex) }
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = name,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = { showHoneycombColorPicker = true },
+                        modifier = Modifier.height(34.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Custom", fontSize = 11.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Border Color Style
+                Text(text = "Border Style", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    listOf("DEFAULT" to "Subtle", "PRIMARY" to "Primary", "MUTED" to "Muted", "ACCENT" to "Purple").forEach { (type, label) ->
+                        FilterChip(
+                            selected = appearance.borderColorType == type,
+                            onClick = { viewModel.setHoneycombBorderColor(type) },
+                            label = { Text(label, fontSize = 11.sp) }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Border Thickness Slider
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Border Thickness", style = MaterialTheme.typography.labelMedium)
+                    Text(text = "${appearance.borderWidthDp} dp", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                }
+                Slider(
+                    value = appearance.borderWidthDp.toFloat(),
+                    onValueChange = { viewModel.setHoneycombBorderWidth(it.toInt()) },
+                    valueRange = 2f..8f,
+                    steps = 5
+                )
+
+                // Hexagon Size Slider
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Hexagon Cell Size", style = MaterialTheme.typography.labelMedium)
+                    Text(text = "${appearance.hexagonSizeDp} dp", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                }
+                Slider(
+                    value = appearance.hexagonSizeDp.toFloat(),
+                    onValueChange = { viewModel.setHoneycombSize(it.toInt()) },
+                    valueRange = 56f..90f,
+                    steps = 16
+                )
+
+                // Hexagon Spacing Slider
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Cell Interlocking Spacing", style = MaterialTheme.typography.labelMedium)
+                    Text(text = "${appearance.spacingDp} dp", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                }
+                Slider(
+                    value = appearance.spacingDp.toFloat(),
+                    onValueChange = { viewModel.setHoneycombSpacing(it.toInt()) },
+                    valueRange = 2f..14f,
+                    steps = 5
+                )
+
+                // Icon / Emoji Size Slider
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Icon / Symbol Size", style = MaterialTheme.typography.labelMedium)
+                    Text(text = "${appearance.iconSizeSp} sp", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                }
+                Slider(
+                    value = appearance.iconSizeSp.toFloat(),
+                    onValueChange = { viewModel.setHoneycombIconSize(it.toInt()) },
+                    valueRange = 20f..36f,
+                    steps = 7
+                )
+
+                // Smooth Animation Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = "Smooth Fill Animation", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        Text(text = "Animate hexagon fill color on tap", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(
+                        checked = appearance.isAnimationEnabled,
+                        onCheckedChange = { viewModel.setHoneycombAnimationEnabled(it) }
+                    )
                 }
             }
         }
@@ -487,4 +756,18 @@ fun SettingsScreen(
             }
         )
     }
+
+    if (showHoneycombColorPicker) {
+        ColorPickerDialog(
+            currentColor = appearance.defaultColorHex,
+            onDismiss = { showHoneycombColorPicker = false },
+            onSelectColor = { color ->
+                if (color != null) {
+                    viewModel.setHoneycombDefaultColor(color)
+                }
+                showHoneycombColorPicker = false
+            }
+        )
+    }
 }
+

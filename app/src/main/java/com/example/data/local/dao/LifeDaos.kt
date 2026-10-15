@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Update
 import com.example.data.local.entities.ChallengeEntity
 import com.example.data.local.entities.HabitEntity
+import com.example.data.local.entities.HoneycombShortcutEntity
 import com.example.data.local.entities.TaskEntity
 import com.example.data.local.entities.WaterLogEntity
 import kotlinx.coroutines.flow.Flow
@@ -84,4 +85,34 @@ interface WaterLogDao {
 
     @Query("SELECT * FROM water_logs ORDER BY dateIso DESC LIMIT 30")
     fun getRecentWaterLogs(): Flow<List<WaterLogEntity>>
+}
+
+@Dao
+interface HoneycombShortcutDao {
+    @Query("SELECT * FROM honeycomb_shortcuts ORDER BY orderIndex ASC, id ASC")
+    fun getAllShortcuts(): Flow<List<HoneycombShortcutEntity>>
+
+    @Query("SELECT * FROM honeycomb_shortcuts ORDER BY orderIndex ASC, id ASC")
+    suspend fun getAllShortcutsList(): List<HoneycombShortcutEntity>
+
+    @Query("SELECT * FROM honeycomb_shortcuts WHERE id = :id LIMIT 1")
+    suspend fun getShortcutById(id: Long): HoneycombShortcutEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertShortcut(shortcut: HoneycombShortcutEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertShortcuts(shortcuts: List<HoneycombShortcutEntity>)
+
+    @Update
+    suspend fun updateShortcut(shortcut: HoneycombShortcutEntity)
+
+    @Query("DELETE FROM honeycomb_shortcuts WHERE id = :id")
+    suspend fun deleteShortcutById(id: Long)
+
+    @Query("DELETE FROM honeycomb_shortcuts WHERE type = :type AND targetId = :targetId")
+    suspend fun deleteShortcutByTarget(type: String, targetId: String)
+
+    @Query("DELETE FROM honeycomb_shortcuts")
+    suspend fun clearAllShortcuts()
 }

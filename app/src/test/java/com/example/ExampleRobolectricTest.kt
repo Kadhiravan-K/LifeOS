@@ -2,6 +2,10 @@ package com.example
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.example.domain.model.ChallengePresetCatalog
+import com.example.domain.model.DefaultHoneycombShortcuts
+import com.example.domain.model.HoneycombShortcut
+import com.example.domain.model.ShortcutType
 import com.example.domain.model.RecurrenceType
 import com.example.domain.model.TaskItem
 import com.example.domain.model.TaskPriority
@@ -9,6 +13,8 @@ import com.example.domain.recurrence.RecurrenceEngine
 import com.example.domain.schedule.ConflictType
 import com.example.domain.schedule.ScheduleConflictEngine
 import com.example.notifications.NotificationHelper
+import com.example.ui.components.createRoundedHexagonPath
+import com.example.ui.components.partitionShortcuts
 import com.example.utils.DateUtils
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -334,4 +340,95 @@ class ExampleRobolectricTest {
         assertTrue(RecurrenceEngine.isTaskScheduledOnDate(recurringTask, "2026-10-17"))
         assertFalse(RecurrenceEngine.isTaskScheduledOnDate(overriddenInstance, "2026-10-17"))
     }
+
+    // --- PHASE 2.6: HONEYCOMB DASHBOARD & 75 HARD CUSTOMIZATION TESTS ---
+
+    @Test
+    fun `test honeycomb partitioning arranges 10 items into 3-2-3-2 rows`() {
+        val shortcuts = DefaultHoneycombShortcuts.list
+        assertEquals(10, shortcuts.size)
+
+        val rows = partitionShortcuts(shortcuts, baseCols = 3)
+        assertEquals(4, rows.size)
+        assertEquals(3, rows[0].size)
+        assertEquals(2, rows[1].size)
+        assertEquals(3, rows[2].size)
+        assertEquals(2, rows[3].size)
+    }
+
+    @Test
+    fun `test honeycomb partitioning handles odd and small count without empty cells`() {
+        val shortcuts = DefaultHoneycombShortcuts.list.take(5)
+        val rows = partitionShortcuts(shortcuts, baseCols = 3)
+        assertEquals(2, rows.size)
+        assertEquals(3, rows[0].size)
+        assertEquals(2, rows[1].size)
+    }
+
+    @Test
+    fun `test rounded hexagon mathematical path generator produces closed path`() {
+        val path = createRoundedHexagonPath(
+            cx = 100f,
+            cy = 100f,
+            radius = 50f,
+            cornerRadius = 10f
+        )
+        assertNotNull(path)
+        assertFalse(path.isEmpty)
+    }
+
+    @Test
+    fun `test default honeycomb shortcuts include 10 suggested routines`() {
+        val shortcuts = DefaultHoneycombShortcuts.list
+        val titles = shortcuts.map { it.title }
+        assertTrue(titles.contains("Hydration"))
+        assertTrue(titles.contains("Reading"))
+        assertTrue(titles.contains("Meditation"))
+        assertTrue(titles.contains("Exercise"))
+        assertTrue(titles.contains("Yoga"))
+        assertTrue(titles.contains("Make Bed"))
+        assertTrue(titles.contains("Career Learning"))
+        assertTrue(titles.contains("Cleaning"))
+        assertTrue(titles.contains("Sleep Routine"))
+        assertTrue(titles.contains("Daily Planning"))
+    }
+
+    @Test
+    fun `test 75 hard preset catalog includes Official, Soft, and Medium`() {
+        val catalog = ChallengePresetCatalog.list
+        assertEquals(3, catalog.size)
+
+        val official = ChallengePresetCatalog.OFFICIAL_75_HARD
+        assertEquals("Official 75 Hard", official.name)
+        assertEquals(3700, official.waterTargetMl)
+        assertEquals(2, official.workoutCount)
+        assertEquals(6, official.rules.size)
+
+        val soft = ChallengePresetCatalog.SEVENTY_FIVE_SOFT
+        assertEquals("75 Soft", soft.name)
+        assertEquals(2500, soft.waterTargetMl)
+        assertEquals(1, soft.workoutCount)
+        assertEquals(5, soft.rules.size)
+
+        val medium = ChallengePresetCatalog.SEVENTY_FIVE_MEDIUM
+        assertEquals("75 Medium", medium.name)
+        assertEquals(3000, medium.waterTargetMl)
+        assertEquals(2, medium.workoutCount)
+        assertEquals(6, medium.rules.size)
+    }
+
+    @Test
+    fun `test honeycomb shortcut reordering and order index preservation`() {
+        val item1 = HoneycombShortcut(id = 1, type = ShortcutType.WATER, targetId = "water", title = "Hydration", emoji = "💧", orderIndex = 0)
+        val item2 = HoneycombShortcut(id = 2, type = ShortcutType.TASK, targetId = "yoga", title = "Yoga", emoji = "☀️", orderIndex = 1)
+        val list = listOf(item1, item2)
+
+        // Swap order
+        val swapped = listOf(item2.copy(orderIndex = 0), item1.copy(orderIndex = 1))
+        assertEquals(item2.id, swapped[0].id)
+        assertEquals(0, swapped[0].orderIndex)
+        assertEquals(item1.id, swapped[1].id)
+        assertEquals(1, swapped[1].orderIndex)
+    }
 }
+

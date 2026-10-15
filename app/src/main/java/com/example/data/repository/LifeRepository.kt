@@ -3,17 +3,22 @@ package com.example.data.repository
 import com.example.data.local.AppDatabase
 import com.example.data.local.entities.ChallengeEntity
 import com.example.data.local.entities.HabitEntity
+import com.example.data.local.entities.HoneycombShortcutEntity
 import com.example.data.local.entities.TaskEntity
 import com.example.data.local.entities.WaterLogEntity
 import com.example.data.preferences.UserPreferences
 import com.example.domain.model.ChallengeDailyLog
+import com.example.domain.model.ChallengePreset
 import com.example.domain.model.ChallengeRule
 import com.example.domain.model.ChallengeState
 import com.example.domain.model.ChallengeStatus
 import com.example.domain.model.DefaultChallengeRules
 import com.example.domain.model.DefaultHabits
+import com.example.domain.model.DefaultHoneycombShortcuts
 import com.example.domain.model.HabitItem
+import com.example.domain.model.HoneycombShortcut
 import com.example.domain.model.RecurrenceType
+import com.example.domain.model.ShortcutType
 import com.example.domain.model.Subtask
 import com.example.domain.model.TaskItem
 import com.example.domain.model.TaskPriority
@@ -31,6 +36,7 @@ class LifeRepository(
     private val habitDao = database.habitDao()
     private val challengeDao = database.challengeDao()
     private val waterLogDao = database.waterLogDao()
+    private val honeycombShortcutDao = database.honeycombShortcutDao()
 
     // --- Tasks Flow ---
     val allTasksFlow: Flow<List<TaskItem>> = taskDao.getAllTasks().map { entities ->
@@ -218,6 +224,11 @@ class LifeRepository(
 
     suspend fun deleteHabit(habitId: Long) {
         habitDao.deleteHabitById(habitId)
+    }
+
+    suspend fun getHabitById(habitId: Long): HabitItem? {
+        val todayStr = DateUtils.todayString()
+        return habitDao.getHabitById(habitId)?.toDomainModel(todayStr)
     }
 
     suspend fun toggleHabitCompletion(habitId: Long, dateIso: String) {
@@ -694,4 +705,128 @@ class LifeRepository(
             currentStreak = 0
         )
     }
+
+    // --- Challenge Customization & Presets ---
+    suspend fun updateChallengeRules(newRules: List<ChallengeRule>, resetProgress: Boolean = false) {
+        val current = challengeDao.getActiveChallenge()?.toDomainModel() ?: createDefaultChallengeState()
+        val updated = if (resetProgress) {
+            current.copy(
+                startDateIso = DateUtils.todayString(),
+                rules = newRules,
+                logs = emptyMap(),
+                currentDayNumber = 1,
+                completedDaysCount = 0,
+                missedDaysCount = 0,
+                progressPercentage = 0f,
+                currentStreak = 0
+            )
+        } else {
+            current.copy(rules = newRules)
+        }
+        challengeDao.insertOrUpdateChallenge(updated.toEntity())
+    }
+
+    suspend fun applyChallengePreset(preset: ChallengePreset, resetProgress: Boolean = false) {
+        updateChallengeRules(preset.rules, resetProgress)
+        preferences.setWaterGoalMl(preset.waterTargetMl)
+    }
+
+    suspend fun addCustomChallengeRule(title: String, emoji: String, description: String) {
+        val current = challengeDao.getActiveChallenge()?.toDomainModel() ?: createDefaultChallengeState()
+        val newRule = ChallengeRule(
+            id = "custom_rule_${System.currentTimeMillis()}",
+            title = title,
+            emoji = emoji.ifBlank { "🎯" },
+            description = description
+        )
+        val updatedRules = current.rules + newRule
+        challengeDao.insertOrUpdateChallenge(current.copy(rules = updatedRules).toEntity())
+    }
+
+    suspend fun removeChallengeRule(ruleId: String) {
+        val current = challengeDao.getActiveChallenge()?.toDomainModel() ?: return
+        val updatedRules = current.rules.filterNot { it.id == ruleId }
+        challengeDao.insertOrUpdateChallenge(current.copy(rules = updatedRules).toEntity())
+    }
+
+    suspend fun editChallengeRule(ruleId: String, title: String, emoji: String, description: String) {
+        val current = challengeDao.getActiveChallenge()?.toDomainModel() ?: return
+        val updatedRules = current.rules.map {
+            if (it.id == ruleId) it.copy(title = title, emoji = emoji.ifBlank { it.emoji }, description = description) else it
+        }
+        challengeDao.insertOrUpdateChallenge(current.copy(rules = updatedRules).toEntity())
+    }
+
+    // --- Honeycomb Shortcuts Flow & CRUD ---
+    val allHoneycombShortcutsFlow: Flow<List<HoneycombShortcut>> = honeycombShortcutDao.getAllShortcuts().map { list ->
+        list.map { it.toDomainModel() }
+    }
+
+    suspend fun getHoneycombShortcutsList(): List<HoneycombShortcut> {
+        return honeycombShortcutDao.getAllShortcutsList().map { it.toDomainModel() }
+    }
+
+    suspend fun insertHoneycombShortcut(shortcut: HoneycombShortcut): Long {
+        return honeycombShortcutDao.insertShortcut(shortcut.toEntity())
+    }
+
+    suspend fun updateHoneycombShortcut(shortcut: HoneycombShortcut) {
+        honeycombShortcutDao.updateShortcut(shortcut.toEntity())
+    }
+
+    suspend fun deleteHoneycombShortcut(id: Long) {
+        honeycombShortcutDao.deleteShortcutById(id)
+    }
+
+    suspend fun saveHoneycombShortcutsOrder(orderedList: List<HoneycombShortcut>) {
+        val entities = orderedList.mapIndexed { index, item ->
+            item.copy(orderIndex = index).toEntity()
+        }
+        honeycombShortcutDao.insertShortcuts(entities)
+    }
+
+    suspend fun seedDefaultHoneycombShortcuts() {
+        val existing = honeycombShortcutDao.getAllShortcutsList()
+        if (existing.isEmpty()) {
+            val entities = DefaultHoneycombShortcuts.list.mapIndexed { index, item ->
+                item.copy(orderIndex = index).toEntity()
+            }
+            honeycombShortcutDao.insertShortcuts(entities)
+        }
+    }
+
+    suspend fun resetHoneycombShortcutsToDefault() {
+        honeycombShortcutDao.clearAllShortcuts()
+        val entities = DefaultHoneycombShortcuts.list.mapIndexed { index, item ->
+            item.copy(orderIndex = index).toEntity()
+        }
+        honeycombShortcutDao.insertShortcuts(entities)
+    }
+
+    private fun HoneycombShortcutEntity.toDomainModel(): HoneycombShortcut {
+        return HoneycombShortcut(
+            id = id,
+            type = ShortcutType.fromString(type),
+            targetId = targetId,
+            title = title,
+            emoji = emoji,
+            customColorHex = customColorHex,
+            orderIndex = orderIndex,
+            isPinned = isPinned
+        )
+    }
+
+    private fun HoneycombShortcut.toEntity(): HoneycombShortcutEntity {
+        return HoneycombShortcutEntity(
+            id = id,
+            type = type.name,
+            targetId = targetId,
+            title = title,
+            emoji = emoji,
+            customColorHex = customColorHex,
+            orderIndex = orderIndex,
+            isPinned = isPinned
+        )
+    }
 }
+

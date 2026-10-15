@@ -3,6 +3,7 @@ package com.example.ui.screens.dashboard
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,15 +33,21 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,8 +59,15 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.domain.model.HoneycombShortcut
+import com.example.domain.model.ShortcutType
 import com.example.domain.model.TaskItem
+import com.example.ui.components.CustomizeDashboardDialog
+import com.example.ui.components.HoneycombContextMenuDialog
+import com.example.ui.components.HoneycombTaskGrid
 import com.example.ui.components.PriorityBadge
+import com.example.ui.components.QuickHydrationDialog
 import com.example.ui.components.WaterTrackerCard
 import com.example.ui.viewmodel.DashboardUiState
 import com.example.ui.viewmodel.LifeViewModel
@@ -75,6 +89,12 @@ fun DashboardScreen(
         label = "overall_progress"
     )
 
+    val appearance by viewModel.honeycombAppearance.collectAsStateWithLifecycle()
+    val activeTheme = com.example.ui.theme.engine.LocalLifeTheme.current
+    var contextMenuShortcut by remember { mutableStateOf<HoneycombShortcut?>(null) }
+    var showCustomizeDialog by remember { mutableStateOf(false) }
+    var showHydrationDialog by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -88,18 +108,31 @@ fun DashboardScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column {
-                Text(
-                    text = uiState.greeting,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Text(
-                    text = "${uiState.todayDateFormatted} • ${uiState.remainingTasksCount} tasks remaining",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(activeTheme.shapes.buttonShape)
+                        .background(activeTheme.colors.badgeBackground)
+                        .border(1.dp, activeTheme.colors.outline, activeTheme.shapes.buttonShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = activeTheme.decoration.motifEmoji, fontSize = 22.sp)
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = uiState.greeting,
+                        style = activeTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        text = "${uiState.todayDateFormatted} • ${activeTheme.decoration.tagline}",
+                        style = activeTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             // Overall Progress Circle
@@ -197,6 +230,106 @@ fun DashboardScreen(
             }
             Spacer(modifier = Modifier.height(14.dp))
         }
+
+        // --- ⬡ HONEYCOMB TASK DASHBOARD ---
+        Card(
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("honeycomb_dashboard_card")
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "⬡",
+                            fontSize = 22.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = activeTheme.decoration.honeycombTitle,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = if (uiState.isHoneycombEditMode) "Layout Edit Mode active" else "Tap to toggle • Long press for options",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (!uiState.isHoneycombEditMode) {
+                            TextButton(
+                                onClick = { showCustomizeDialog = true },
+                                modifier = Modifier.testTag("customize_honeycomb_button")
+                            ) {
+                                Text("Customize", fontSize = 12.sp)
+                            }
+                            IconButton(
+                                onClick = { viewModel.setHoneycombEditMode(true) },
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .testTag("edit_honeycomb_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit Layout",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                HoneycombTaskGrid(
+                    shortcuts = uiState.honeycombShortcuts,
+                    appearance = appearance,
+                    isEditMode = uiState.isHoneycombEditMode,
+                    onShortcutClick = { shortcut ->
+                        if (shortcut.type == ShortcutType.WATER) {
+                            showHydrationDialog = true
+                        } else {
+                            viewModel.toggleHoneycombShortcut(shortcut)
+                        }
+                    },
+                    onShortcutLongClick = { shortcut ->
+                        contextMenuShortcut = shortcut
+                    },
+                    onRemoveShortcut = { id ->
+                        viewModel.removeHoneycombShortcut(id)
+                    },
+                    onMoveShortcut = { id, delta ->
+                        viewModel.moveHoneycombShortcut(id, delta)
+                    },
+                    onAddShortcutClick = {
+                        showCustomizeDialog = true
+                    },
+                    onResetLayoutClick = {
+                        viewModel.resetHoneycombLayoutToDefault()
+                    },
+                    onDoneEditClick = {
+                        viewModel.setHoneycombEditMode(false)
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         // --- Overdue Tasks Banner ---
         if (uiState.overdueTasks.isNotEmpty()) {
@@ -305,7 +438,7 @@ fun DashboardScreen(
                         Text(text = "🎯", fontSize = 18.sp)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Today's Priorities",
+                            text = activeTheme.decoration.taskSectionTitle,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -569,7 +702,71 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
     }
+
+    // --- Honeycomb Context Menu Modal ---
+    if (contextMenuShortcut != null) {
+        val sc = contextMenuShortcut!!
+        HoneycombContextMenuDialog(
+            shortcut = sc,
+            onDismiss = { contextMenuShortcut = null },
+            onToggleCompletion = {
+                viewModel.toggleHoneycombShortcut(sc)
+            },
+            onEnterEditMode = {
+                viewModel.setHoneycombEditMode(true)
+            },
+            onChangeEmoji = { newEmoji ->
+                viewModel.updateHoneycombShortcutIcon(sc.id, newEmoji)
+            },
+            onChangeColor = { newColor ->
+                viewModel.updateHoneycombShortcutColor(sc.id, newColor)
+            },
+            onRemoveFromDashboard = {
+                viewModel.removeHoneycombShortcut(sc.id)
+            }
+        )
+    }
+
+    // --- Customize Dashboard Modal ---
+    if (showCustomizeDialog) {
+        val allTasks by viewModel.allTasks.collectAsStateWithLifecycle()
+        val allHabits by viewModel.habits.collectAsStateWithLifecycle()
+        val challengeState by viewModel.challengeState.collectAsStateWithLifecycle()
+
+        CustomizeDashboardDialog(
+            currentShortcuts = uiState.honeycombShortcuts,
+            allTasks = allTasks,
+            allHabits = allHabits,
+            challengeState = challengeState,
+            onAddShortcut = { newShortcut ->
+                viewModel.addHoneycombShortcut(newShortcut)
+            },
+            onRemoveShortcut = { id ->
+                viewModel.removeHoneycombShortcut(id)
+            },
+            onResetDefaults = {
+                viewModel.resetHoneycombLayoutToDefault()
+            },
+            onDismiss = { showCustomizeDialog = false }
+        )
+    }
+
+    // --- Quick Hydration Modal ---
+    if (showHydrationDialog) {
+        QuickHydrationDialog(
+            currentMl = uiState.waterCurrentMl,
+            goalMl = uiState.waterGoalMl,
+            onAddWater = { delta ->
+                viewModel.addWater(delta)
+            },
+            onResetWater = {
+                viewModel.resetWater()
+            },
+            onDismiss = { showHydrationDialog = false }
+        )
+    }
 }
+
 
 @Composable
 private fun TimeGroupSection(
@@ -631,3 +828,5 @@ private fun TimeGroupSection(
         }
     }
 }
+
+

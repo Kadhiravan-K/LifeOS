@@ -16,6 +16,7 @@ class UserPreferences(private val context: Context) {
     companion object {
         val KEY_USER_NAME = stringPreferencesKey("user_name")
         val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
+        val KEY_ACTIVE_THEME_ID = stringPreferencesKey("active_theme_id")
         val KEY_WATER_GOAL = intPreferencesKey("water_goal_ml")
         val KEY_HAS_INSTALLED_DEFAULTS = booleanPreferencesKey("has_installed_default_routines")
         val KEY_NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
@@ -31,6 +32,15 @@ class UserPreferences(private val context: Context) {
         val KEY_CLOCK_FORMAT = stringPreferencesKey("clock_format")
         val KEY_TASK_SORT_PREFERENCE = stringPreferencesKey("task_sort_preference")
         val KEY_DEFAULT_TASK_DURATION = intPreferencesKey("default_task_duration")
+
+        // Phase 2.6 Honeycomb Appearance
+        val KEY_HONEYCOMB_DEFAULT_COLOR = stringPreferencesKey("honeycomb_default_color")
+        val KEY_HONEYCOMB_BORDER_COLOR = stringPreferencesKey("honeycomb_border_color")
+        val KEY_HONEYCOMB_BORDER_WIDTH = intPreferencesKey("honeycomb_border_width")
+        val KEY_HONEYCOMB_SIZE = intPreferencesKey("honeycomb_size")
+        val KEY_HONEYCOMB_SPACING = intPreferencesKey("honeycomb_spacing")
+        val KEY_HONEYCOMB_ICON_SIZE = intPreferencesKey("honeycomb_icon_size")
+        val KEY_HONEYCOMB_ANIMATION = booleanPreferencesKey("honeycomb_animation")
     }
 
     val userName: Flow<String> = context.dataStore.data.map { preferences ->
@@ -39,6 +49,10 @@ class UserPreferences(private val context: Context) {
 
     val themeMode: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[KEY_THEME_MODE] ?: "SYSTEM"
+    }
+
+    val activeThemeId: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[KEY_ACTIVE_THEME_ID] ?: "default"
     }
 
     val waterGoalMl: Flow<Int> = context.dataStore.data.map { preferences ->
@@ -101,6 +115,10 @@ class UserPreferences(private val context: Context) {
         context.dataStore.edit { it[KEY_THEME_MODE] = mode }
     }
 
+    suspend fun setActiveThemeId(themeId: String) {
+        context.dataStore.edit { it[KEY_ACTIVE_THEME_ID] = themeId }
+    }
+
     suspend fun setWaterGoalMl(goal: Int) {
         context.dataStore.edit { it[KEY_WATER_GOAL] = goal }
     }
@@ -150,5 +168,74 @@ class UserPreferences(private val context: Context) {
 
     suspend fun setDefaultTaskDuration(minutes: Int) {
         context.dataStore.edit { it[KEY_DEFAULT_TASK_DURATION] = minutes }
+    }
+
+    // Honeycomb Flows
+    val honeycombDefaultColorHex: Flow<Long> = context.dataStore.data.map { preferences ->
+        preferences[KEY_HONEYCOMB_DEFAULT_COLOR]?.toLongOrNull() ?: 0xFF10B981L
+    }
+
+    val honeycombBorderColor: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[KEY_HONEYCOMB_BORDER_COLOR] ?: "DEFAULT"
+    }
+
+    val honeycombBorderWidthDp: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[KEY_HONEYCOMB_BORDER_WIDTH] ?: 4
+    }
+
+    val honeycombSizeDp: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[KEY_HONEYCOMB_SIZE] ?: 74
+    }
+
+    val honeycombSpacingDp: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[KEY_HONEYCOMB_SPACING] ?: 6
+    }
+
+    val honeycombIconSizeSp: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[KEY_HONEYCOMB_ICON_SIZE] ?: 26
+    }
+
+    val honeycombAnimationEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_HONEYCOMB_ANIMATION] ?: true
+    }
+
+    suspend fun setHoneycombDefaultColor(hex: Long) {
+        context.dataStore.edit { it[KEY_HONEYCOMB_DEFAULT_COLOR] = hex.toString() }
+    }
+
+    suspend fun setHoneycombBorderColor(type: String) {
+        context.dataStore.edit { it[KEY_HONEYCOMB_BORDER_COLOR] = type }
+    }
+
+    suspend fun setHoneycombBorderWidth(widthDp: Int) {
+        context.dataStore.edit { it[KEY_HONEYCOMB_BORDER_WIDTH] = widthDp }
+    }
+
+    suspend fun setHoneycombSize(sizeDp: Int) {
+        context.dataStore.edit { it[KEY_HONEYCOMB_SIZE] = sizeDp }
+    }
+
+    suspend fun setHoneycombSpacing(spacingDp: Int) {
+        context.dataStore.edit { it[KEY_HONEYCOMB_SPACING] = spacingDp }
+    }
+
+    suspend fun setHoneycombIconSize(sizeSp: Int) {
+        context.dataStore.edit { it[KEY_HONEYCOMB_ICON_SIZE] = sizeSp }
+    }
+
+    suspend fun setHoneycombAnimationEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_HONEYCOMB_ANIMATION] = enabled }
+    }
+
+    suspend fun resetHoneycombAppearance() {
+        context.dataStore.edit {
+            it[KEY_HONEYCOMB_DEFAULT_COLOR] = 0xFF10B981L.toString()
+            it[KEY_HONEYCOMB_BORDER_COLOR] = "DEFAULT"
+            it[KEY_HONEYCOMB_BORDER_WIDTH] = 4
+            it[KEY_HONEYCOMB_SIZE] = 74
+            it[KEY_HONEYCOMB_SPACING] = 6
+            it[KEY_HONEYCOMB_ICON_SIZE] = 26
+            it[KEY_HONEYCOMB_ANIMATION] = true
+        }
     }
 }

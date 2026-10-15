@@ -66,3 +66,17 @@ data class WaterLogEntity(
     val goalMl: Int = 2000,
     val updatedAt: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "honeycomb_shortcuts")
+data class HoneycombShortcutEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val type: String, // "TASK", "HABIT", "CHALLENGE_RULE", "WATER", "CUSTOM"
+    val targetId: String,
+    val title: String,
+    val emoji: String = "✅",
+    val customColorHex: Long? = null,
+    val orderIndex: Int = 0,
+    val isPinned: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis()
+)
