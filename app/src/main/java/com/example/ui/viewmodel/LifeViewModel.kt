@@ -1,0 +1,910 @@
+package com.example.ui.viewmodel
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.example.data.preferences.UserPreferences
+import com.example.data.repository.LifeRepository
+import com.example.domain.model.ChallengeRule
+import com.example.domain.model.ChallengeState
+import com.example.domain.model.HabitItem
+import com.example.domain.model.RecurrenceType
+import com.example.domain.model.Subtask
+import com.example.domain.model.TaskItem
+import com.example.domain.model.TaskPriority
+import com.example.domain.schedule.ScheduleConflict
+import com.example.domain.schedule.ScheduleConflictEngine
+import com.example.notifications.NotificationHelper
+import com.example.utils.DateUtils
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+data class DashboardUiState(
+    val userName: String = "Master",
+    val greeting: String = "Good morning",
+    val todayDateFormatted: String = "",
+    val todayDateIso: String = "",
+    val overallProgressPercentage: Float = 0f,
+    val remainingTasksCount: Int = 0,
+    val currentTask: TaskItem? = null,
+    val nextTask: TaskItem? = null,
+    val topPriorities: List<TaskItem> = emptyList(),
+    val overdueTasks: List<TaskItem> = emptyList(),
+    val upcomingReminders: List<TaskItem> = emptyList(),
+    val morningTasks: List<TaskItem> = emptyList(),
+    val afternoonTasks: List<TaskItem> = emptyList(),
+    val eveningTasks: List<TaskItem> = emptyList(),
+    val noTimeTasks: List<TaskItem> = emptyList(),
+    val habitsCompletedTodayCount: Int = 0,
+    val totalHabitsCount: Int = 0,
+    val habits: List<HabitItem> = emptyList(),
+    val waterCurrentMl: Int = 0,
+    val waterGoalMl: Int = 2000,
+    val challengeDayNumber: Int = 1,
+    val challengeTargetDays: Int = 75,
+    val challengeProgressPercentage: Float = 0f,
+    val challengeRulesCompletedToday: Int = 0,
+    val challengeRulesTotal: Int = 6,
+    val hasInstalledDefaults: Boolean = false
+)
+
+data class TasksUiState(
+    val allTasks: List<TaskItem> = emptyList(),
+    val filteredTasks: List<TaskItem> = emptyList(),
+    val selectedFilter: String = "All", // "All", "Today", "Upcoming", "Completed", "Archived"
+    val selectedCategory: String? = null,
+    val searchQuery: String = "",
+    val selectedSort: String = "Priority", // "Priority", "Due Date", "Title"
+    val selectedDateIso: String = DateUtils.todayString(),
+    val isSelectionMode: Boolean = false,
+    val selectedTaskIds: Set<Long> = emptySet()
+)
+
+data class CalendarUiState(
+    val selectedDateIso: String = DateUtils.todayString(),
+    val currentMonthZeroIndexed: Int = DateUtils.getMonthZeroIndexed(DateUtils.todayString()),
+    val currentYear: Int = DateUtils.getYear(DateUtils.todayString()),
+    val monthYearTitle: String = "",
+    val viewMode: String = "MONTH", // "MONTH", "WEEK"
+    val monthGridDates: List<String> = emptyList(),
+    val weekDates: List<String> = emptyList(),
+    val tasksOnSelectedDate: List<TaskItem> = emptyList(),
+    val conflictsOnSelectedDate: List<ScheduleConflict> = emptyList(),
+    val selectedCategoryFilter: String? = null,
+    val selectedPriorityFilter: TaskPriority? = null
+)
+
+data class HabitsUiState(
+    val habits: List<HabitItem> = emptyList(),
+    val completedTodayCount: Int = 0,
+    val totalCount: Int = 0,
+    val completionPercentage: Float = 0f,
+    val selectedDateIso: String = DateUtils.todayString(),
+    val heatmapDays: List<Pair<String, Float>> = emptyList()
+)
+
+private data class UserDashboardPrefs(
+    val userName: String,
+    val hasInstalledDefaults: Boolean,
+    val is24Hour: Boolean
+)
+
+private data class TaskFilterParams(
+    val filter: String,
+    val category: String?,
+    val query: String,
+    val sort: String,
+    val isSelectionMode: Boolean,
+    val selectedIds: Set<Long>
+)
+
+class LifeViewModel(
+    application: Application,
+    private val repository: LifeRepository,
+    private val preferences: UserPreferences
+) : AndroidViewModel(application) {
+
+    private val todayIso = DateUtils.todayString()
+
+    // --- Search & Filter States ---
+    private val _taskSearchQuery = MutableStateFlow("")
+    val taskSearchQuery: StateFlow<String> = _taskSearchQuery.asStateFlow()
+
+    private val _taskFilter = MutableStateFlow("All")
+    val taskFilter: StateFlow<String> = _taskFilter.asStateFlow()
+
+    private val _taskCategoryFilter = MutableStateFlow<String?>(null)
+    val taskCategoryFilter: StateFlow<String?> = _taskCategoryFilter.asStateFlow()
+
+    private val _taskSort = MutableStateFlow("Priority")
+    val taskSort: StateFlow<String> = _taskSort.asStateFlow()
+
+    private val _isSelectionMode = MutableStateFlow(false)
+    val isSelectionMode: StateFlow<Boolean> = _isSelectionMode.asStateFlow()
+
+    private val _selectedTaskIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedTaskIds: StateFlow<Set<Long>> = _selectedTaskIds.asStateFlow()
+
+    // --- Calendar States ---
+    private val _calendarSelectedDate = MutableStateFlow(todayIso)
+    val calendarSelectedDate: StateFlow<String> = _calendarSelectedDate.asStateFlow()
+
+    private val _calendarYear = MutableStateFlow(DateUtils.getYear(todayIso))
+    private val _calendarMonth = MutableStateFlow(DateUtils.getMonthZeroIndexed(todayIso))
+    private val _calendarViewMode = MutableStateFlow("MONTH") // "MONTH", "WEEK"
+    private val _calendarCategoryFilter = MutableStateFlow<String?>(null)
+    private val _calendarPriorityFilter = MutableStateFlow<TaskPriority?>(null)
+
+    // --- Flows from Repository ---
+    val allTasks: StateFlow<List<TaskItem>> = repository.allTasksFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val todayTasks: StateFlow<List<TaskItem>> = repository.getTasksForDateFlow(todayIso).stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val habits: StateFlow<List<HabitItem>> = repository.allHabitsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val challengeState: StateFlow<ChallengeState> = repository.challengeStateFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ChallengeState(
+            startDateIso = todayIso,
+            rules = emptyList()
+        )
+    )
+
+    val todayWaterLog = repository.getWaterLogForDate(todayIso).stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = com.example.data.local.entities.WaterLogEntity(dateIso = todayIso, amountMl = 0)
+    )
+
+    // --- Preferences Flows ---
+    val userNameFlow: StateFlow<String> = preferences.userName.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "Master"
+    )
+
+    val themeModeFlow: StateFlow<String> = preferences.themeMode.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "SYSTEM"
+    )
+
+    val waterGoalFlow: StateFlow<Int> = preferences.waterGoalMl.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 2000
+    )
+
+    val hasInstalledDefaultsFlow: StateFlow<Boolean> = preferences.hasInstalledDefaultRoutines.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val notificationsEnabledFlow: StateFlow<Boolean> = preferences.notificationsEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    val wakeUpTimeFlow: StateFlow<String> = preferences.wakeUpTime.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "05:30"
+    )
+
+    val bedTimeFlow: StateFlow<String> = preferences.bedTime.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "21:30"
+    )
+
+    val quietHoursStartFlow: StateFlow<String> = preferences.quietHoursStart.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "21:00"
+    )
+
+    val quietHoursEndFlow: StateFlow<String> = preferences.quietHoursEnd.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "05:30"
+    )
+
+    val clockFormatFlow: StateFlow<String> = preferences.clockFormat.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "12_HOUR"
+    )
+
+    val firstDayOfWeekFlow: StateFlow<String> = preferences.firstDayOfWeek.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "MONDAY"
+    )
+
+    val defaultTaskDurationFlow: StateFlow<Int> = preferences.defaultTaskDuration.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 30
+    )
+
+    private val userPrefsFlow = combine(userNameFlow, hasInstalledDefaultsFlow, clockFormatFlow) { name, defaults, clock ->
+        UserDashboardPrefs(name, defaults, clock == "24_HOUR")
+    }
+
+    private val filterParamsFlow = combine(
+        _taskFilter,
+        _taskCategoryFilter,
+        _taskSearchQuery,
+        _taskSort
+    ) { f, c, q, s ->
+        TaskFilterParams(f, c, q, s, _isSelectionMode.value, _selectedTaskIds.value)
+    }
+
+    // --- Dashboard UI State ---
+    val dashboardUiState: StateFlow<DashboardUiState> = combine(
+        userPrefsFlow,
+        todayTasks,
+        allTasks,
+        habits,
+        challengeState
+    ) { prefs, tasksToday, fullTaskList, habitList, challenge ->
+        val completedTasksToday = tasksToday.count { it.isCompletedForDate }
+        val remainingCount = tasksToday.count { !it.isCompletedForDate }
+
+        val completedHabitsToday = habitList.count { it.isCompletedToday }
+        val totalHabits = habitList.size
+
+        val challengeTodayLog = challenge.logs[todayIso]
+        val challengeCompletedRules = challengeTodayLog?.completedRuleIds?.size ?: 0
+        val challengeTotalRules = challenge.rules.size.coerceAtLeast(1)
+
+        val totalItems = tasksToday.size + totalHabits + challengeTotalRules
+        val completedItems = completedTasksToday + completedHabitsToday + challengeCompletedRules
+        val progress = if (totalItems > 0) completedItems.toFloat() / totalItems.toFloat() else 0f
+
+        // Top 3 priority tasks for today
+        val uncompletedPriorities = tasksToday
+            .filter { !it.isCompletedForDate }
+            .sortedByDescending { it.priority.level }
+            .take(3)
+        val priorities = uncompletedPriorities.ifEmpty {
+            tasksToday.sortedByDescending { it.priority.level }.take(3)
+        }
+
+        // Current Task & Next Task determination based on current minute of day
+        val nowMins = DateUtils.getCurrentMinuteOfDay()
+        val timedTasksToday = tasksToday.filter { !it.dueTime.isNullOrBlank() }.sortedBy { DateUtils.timeToMinutes(it.dueTime) }
+        val current = timedTasksToday.firstOrNull { task ->
+            val start = DateUtils.timeToMinutes(task.dueTime)
+            nowMins in start until (start + task.durationMinutes)
+        }
+        val next = timedTasksToday.firstOrNull { task ->
+            val start = DateUtils.timeToMinutes(task.dueTime)
+            start > nowMins && !task.isCompletedForDate
+        }
+
+        // Overdue tasks (due date before today and not completed)
+        val overdue = fullTaskList.filter { task ->
+            task.recurrenceType == RecurrenceType.NONE && task.dueDateIso < todayIso && !task.isOneTimeCompleted && !task.isArchived
+        }
+
+        // Upcoming reminders (tasks with reminder enabled today and tomorrow)
+        val reminders = tasksToday.filter { it.isReminderEnabled && !it.isCompletedForDate }
+
+        // Time groupings
+        val morning = tasksToday.filter {
+            val m = DateUtils.timeToMinutes(it.dueTime)
+            m in 300..719 // 5:00 AM - 11:59 AM
+        }
+        val afternoon = tasksToday.filter {
+            val m = DateUtils.timeToMinutes(it.dueTime)
+            m in 720..1019 // 12:00 PM - 4:59 PM
+        }
+        val evening = tasksToday.filter {
+            val m = DateUtils.timeToMinutes(it.dueTime)
+            m in 1020..1290 // 5:00 PM - 9:30 PM
+        }
+        val noTime = tasksToday.filter {
+            val m = DateUtils.timeToMinutes(it.dueTime)
+            m < 0 || m > 1290 || m < 300
+        }
+
+        val currentHour = DateUtils.getCurrentHour()
+        val greetingText = "${DateUtils.getGreeting(currentHour)}, ${prefs.userName}"
+
+        val waterEntity = todayWaterLog.value
+
+        DashboardUiState(
+            userName = prefs.userName,
+            greeting = greetingText,
+            todayDateFormatted = DateUtils.formatDisplayDate(todayIso),
+            todayDateIso = todayIso,
+            overallProgressPercentage = progress,
+            remainingTasksCount = remainingCount,
+            currentTask = current,
+            nextTask = next,
+            topPriorities = priorities,
+            overdueTasks = overdue,
+            upcomingReminders = reminders,
+            morningTasks = morning,
+            afternoonTasks = afternoon,
+            eveningTasks = evening,
+            noTimeTasks = noTime,
+            habitsCompletedTodayCount = completedHabitsToday,
+            totalHabitsCount = totalHabits,
+            habits = habitList,
+            waterCurrentMl = waterEntity.amountMl,
+            waterGoalMl = waterEntity.goalMl,
+            challengeDayNumber = challenge.currentDayNumber,
+            challengeTargetDays = challenge.targetDays,
+            challengeProgressPercentage = challenge.progressPercentage,
+            challengeRulesCompletedToday = challengeCompletedRules,
+            challengeRulesTotal = challenge.rules.size,
+            hasInstalledDefaults = prefs.hasInstalledDefaults
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = DashboardUiState()
+    )
+
+    // --- Tasks UI State ---
+    val tasksUiState: StateFlow<TasksUiState> = combine(
+        todayTasks,
+        allTasks,
+        filterParamsFlow,
+        _isSelectionMode,
+        _selectedTaskIds
+    ) { todayList, fullList, params, isSel, selIds ->
+        val baseList = when (params.filter) {
+            "Today" -> todayList.filter { !it.isArchived }
+            "Completed" -> todayList.filter { it.isCompletedForDate && !it.isArchived }
+            "Upcoming" -> fullList.filter { !it.isCompletedForDate && !it.isArchived }
+            "Archived" -> fullList.filter { it.isArchived }
+            else -> todayList.filter { !it.isArchived }.ifEmpty { fullList.filter { !it.isArchived } }
+        }
+
+        var filtered = baseList
+        if (!params.category.isNullOrBlank()) {
+            filtered = filtered.filter { it.category.equals(params.category, ignoreCase = true) }
+        }
+        if (params.query.isNotBlank()) {
+            filtered = filtered.filter {
+                it.title.contains(params.query, ignoreCase = true) || it.description.contains(params.query, ignoreCase = true)
+            }
+        }
+
+        filtered = when (params.sort) {
+            "Priority" -> filtered.sortedByDescending { it.priority.level }
+            "Due Date" -> filtered.sortedBy { it.dueDateIso }
+            "Title" -> filtered.sortedBy { it.title.lowercase() }
+            else -> filtered
+        }
+
+        TasksUiState(
+            allTasks = fullList,
+            filteredTasks = filtered,
+            selectedFilter = params.filter,
+            selectedCategory = params.category,
+            searchQuery = params.query,
+            selectedSort = params.sort,
+            selectedDateIso = todayIso,
+            isSelectionMode = isSel,
+            selectedTaskIds = selIds
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = TasksUiState()
+    )
+
+    // --- Calendar UI State ---
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val calendarUiState: StateFlow<CalendarUiState> = combine(
+        _calendarSelectedDate,
+        _calendarYear,
+        _calendarMonth,
+        _calendarViewMode,
+        firstDayOfWeekFlow
+    ) { selDate, year, month, viewMode, firstDay ->
+        val monthTitle = DateUtils.formatMonthYear(year, month)
+        val monthGrid = DateUtils.getMonthCalendarGrid(year, month, firstDay)
+        val weekGrid = DateUtils.getWeekDays(selDate, firstDay)
+        Pair(monthTitle, Pair(monthGrid, weekGrid))
+    }.flatMapLatest { (title, grids) ->
+        val (monthGrid, weekGrid) = grids
+        val selDate = _calendarSelectedDate.value
+        repository.getTasksForDateFlow(selDate).map { tasksOnDate ->
+            val wakeUp = DateUtils.timeToMinutes(wakeUpTimeFlow.value).coerceAtLeast(330)
+            val bedTime = DateUtils.timeToMinutes(bedTimeFlow.value).coerceAtLeast(1290)
+
+            // Compute conflicts on selected date
+            val allConflicts = mutableListOf<ScheduleConflict>()
+            tasksOnDate.forEach { task ->
+                val taskConflicts = ScheduleConflictEngine.detectConflicts(
+                    task = task,
+                    existingTasksOnDate = tasksOnDate,
+                    targetDateIso = selDate,
+                    wakeUpMinutes = wakeUp,
+                    bedTimeMinutes = bedTime
+                )
+                allConflicts.addAll(taskConflicts)
+            }
+
+            var filtered = tasksOnDate
+            if (_calendarCategoryFilter.value != null) {
+                filtered = filtered.filter { it.category.equals(_calendarCategoryFilter.value, ignoreCase = true) }
+            }
+            if (_calendarPriorityFilter.value != null) {
+                filtered = filtered.filter { it.priority == _calendarPriorityFilter.value }
+            }
+
+            CalendarUiState(
+                selectedDateIso = selDate,
+                currentMonthZeroIndexed = _calendarMonth.value,
+                currentYear = _calendarYear.value,
+                monthYearTitle = title,
+                viewMode = _calendarViewMode.value,
+                monthGridDates = monthGrid,
+                weekDates = weekGrid,
+                tasksOnSelectedDate = filtered,
+                conflictsOnSelectedDate = allConflicts.distinctBy { it.message },
+                selectedCategoryFilter = _calendarCategoryFilter.value,
+                selectedPriorityFilter = _calendarPriorityFilter.value
+            )
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = CalendarUiState()
+    )
+
+    // --- Habits UI State ---
+    val habitsUiState: StateFlow<HabitsUiState> = habits.map { habitList ->
+        val completedToday = habitList.count { it.isCompletedToday }
+        val total = habitList.size
+        val percentage = if (total > 0) completedToday.toFloat() / total.toFloat() else 0f
+
+        val past35Days = DateUtils.getLastNDays(35)
+        val heatmap = past35Days.map { dateIso ->
+            val countOnDate = habitList.count { it.completedDates.contains(dateIso) }
+            val ratio = if (total > 0) countOnDate.toFloat() / total.toFloat() else 0f
+            Pair(dateIso, ratio)
+        }
+
+        HabitsUiState(
+            habits = habitList,
+            completedTodayCount = completedToday,
+            totalCount = total,
+            completionPercentage = percentage,
+            selectedDateIso = todayIso,
+            heatmapDays = heatmap
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = HabitsUiState()
+    )
+
+    // --- Task Actions ---
+    fun toggleTaskCompletion(taskId: Long, dateIso: String = todayIso) {
+        viewModelScope.launch {
+            repository.toggleTaskCompletion(taskId, dateIso)
+        }
+    }
+
+    fun toggleSubtask(taskId: Long, subtaskId: String) {
+        viewModelScope.launch {
+            repository.toggleSubtask(taskId, subtaskId)
+        }
+    }
+
+    fun saveTask(
+        id: Long = 0,
+        title: String,
+        emoji: String,
+        description: String,
+        category: String,
+        priority: TaskPriority,
+        dueDateIso: String,
+        dueTime: String?,
+        durationMinutes: Int = 30,
+        recurrenceType: RecurrenceType = RecurrenceType.NONE,
+        recurrenceInterval: Int = 1,
+        recurrenceDaysOfWeek: List<String> = emptyList(),
+        recurrenceEndDateIso: String? = null,
+        subtasks: List<Subtask> = emptyList(),
+        notes: String = "",
+        isReminderEnabled: Boolean = false,
+        reminderMinutesBefore: Int = 0
+    ) {
+        viewModelScope.launch {
+            val task = TaskItem(
+                id = id,
+                title = title,
+                emoji = emoji,
+                description = description,
+                category = category,
+                priority = priority,
+                dueDateIso = dueDateIso,
+                dueTime = dueTime,
+                durationMinutes = durationMinutes,
+                recurrenceType = recurrenceType,
+                recurrenceInterval = recurrenceInterval,
+                recurrenceDaysOfWeek = recurrenceDaysOfWeek,
+                recurrenceEndDateIso = recurrenceEndDateIso,
+                subtasks = subtasks,
+                notes = notes,
+                isReminderEnabled = isReminderEnabled,
+                reminderMinutesBefore = reminderMinutesBefore
+            )
+
+            val savedId = if (id == 0L) {
+                repository.insertTask(task)
+            } else {
+                repository.updateTask(task)
+                id
+            }
+
+            // Schedule or cancel alarm
+            val fullTask = task.copy(id = savedId)
+            if (isReminderEnabled) {
+                val qStart = DateUtils.timeToMinutes(quietHoursStartFlow.value).coerceAtLeast(1260)
+                val qEnd = DateUtils.timeToMinutes(quietHoursEndFlow.value).coerceAtLeast(330)
+                NotificationHelper.scheduleTaskAlarm(
+                    context = getApplication(),
+                    task = fullTask,
+                    dateIso = dueDateIso,
+                    quietHoursStartMins = qStart,
+                    quietHoursEndMins = qEnd
+                )
+            } else {
+                NotificationHelper.cancelTaskAlarm(getApplication(), savedId, dueDateIso)
+            }
+        }
+    }
+
+    fun deleteTask(taskId: Long) {
+        viewModelScope.launch {
+            NotificationHelper.cancelTaskAlarm(getApplication(), taskId)
+            repository.deleteTask(taskId)
+        }
+    }
+
+    fun editOccurrenceOnly(
+        parentTaskId: Long,
+        occurrenceDateIso: String,
+        title: String,
+        emoji: String,
+        description: String,
+        category: String,
+        priority: TaskPriority,
+        dueTime: String?,
+        durationMinutes: Int,
+        subtasks: List<Subtask>,
+        notes: String,
+        isReminderEnabled: Boolean,
+        reminderMinutesBefore: Int
+    ) {
+        viewModelScope.launch {
+            repository.skipOccurrence(parentTaskId, occurrenceDateIso)
+            val standaloneTask = TaskItem(
+                id = 0,
+                title = title,
+                emoji = emoji,
+                description = description,
+                category = category,
+                priority = priority,
+                dueDateIso = occurrenceDateIso,
+                dueTime = dueTime,
+                durationMinutes = durationMinutes,
+                recurrenceType = RecurrenceType.NONE,
+                subtasks = subtasks,
+                notes = notes,
+                isReminderEnabled = isReminderEnabled,
+                reminderMinutesBefore = reminderMinutesBefore
+            )
+            val newId = repository.insertTask(standaloneTask)
+            if (isReminderEnabled) {
+                NotificationHelper.scheduleTaskAlarm(
+                    context = getApplication(),
+                    task = standaloneTask.copy(id = newId),
+                    dateIso = occurrenceDateIso
+                )
+            }
+        }
+    }
+
+    fun rescheduleOccurrence(taskId: Long, originalDateIso: String, newDateIso: String) {
+        viewModelScope.launch {
+            repository.rescheduleOccurrence(taskId, originalDateIso, newDateIso)
+        }
+    }
+
+    fun skipOccurrence(taskId: Long, dateIso: String) {
+        viewModelScope.launch {
+            repository.skipOccurrence(taskId, dateIso)
+        }
+    }
+
+    fun duplicateTask(taskId: Long) {
+        viewModelScope.launch {
+            repository.duplicateTask(taskId)
+        }
+    }
+
+    fun setTaskArchived(taskId: Long, isArchived: Boolean) {
+        viewModelScope.launch {
+            repository.setTaskArchived(taskId, isArchived)
+        }
+    }
+
+    fun setTaskPaused(taskId: Long, isPaused: Boolean) {
+        viewModelScope.launch {
+            repository.setTaskPaused(taskId, isPaused)
+        }
+    }
+
+    // --- Bulk Selection Actions ---
+    fun toggleSelectionMode(enabled: Boolean? = null) {
+        _isSelectionMode.value = enabled ?: !_isSelectionMode.value
+        if (!_isSelectionMode.value) {
+            _selectedTaskIds.value = emptySet()
+        }
+    }
+
+    fun toggleTaskSelection(taskId: Long) {
+        val current = _selectedTaskIds.value.toMutableSet()
+        if (current.contains(taskId)) {
+            current.remove(taskId)
+        } else {
+            current.add(taskId)
+        }
+        _selectedTaskIds.value = current
+        if (current.isNotEmpty() && !_isSelectionMode.value) {
+            _isSelectionMode.value = true
+        }
+    }
+
+    fun selectAllFilteredTasks() {
+        _selectedTaskIds.value = tasksUiState.value.filteredTasks.map { it.id }.toSet()
+        _isSelectionMode.value = true
+    }
+
+    fun clearSelection() {
+        _selectedTaskIds.value = emptySet()
+        _isSelectionMode.value = false
+    }
+
+    fun bulkCompleteSelected() {
+        viewModelScope.launch {
+            repository.bulkCompleteTasks(_selectedTaskIds.value.toList(), todayIso)
+            clearSelection()
+        }
+    }
+
+    fun bulkArchiveSelected() {
+        viewModelScope.launch {
+            repository.bulkArchiveTasks(_selectedTaskIds.value.toList(), true)
+            clearSelection()
+        }
+    }
+
+    fun bulkDeleteSelected() {
+        viewModelScope.launch {
+            repository.bulkDeleteTasks(_selectedTaskIds.value.toList())
+            clearSelection()
+        }
+    }
+
+    // --- Calendar Actions ---
+    fun selectCalendarDate(dateIso: String) {
+        _calendarSelectedDate.value = dateIso
+    }
+
+    fun previousCalendarMonth() {
+        var m = _calendarMonth.value - 1
+        var y = _calendarYear.value
+        if (m < 0) {
+            m = 11
+            y -= 1
+        }
+        _calendarMonth.value = m
+        _calendarYear.value = y
+    }
+
+    fun nextCalendarMonth() {
+        var m = _calendarMonth.value + 1
+        var y = _calendarYear.value
+        if (m > 11) {
+            m = 0
+            y += 1
+        }
+        _calendarMonth.value = m
+        _calendarYear.value = y
+    }
+
+    fun setCalendarViewMode(mode: String) {
+        _calendarViewMode.value = mode
+    }
+
+    fun setCalendarCategoryFilter(category: String?) {
+        _calendarCategoryFilter.value = category
+    }
+
+    fun setCalendarPriorityFilter(priority: TaskPriority?) {
+        _calendarPriorityFilter.value = priority
+    }
+
+    fun setTaskSearchQuery(query: String) {
+        _taskSearchQuery.value = query
+    }
+
+    fun setTaskFilter(filter: String) {
+        _taskFilter.value = filter
+    }
+
+    fun setTaskCategoryFilter(category: String?) {
+        _taskCategoryFilter.value = category
+    }
+
+    fun setTaskSort(sort: String) {
+        _taskSort.value = sort
+    }
+
+    // --- Habit Actions ---
+    fun toggleHabit(habitId: Long, dateIso: String = todayIso) {
+        viewModelScope.launch {
+            repository.toggleHabitCompletion(habitId, dateIso)
+        }
+    }
+
+    fun saveHabit(
+        id: Long = 0,
+        title: String,
+        emoji: String,
+        description: String,
+        reminderTime: String?,
+        colorHex: Long = 0xFF3B82F6
+    ) {
+        viewModelScope.launch {
+            val habit = HabitItem(
+                id = id,
+                title = title,
+                emoji = emoji,
+                description = description,
+                reminderTime = reminderTime,
+                colorHex = colorHex
+            )
+            if (id == 0L) {
+                repository.insertHabit(habit)
+            } else {
+                repository.updateHabit(habit)
+            }
+        }
+    }
+
+    fun deleteHabit(habitId: Long) {
+        viewModelScope.launch {
+            repository.deleteHabit(habitId)
+        }
+    }
+
+    // --- 75-Day Challenge Actions ---
+    fun toggleChallengeRule(ruleId: String, dateIso: String = todayIso) {
+        viewModelScope.launch {
+            repository.toggleChallengeRule(ruleId, dateIso)
+        }
+    }
+
+    fun restartChallenge(startDateIso: String = todayIso) {
+        viewModelScope.launch {
+            repository.restartChallenge(startDateIso)
+        }
+    }
+
+    // --- Water Tracking Actions ---
+    fun addWater(deltaMl: Int) {
+        viewModelScope.launch {
+            val currentGoal = waterGoalFlow.value
+            repository.addWater(deltaMl, todayIso, currentGoal)
+        }
+    }
+
+    fun resetWater() {
+        viewModelScope.launch {
+            repository.resetWater(todayIso)
+        }
+    }
+
+    // --- Routine Installation Action ---
+    fun installDefaultRoutines(force: Boolean = false) {
+        viewModelScope.launch {
+            repository.installDefaultRoutinesAndHabits(force)
+        }
+    }
+
+    // --- Preferences Actions ---
+    fun updateUserName(name: String) {
+        viewModelScope.launch { preferences.setUserName(name) }
+    }
+
+    fun updateThemeMode(mode: String) {
+        viewModelScope.launch { preferences.setThemeMode(mode) }
+    }
+
+    fun updateWaterGoal(goalMl: Int) {
+        viewModelScope.launch { preferences.setWaterGoalMl(goalMl) }
+    }
+
+    fun toggleNotifications(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setNotificationsEnabled(enabled)
+            if (enabled) {
+                NotificationHelper.scheduleDailyReminder(getApplication(), 8, 0)
+            }
+        }
+    }
+
+    fun updateWakeUpTime(time: String) {
+        viewModelScope.launch { preferences.setWakeUpTime(time) }
+    }
+
+    fun updateBedTime(time: String) {
+        viewModelScope.launch { preferences.setBedTime(time) }
+    }
+
+    fun updateQuietHours(start: String, end: String) {
+        viewModelScope.launch { preferences.setQuietHours(start, end) }
+    }
+
+    fun updateClockFormat(format: String) {
+        viewModelScope.launch { preferences.setClockFormat(format) }
+    }
+
+    fun updateFirstDayOfWeek(day: String) {
+        viewModelScope.launch { preferences.setFirstDayOfWeek(day) }
+    }
+
+    fun updateDefaultTaskDuration(duration: Int) {
+        viewModelScope.launch { preferences.setDefaultTaskDuration(duration) }
+    }
+}
+
+class LifeViewModelFactory(
+    private val application: Application,
+    private val repository: LifeRepository,
+    private val preferences: UserPreferences
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(LifeViewModel::class.java)) {
+            return LifeViewModel(application, repository, preferences) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
+    }
+}
