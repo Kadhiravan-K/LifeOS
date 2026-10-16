@@ -771,7 +771,7 @@ class LifeRepository(
     }
 
     suspend fun updateHoneycombShortcut(shortcut: HoneycombShortcut) {
-        honeycombShortcutDao.updateShortcut(shortcut.toEntity())
+        honeycombShortcutDao.insertShortcut(shortcut.toEntity())
     }
 
     suspend fun deleteHoneycombShortcut(id: Long) {

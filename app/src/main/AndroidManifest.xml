@@ -30,7 +30,7 @@
 
         <receiver
             android:name=".notifications.ReminderBroadcastReceiver"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="com.example.lifeos.ACTION_DAILY_REMINDER" />

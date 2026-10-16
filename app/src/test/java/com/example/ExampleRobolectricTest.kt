@@ -15,6 +15,12 @@ import com.example.domain.schedule.ScheduleConflictEngine
 import com.example.notifications.NotificationHelper
 import com.example.ui.components.createRoundedHexagonPath
 import com.example.ui.components.partitionShortcuts
+import com.example.ui.theme.engine.HoneycombEngravingType
+import com.example.ui.theme.engine.LocalPremiumEntitlementRepository
+import com.example.ui.theme.engine.ThemeDefinition
+import com.example.ui.theme.engine.ThemeId
+import com.example.ui.theme.engine.ThemeRegistry
+import com.example.ui.theme.engine.toMaterial3ColorScheme
 import com.example.utils.DateUtils
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -430,5 +436,116 @@ class ExampleRobolectricTest {
         assertEquals(item1.id, swapped[1].id)
         assertEquals(1, swapped[1].orderIndex)
     }
+
+    // --- PHASE 2.7: PREMIUM IMMERSIVE THEME ENGINE TESTS ---
+
+    @Test
+    fun `test theme registry contains all five complete theme definitions`() {
+        val themes = ThemeRegistry.allThemes
+        assertEquals(5, themes.size)
+
+        val defaultTheme = ThemeRegistry.getTheme(ThemeId.DEFAULT)
+        assertEquals("LifeOS Minimal", defaultTheme.name)
+        assertFalse(defaultTheme.isPremium)
+        assertEquals(HoneycombEngravingType.MINIMAL, defaultTheme.honeycombEngraving)
+
+        val arcane = ThemeRegistry.getTheme(ThemeId.ARCANE_ACADEMY)
+        assertEquals("Arcane Academy", arcane.name)
+        assertTrue(arcane.isPremium)
+        assertEquals(HoneycombEngravingType.RUNE, arcane.honeycombEngraving)
+        assertEquals("Grimoire of Directives", arcane.decoration.taskSectionTitle)
+
+        val cyber = ThemeRegistry.getTheme(ThemeId.CYBER_NEXUS)
+        assertEquals("Cyber Nexus", cyber.name)
+        assertTrue(cyber.isPremium)
+        assertEquals(HoneycombEngravingType.CIRCUIT, cyber.honeycombEngraving)
+        assertTrue(cyber.shapes.isAngularCyber)
+
+        val adventure = ThemeRegistry.getTheme(ThemeId.ADVENTURE_REALM)
+        assertEquals("Adventure Realm", adventure.name)
+        assertTrue(adventure.isPremium)
+        assertEquals(HoneycombEngravingType.COMPASS_BADGE, adventure.honeycombEngraving)
+        assertEquals("Guild Quest Log", adventure.decoration.taskSectionTitle)
+
+        val cosmic = ThemeRegistry.getTheme(ThemeId.COSMIC_EXPLORER)
+        assertEquals("Cosmic Explorer", cosmic.name)
+        assertTrue(cosmic.isPremium)
+        assertEquals(HoneycombEngravingType.ORBITAL, cosmic.honeycombEngraving)
+        assertEquals("Mission Directives", cosmic.decoration.taskSectionTitle)
+    }
+
+    @Test
+    fun `test premium entitlement restricts locked themes for free users`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repo = LocalPremiumEntitlementRepository(context)
+
+        // Free user (isPremiumActive = false)
+        assertTrue(repo.isThemeUnlocked(ThemeId.DEFAULT, isPremiumActive = false))
+        assertFalse(repo.isThemeUnlocked(ThemeId.ARCANE_ACADEMY, isPremiumActive = false))
+        assertFalse(repo.isThemeUnlocked(ThemeId.CYBER_NEXUS, isPremiumActive = false))
+        assertFalse(repo.isThemeUnlocked(ThemeId.ADVENTURE_REALM, isPremiumActive = false))
+        assertFalse(repo.isThemeUnlocked(ThemeId.COSMIC_EXPLORER, isPremiumActive = false))
+
+        // Entitled user (isPremiumActive = true)
+        assertTrue(repo.isThemeUnlocked(ThemeId.DEFAULT, isPremiumActive = true))
+        assertTrue(repo.isThemeUnlocked(ThemeId.ARCANE_ACADEMY, isPremiumActive = true))
+        assertTrue(repo.isThemeUnlocked(ThemeId.CYBER_NEXUS, isPremiumActive = true))
+        assertTrue(repo.isThemeUnlocked(ThemeId.ADVENTURE_REALM, isPremiumActive = true))
+        assertTrue(repo.isThemeUnlocked(ThemeId.COSMIC_EXPLORER, isPremiumActive = true))
+    }
+
+    @Test
+    fun `test theme id string lookup and fallback to default`() {
+        assertEquals(ThemeId.DEFAULT, ThemeId.fromId("default"))
+        assertEquals(ThemeId.ARCANE_ACADEMY, ThemeId.fromId("arcane_academy"))
+        assertEquals(ThemeId.CYBER_NEXUS, ThemeId.fromId("cyber_nexus"))
+        assertEquals(ThemeId.ADVENTURE_REALM, ThemeId.fromId("adventure_realm"))
+        assertEquals(ThemeId.COSMIC_EXPLORER, ThemeId.fromId("cosmic_explorer"))
+        // Case-insensitive & fallback
+        assertEquals(ThemeId.CYBER_NEXUS, ThemeId.fromId("CYBER_NEXUS"))
+        assertEquals(ThemeId.DEFAULT, ThemeId.fromId("unknown_nonexistent_theme"))
+    }
+
+    @Test
+    fun `test material 3 color scheme mapping preserves contrast and surface tokens`() {
+        val arcane = ThemeRegistry.getTheme(ThemeId.ARCANE_ACADEMY)
+        val m3Scheme = arcane.toMaterial3ColorScheme(isLightMode = false)
+
+        assertEquals(arcane.colors.primary, m3Scheme.primary)
+        assertEquals(arcane.colors.surface, m3Scheme.surface)
+        assertEquals(arcane.colors.background, m3Scheme.background)
+        assertEquals(arcane.colors.outline, m3Scheme.outline)
+    }
+
+    @Test
+    fun `test theme switching preserves task and honeycomb data integrity`() {
+        val task = TaskItem(
+            id = 50,
+            title = "Master Spell Inscription",
+            dueDateIso = "2026-10-16",
+            recurrenceType = RecurrenceType.NONE
+        )
+        val shortcut = HoneycombShortcut(
+            id = 7,
+            type = ShortcutType.TASK,
+            targetId = "50",
+            title = "Spellcraft",
+            emoji = "🔮",
+            customColorHex = 0xFF9333EAL,
+            orderIndex = 0
+        )
+
+        // Switching theme does not mutate task or shortcut configuration
+        val activeTheme1 = ThemeRegistry.getTheme(ThemeId.ARCANE_ACADEMY)
+        assertEquals("Arcane Academy", activeTheme1.name)
+        assertEquals(0xFF9333EAL, shortcut.customColorHex)
+
+        val activeTheme2 = ThemeRegistry.getTheme(ThemeId.CYBER_NEXUS)
+        assertEquals("Cyber Nexus", activeTheme2.name)
+        assertEquals(50L, task.id)
+        assertEquals("Master Spell Inscription", task.title)
+        assertEquals(0xFF9333EAL, shortcut.customColorHex) // Custom completion color preserved!
+    }
 }
+
 

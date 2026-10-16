@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
 
         // Create local notification channels and schedule background maintenance
         NotificationHelper.createNotificationChannels(this)
+        NotificationHelper.scheduleDailyReminder(this, 8, 0)
         com.example.notifications.MaintenanceWorker.schedulePeriodic(this)
 
         setContent {
