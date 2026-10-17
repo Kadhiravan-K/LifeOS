@@ -63,11 +63,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.domain.model.HoneycombShortcut
 import com.example.domain.model.ShortcutType
 import com.example.domain.model.TaskItem
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import com.example.ui.components.CustomizeDashboardDialog
 import com.example.ui.components.HoneycombContextMenuDialog
 import com.example.ui.components.HoneycombTaskGrid
 import com.example.ui.components.PriorityBadge
 import com.example.ui.components.QuickHydrationDialog
+import com.example.ui.components.TaskCompletionCircle
 import com.example.ui.components.WaterTrackerCard
 import com.example.ui.viewmodel.DashboardUiState
 import com.example.ui.viewmodel.LifeViewModel
@@ -318,8 +321,11 @@ fun DashboardScreen(
                     onRemoveShortcut = { id ->
                         viewModel.removeHoneycombShortcut(id)
                     },
-                    onMoveShortcut = { id, delta ->
-                        viewModel.moveHoneycombShortcut(id, delta)
+                    onSwapShortcuts = { id1, id2 ->
+                        viewModel.swapHoneycombShortcuts(id1, id2)
+                    },
+                    onMoveShortcutToCoord = { id, q, r ->
+                        viewModel.moveHoneycombShortcutToCoord(id, q, r)
                     },
                     onAddShortcutClick = {
                         showCustomizeDialog = true
@@ -470,41 +476,29 @@ fun DashboardScreen(
                     )
                 } else {
                     uiState.topPriorities.forEach { task ->
+                        val animEnabled by viewModel.completionAnimationEnabled.collectAsStateWithLifecycle()
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(10.dp))
-                                .clickable { viewModel.toggleTaskCompletion(task.id, uiState.todayDateIso) }
                                 .padding(vertical = 6.dp)
                         ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(30.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (task.isCompletedForDate)
-                                            MaterialTheme.colorScheme.primary
-                                        else
-                                            MaterialTheme.colorScheme.surfaceVariant
-                                    )
-                            ) {
-                                if (task.isCompletedForDate) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = "Done",
-                                        tint = MaterialTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                } else {
-                                    Text(text = task.emoji, fontSize = 14.sp)
-                                }
-                            }
+                            TaskCompletionCircle(
+                                isCompleted = task.isCompletedForDate,
+                                onToggle = { viewModel.toggleTaskCompletion(task.id, uiState.todayDateIso) },
+                                activeColor = MaterialTheme.colorScheme.primary,
+                                isAnimationEnabled = animEnabled,
+                                size = 26.dp
+                            )
 
                             Spacer(modifier = Modifier.width(10.dp))
 
-                            Column(modifier = Modifier.weight(1f)) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { viewModel.toggleTaskCompletion(task.id, uiState.todayDateIso) }
+                            ) {
                                 Text(
                                     text = task.title,
                                     style = MaterialTheme.typography.bodyMedium.copy(
@@ -663,11 +657,11 @@ fun DashboardScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
-                    Row(
+                    LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        uiState.habits.take(6).forEach { habit ->
+                        items(uiState.habits, key = { it.id }) { habit ->
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier

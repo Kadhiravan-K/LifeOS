@@ -298,7 +298,8 @@ fun CalendarScreen(
                         },
                         onToggleTask = { viewModel.toggleTaskCompletion(it.id, uiState.selectedDateIso) },
                         onReschedule = { taskToReschedule = it },
-                        onHistory = { historyTask = it }
+                        onHistory = { historyTask = it },
+                        modifier = Modifier.weight(1f)
                     )
                 }
                 "AGENDA" -> {
@@ -333,7 +334,8 @@ fun CalendarScreen(
                         },
                         onToggleTask = { viewModel.toggleTaskCompletion(it.id, uiState.selectedDateIso) },
                         onReschedule = { taskToReschedule = it },
-                        onHistory = { historyTask = it }
+                        onHistory = { historyTask = it },
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
@@ -845,17 +847,23 @@ fun TaskListSection(
     onTaskClick: (TaskItem) -> Unit,
     onToggleTask: (TaskItem) -> Unit,
     onReschedule: (TaskItem) -> Unit,
-    onHistory: (TaskItem) -> Unit
+    onHistory: (TaskItem) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     if (tasks.isEmpty()) {
-        EmptyStateCard(
-            emoji = "✨",
-            title = "Nothing Scheduled",
-            description = "Enjoy your open time or tap + to schedule a task"
-        )
+        Box(
+            modifier = modifier.fillMaxWidth().padding(top = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            EmptyStateCard(
+                emoji = "✨",
+                title = "Nothing Scheduled",
+                description = "Enjoy your open time or tap + to schedule a task"
+            )
+        }
     } else {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(tasks, key = { it.id }) { task ->

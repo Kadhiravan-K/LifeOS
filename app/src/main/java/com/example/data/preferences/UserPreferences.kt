@@ -46,6 +46,11 @@ class UserPreferences(private val context: Context) {
         val KEY_COLOR_ORDERING_MODE = stringPreferencesKey("color_ordering_mode")
         val KEY_COLOR_USAGE_COUNTS = stringPreferencesKey("color_usage_counts")
         val KEY_COLOR_CUSTOM_ORDER = stringPreferencesKey("color_custom_order")
+
+        // Release v1.0 Task Completion Feedback
+        val KEY_COMPLETION_SOUND = booleanPreferencesKey("completion_sound_enabled")
+        val KEY_COMPLETION_VIBRATION = booleanPreferencesKey("completion_vibration_enabled")
+        val KEY_COMPLETION_ANIMATION = booleanPreferencesKey("completion_animation_enabled")
     }
 
     val userName: Flow<String> = context.dataStore.data.map { preferences ->
@@ -173,6 +178,31 @@ class UserPreferences(private val context: Context) {
 
     suspend fun setDefaultTaskDuration(minutes: Int) {
         context.dataStore.edit { it[KEY_DEFAULT_TASK_DURATION] = minutes }
+    }
+
+    // Task Completion Feedback Flows
+    val completionSoundEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_COMPLETION_SOUND] ?: true
+    }
+
+    val completionVibrationEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_COMPLETION_VIBRATION] ?: true
+    }
+
+    val completionAnimationEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_COMPLETION_ANIMATION] ?: true
+    }
+
+    suspend fun setCompletionSoundEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_COMPLETION_SOUND] = enabled }
+    }
+
+    suspend fun setCompletionVibrationEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_COMPLETION_VIBRATION] = enabled }
+    }
+
+    suspend fun setCompletionAnimationEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_COMPLETION_ANIMATION] = enabled }
     }
 
     // Honeycomb Flows

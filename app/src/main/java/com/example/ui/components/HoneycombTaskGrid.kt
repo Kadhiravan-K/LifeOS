@@ -2,16 +2,23 @@ package com.example.ui.components
 
 import android.graphics.PointF
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,44 +28,43 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -67,23 +73,24 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.example.domain.model.HoneycombAppearanceConfig
+import com.example.domain.model.HoneycombLayoutTemplate
 import com.example.domain.model.HoneycombShortcut
-import com.example.domain.model.ShortcutType
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.FilterChip
-import com.example.domain.model.HoneycombLayoutTemplate
-
 /**
- * Reusable Honeycomb Task Grid component.
- * Renders interactive hexagonal cells with thick rounded borders, compact interlocking layout,
- * smooth completion animation, and Edit Mode with reordering & customization.
+ * Reusable Honeycomb Task Grid component with:
+ * 1. Mathematical regular pointy-top axial hexagonal placement.
+ * 2. True touch drag-and-drop: LONG-PRESS -> DRAG -> HIGHLIGHT TARGET -> DROP/SWAP.
+ * 3. Responsive scaling, centered layout, zero clipping or arbitrary negative padding hacks.
+ * 4. Supports templates: Standard, Pyramid, Diamond, Heart, Snake, Zigzag, Freeform.
  */
 @Composable
 fun HoneycombTaskGrid(
@@ -93,7 +100,8 @@ fun HoneycombTaskGrid(
     onShortcutClick: (HoneycombShortcut) -> Unit,
     onShortcutLongClick: (HoneycombShortcut) -> Unit,
     onRemoveShortcut: (Long) -> Unit,
-    onMoveShortcut: (Long, Int) -> Unit, // -1 for left/up, +1 for right/down
+    onSwapShortcuts: (Long, Long) -> Unit,
+    onMoveShortcutToCoord: (Long, Int, Int) -> Unit,
     onAddShortcutClick: () -> Unit,
     onResetLayoutClick: () -> Unit,
     onDoneEditClick: () -> Unit,
@@ -142,15 +150,23 @@ fun HoneycombTaskGrid(
     val hexSizeDp = appearance.hexagonSizeDp.dp
     val spacingDp = appearance.spacingDp.dp
     val radiusDp = hexSizeDp / 2f
-    val widthDp = (sqrt(3.0) * radiusDp.value).dp
+    val hexWidthDp = (sqrt(3.0) * radiusDp.value).dp
+    val hexHeightDp = hexSizeDp
 
-    // Calculate row vertical step for interlocking pointy-topped hexagons
-    val verticalStepDp = (1.5f * radiusDp.value).dp + spacingDp
+    val radiusPx = with(density) { radiusDp.toPx() }
+    val spacingPx = with(density) { spacingDp.toPx() }
+    val hexWidthPx = (sqrt(3.0) * radiusPx).toFloat()
+    val hexHeightPx = hexSizeDp.value * density.density
 
-    // Partition items into alternating rows (3 items in even rows, 2 items in odd rows)
-    val partitionedRows = remember(shortcuts) {
-        partitionShortcuts(shortcuts, baseCols = 3)
-    }
+    // Step spacing for pointy-top hexagons with cell gap S
+    val hStepPx = hexWidthPx + spacingPx
+    val vStepPx = (1.5f * radiusPx) + spacingPx
+
+    // Drag-and-drop state
+    var draggedShortcutId by remember { mutableStateOf<Long?>(null) }
+    var dragPixelOffset by remember { mutableStateOf(Offset.Zero) }
+    var candidateDropTargetId by remember { mutableStateOf<Long?>(null) }
+    var candidateDropCoord by remember { mutableStateOf<Pair<Int, Int>?>(null) }
 
     Column(
         modifier = modifier
@@ -179,14 +195,12 @@ fun HoneycombTaskGrid(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "✏️ Edit Layout Mode",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
+                        Text(
+                            text = "✏️ Drag & Drop to Reorder",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
 
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             IconButton(
@@ -229,7 +243,7 @@ fun HoneycombTaskGrid(
                     if (onApplyTemplate != null) {
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Layout Shapes:",
+                            text = "Preset Shapes:",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
@@ -254,39 +268,146 @@ fun HoneycombTaskGrid(
             }
         }
 
-        // --- Interlocking Honeycomb Rows ---
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.TopCenter
+        // --- Mathematical Axial Coordinate Grid ---
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                partitionedRows.forEachIndexed { rowIndex, rowItems ->
-                    val isOddRow = rowIndex % 2 != 0
-                    val topPadding = if (rowIndex == 0) 0.dp else -(radiusDp * 0.5f)
+            val containerWidthPx = constraints.maxWidth.toFloat()
 
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(spacingDp),
-                        verticalAlignment = Alignment.CenterVertically,
+            // Calculate center positions in axial space:
+            // x(q, r) = hStep * (q + r / 2.0)
+            // y(q, r) = vStep * r
+            val positions = remember(shortcuts, hStepPx, vStepPx) {
+                shortcuts.associate { item ->
+                    val cx = hStepPx * (item.coordQ.toFloat() + item.coordR.toFloat() / 2f)
+                    val cy = vStepPx * item.coordR.toFloat()
+                    item.id to Offset(cx, cy)
+                }
+            }
+
+            // Determine grid bounds
+            val allCenters = positions.values
+            val minX = allCenters.minOfOrNull { it.x } ?: 0f
+            val maxX = allCenters.maxOfOrNull { it.x } ?: 0f
+            val minY = allCenters.minOfOrNull { it.y } ?: 0f
+            val maxY = allCenters.maxOfOrNull { it.y } ?: 0f
+
+            val gridContentWidthPx = (maxX - minX) + hexWidthPx
+            val gridContentHeightPx = (maxY - minY) + hexHeightPx
+            val paddingPx = with(density) { 16.dp.toPx() }
+
+            // Center grid horizontally in available container width
+            val originOffsetX = ((containerWidthPx - gridContentWidthPx) / 2f) - minX + (hexWidthPx / 2f)
+            val originOffsetY = paddingPx - minY + (hexHeightPx / 2f)
+
+            val totalContainerHeightDp = with(density) {
+                (gridContentHeightPx + (paddingPx * 2f)).toDp()
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(totalContainerHeightDp)
+            ) {
+                shortcuts.forEach { shortcut ->
+                    val isBeingDragged = draggedShortcutId == shortcut.id
+                    val isCandidateTarget = candidateDropTargetId == shortcut.id
+                    val baseCenter = positions[shortcut.id] ?: Offset.Zero
+
+                    val visualCenter = if (isBeingDragged) {
+                        Offset(
+                            x = baseCenter.x + originOffsetX + dragPixelOffset.x,
+                            y = baseCenter.y + originOffsetY + dragPixelOffset.y
+                        )
+                    } else {
+                        Offset(
+                            x = baseCenter.x + originOffsetX,
+                            y = baseCenter.y + originOffsetY
+                        )
+                    }
+
+                    val leftPx = visualCenter.x - (hexWidthPx / 2f)
+                    val topPx = visualCenter.y - (hexHeightPx / 2f)
+
+                    val itemLeftDp = with(density) { leftPx.toDp() }
+                    val itemTopDp = with(density) { topPx.toDp() }
+
+                    Box(
                         modifier = Modifier
-                            .offset { IntOffset(0, 0) }
-                            .padding(top = if (rowIndex > 0) spacingDp * 0.5f else 0.dp)
-                    ) {
-                        rowItems.forEach { shortcut ->
-                            HoneycombCell(
-                                shortcut = shortcut,
-                                appearance = appearance,
-                                isEditMode = isEditMode,
-                                sizeDp = hexSizeDp,
-                                onClick = { onShortcutClick(shortcut) },
-                                onLongClick = { onShortcutLongClick(shortcut) },
-                                onRemove = { onRemoveShortcut(shortcut.id) },
-                                onMoveLeft = { onMoveShortcut(shortcut.id, -1) },
-                                onMoveRight = { onMoveShortcut(shortcut.id, 1) },
-                                modifier = Modifier.testTag("honeycomb_cell_${shortcut.id}")
+                            .offset(x = itemLeftDp, y = itemTopDp)
+                            .zIndex(if (isBeingDragged) 100f else if (isCandidateTarget) 50f else 1f)
+                            .then(
+                                if (isEditMode) {
+                                    Modifier.pointerInput(shortcut.id) {
+                                        detectDragGesturesAfterLongPress(
+                                            onDragStart = {
+                                                draggedShortcutId = shortcut.id
+                                                dragPixelOffset = Offset.Zero
+                                                candidateDropTargetId = null
+                                                candidateDropCoord = null
+                                            },
+                                            onDrag = { change, dragAmount ->
+                                                change.consume()
+                                                dragPixelOffset += dragAmount
+
+                                                // Current dragged center in grid coordinate space
+                                                val currCenterPx = baseCenter + dragPixelOffset
+                                                val targetAxial = pixelToAxial(
+                                                    px = currCenterPx.x,
+                                                    py = currCenterPx.y,
+                                                    hStep = hStepPx,
+                                                    vStep = vStepPx
+                                                )
+                                                candidateDropCoord = targetAxial
+
+                                                // Find if another shortcut occupies candidate axial position
+                                                val target = shortcuts.find {
+                                                    it.coordQ == targetAxial.first &&
+                                                    it.coordR == targetAxial.second &&
+                                                    it.id != shortcut.id
+                                                }
+                                                candidateDropTargetId = target?.id
+                                            },
+                                            onDragEnd = {
+                                                val targetId = candidateDropTargetId
+                                                val targetCoord = candidateDropCoord
+                                                if (targetId != null) {
+                                                    onSwapShortcuts(shortcut.id, targetId)
+                                                } else if (targetCoord != null) {
+                                                    onMoveShortcutToCoord(shortcut.id, targetCoord.first, targetCoord.second)
+                                                }
+                                                draggedShortcutId = null
+                                                dragPixelOffset = Offset.Zero
+                                                candidateDropTargetId = null
+                                                candidateDropCoord = null
+                                            },
+                                            onDragCancel = {
+                                                draggedShortcutId = null
+                                                dragPixelOffset = Offset.Zero
+                                                candidateDropTargetId = null
+                                                candidateDropCoord = null
+                                            }
+                                        )
+                                    }
+                                } else Modifier
                             )
-                        }
+                    ) {
+                        HoneycombCell(
+                            shortcut = shortcut,
+                            appearance = appearance,
+                            isEditMode = isEditMode,
+                            sizeDp = hexSizeDp,
+                            isDragged = isBeingDragged,
+                            isHighlightedTarget = isCandidateTarget,
+                            onClick = {
+                                if (!isEditMode) onShortcutClick(shortcut)
+                            },
+                            onLongClick = {
+                                if (!isEditMode) onShortcutLongClick(shortcut)
+                            },
+                            onRemove = { onRemoveShortcut(shortcut.id) },
+                            modifier = Modifier.testTag("honeycomb_cell_${shortcut.id}")
+                        )
                     }
                 }
             }
@@ -295,7 +416,41 @@ fun HoneycombTaskGrid(
 }
 
 /**
+ * Converts a 2D Cartesian pixel offset (relative to grid origin) to axial coordinates (q, r)
+ * using standard hexagonal cube-coordinate rounding.
+ */
+fun pixelToAxial(px: Float, py: Float, hStep: Float, vStep: Float): Pair<Int, Int> {
+    if (hStep <= 0f || vStep <= 0f) return Pair(0, 0)
+    val rFloat = py / vStep
+    val qFloat = (px / hStep) - (rFloat / 2f)
+
+    // Cube coordinate representation: x = q, z = r, y = -x - z
+    val xCube = qFloat
+    val zCube = rFloat
+    val yCube = -xCube - zCube
+
+    var rx = xCube.roundToInt()
+    var ry = yCube.roundToInt()
+    var rz = zCube.roundToInt()
+
+    val xDiff = abs(rx - xCube)
+    val yDiff = abs(ry - yCube)
+    val zDiff = abs(rz - zCube)
+
+    if (xDiff > yDiff && xDiff > zDiff) {
+        rx = -ry - rz
+    } else if (yDiff > zDiff) {
+        ry = -rx - rz
+    } else {
+        rz = -rx - ry
+    }
+
+    return Pair(rx, rz)
+}
+
+/**
  * Individual Hexagonal Cell drawn with rounded vertices using Canvas and Path.
+ * Adapts to active themes, highlights on drag/candidate drop target, and displays completion badges.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -307,32 +462,27 @@ fun HoneycombCell(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onRemove: () -> Unit,
-    onMoveLeft: () -> Unit,
-    onMoveRight: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDragged: Boolean = false,
+    isHighlightedTarget: Boolean = false
 ) {
     val density = LocalDensity.current
     val activeTheme = com.example.ui.theme.engine.LocalLifeTheme.current
     val strokeWidthPx = with(density) { appearance.borderWidthDp.dp.toPx() }
-    val radiusPx = with(density) { (sizeDp / 2f).toPx() }
     val cornerRadiusPx = with(density) { (appearance.borderWidthDp * 2.5f).dp.toPx() }
 
     // Color resolution
     val resolvedCompletionColor = Color(shortcut.customColorHex ?: appearance.defaultColorHex)
     val incompleteBgColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
 
-    val borderColor = when (appearance.borderColorType) {
-        "PRIMARY" -> activeTheme.colors.primary
-        "MUTED" -> MaterialTheme.colorScheme.outlineVariant
-        "ACCENT" -> activeTheme.colors.accent
+    val borderColor = when {
+        isHighlightedTarget -> activeTheme.colors.accent
+        isDragged -> activeTheme.colors.primary
+        appearance.borderColorType == "PRIMARY" -> activeTheme.colors.primary
+        appearance.borderColorType == "MUTED" -> MaterialTheme.colorScheme.outlineVariant
+        appearance.borderColorType == "ACCENT" -> activeTheme.colors.accent
         else -> if (activeTheme.id != com.example.ui.theme.engine.ThemeId.DEFAULT) activeTheme.colors.honeycombBorder else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
     }
-
-    val animatedFillProgress by animateFloatAsState(
-        targetValue = if (shortcut.isCompletedToday) 1f else 0f,
-        animationSpec = tween(durationMillis = if (appearance.isAnimationEnabled) 350 else 0),
-        label = "honeycomb_fill_${shortcut.id}"
-    )
 
     val animatedBgColor by animateColorAsState(
         targetValue = if (shortcut.isCompletedToday) resolvedCompletionColor else incompleteBgColor,
@@ -340,22 +490,38 @@ fun HoneycombCell(
         label = "honeycomb_color_${shortcut.id}"
     )
 
-    val widthDp = (sqrt(3.0) * (sizeDp.value / 2f)).dp
+    val scaleFactor by animateFloatAsState(
+        targetValue = when {
+            isDragged -> 1.15f
+            isHighlightedTarget -> 1.08f
+            else -> 1.0f
+        },
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "hex_scale_${shortcut.id}"
+    )
 
+    val widthDp = (sqrt(3.0) * (sizeDp.value / 2f)).dp
     val semanticsDescription = "${shortcut.title}, ${if (shortcut.isCompletedToday) "Completed" else "Incomplete"}. ${shortcut.subtitle}"
-    val primaryColor = MaterialTheme.colorScheme.primary
 
     Box(
         modifier = modifier
             .size(width = widthDp, height = sizeDp)
+            .scale(scaleFactor)
+            .then(
+                if (isDragged) Modifier.shadow(12.dp, CircleShape) else Modifier
+            )
             .semantics {
                 contentDescription = semanticsDescription
             }
-            .combinedClickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-                onLongClick = onLongClick
+            .then(
+                if (!isEditMode) {
+                    Modifier.combinedClickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onClick,
+                        onLongClick = onLongClick
+                    )
+                } else Modifier
             ),
         contentAlignment = Alignment.Center
     ) {
@@ -382,38 +548,34 @@ fun HoneycombCell(
             // Theme-specific decorative engravings
             when (activeTheme.honeycombEngraving) {
                 com.example.ui.theme.engine.HoneycombEngravingType.RUNE -> {
-                    // Mystic inner rune ring
                     drawCircle(
                         color = activeTheme.colors.secondary.copy(alpha = 0.35f),
                         radius = r * 0.72f,
-                        center = androidx.compose.ui.geometry.Offset(cx, cy),
+                        center = Offset(cx, cy),
                         style = Stroke(width = 1.2f)
                     )
                 }
                 com.example.ui.theme.engine.HoneycombEngravingType.CIRCUIT -> {
-                    // Cybernetic corner ticks
                     val tickLen = r * 0.25f
                     drawLine(
                         color = activeTheme.colors.primary.copy(alpha = 0.5f),
-                        start = androidx.compose.ui.geometry.Offset(cx - tickLen, cy - r * 0.8f),
-                        end = androidx.compose.ui.geometry.Offset(cx + tickLen, cy - r * 0.8f),
+                        start = Offset(cx - tickLen, cy - r * 0.8f),
+                        end = Offset(cx + tickLen, cy - r * 0.8f),
                         strokeWidth = 1.5f
                     )
                 }
                 com.example.ui.theme.engine.HoneycombEngravingType.COMPASS_BADGE -> {
-                    // Adventure compass apex pip
                     drawCircle(
                         color = activeTheme.colors.primary.copy(alpha = 0.6f),
                         radius = 2.5f,
-                        center = androidx.compose.ui.geometry.Offset(cx, cy - r * 0.75f)
+                        center = Offset(cx, cy - r * 0.75f)
                     )
                 }
                 com.example.ui.theme.engine.HoneycombEngravingType.ORBITAL -> {
-                    // Celestial orbital arc
                     drawCircle(
                         color = activeTheme.colors.primary.copy(alpha = 0.25f),
                         radius = r * 0.85f,
-                        center = androidx.compose.ui.geometry.Offset(cx, cy),
+                        center = Offset(cx, cy),
                         style = Stroke(width = 1f)
                     )
                 }
@@ -423,8 +585,8 @@ fun HoneycombCell(
             // 2. Draw Thick Rounded Border
             drawPath(
                 path = hexPath,
-                color = if (isEditMode) primaryColor else borderColor,
-                style = Stroke(width = strokeWidthPx)
+                color = if (isHighlightedTarget) activeTheme.colors.accent else if (isEditMode) activeTheme.colors.primary else borderColor,
+                style = Stroke(width = if (isHighlightedTarget || isDragged) strokeWidthPx * 1.5f else strokeWidthPx)
             )
         }
 
@@ -473,15 +635,14 @@ fun HoneycombCell(
             }
         }
 
-        // Edit Mode overlay: Remove button and Move arrows
-        if (isEditMode) {
-            // Remove "×" button at top right
+        // Edit Mode overlay: Remove button at top right
+        if (isEditMode && !isDragged) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .offset(x = 2.dp, y = (-2).dp)
-                    .size(20.dp)
+                    .size(22.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.error)
                     .combinedClickable(onClick = onRemove)
@@ -490,50 +651,8 @@ fun HoneycombCell(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Remove Hexagon",
                     tint = MaterialTheme.colorScheme.onError,
-                    modifier = Modifier.size(12.dp)
+                    modifier = Modifier.size(14.dp)
                 )
-            }
-
-            // Move Left / Right accessible reorder buttons at bottom
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .offset(y = (-2).dp),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(18.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
-                        .combinedClickable(onClick = onMoveLeft)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Move Left",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(10.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(4.dp))
-
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(18.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
-                        .combinedClickable(onClick = onMoveRight)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = "Move Right",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(10.dp)
-                    )
-                }
             }
         }
     }
@@ -588,8 +707,7 @@ fun createRoundedHexagonPath(
 }
 
 /**
- * Partitions shortcuts into interlocking honeycomb rows.
- * Even rows have baseCols items (default 3), odd rows have baseCols - 1 items (default 2).
+ * Helper to partition shortcuts into interlocking rows for linear display fallbacks.
  */
 fun partitionShortcuts(
     shortcuts: List<HoneycombShortcut>,

@@ -376,6 +376,29 @@ class LifeViewModel(
         initialValue = 30
     )
 
+    // --- Task Completion Feedback Preferences ---
+    val completionSoundEnabled: StateFlow<Boolean> = preferences.completionSoundEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    val completionVibrationEnabled: StateFlow<Boolean> = preferences.completionVibrationEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    val completionAnimationEnabled: StateFlow<Boolean> = preferences.completionAnimationEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    fun setCompletionSoundEnabled(enabled: Boolean) = viewModelScope.launch { preferences.setCompletionSoundEnabled(enabled) }
+    fun setCompletionVibrationEnabled(enabled: Boolean) = viewModelScope.launch { preferences.setCompletionVibrationEnabled(enabled) }
+    fun setCompletionAnimationEnabled(enabled: Boolean) = viewModelScope.launch { preferences.setCompletionAnimationEnabled(enabled) }
+
     // --- Honeycomb Appearance & Edit State ---
     private val _isHoneycombEditMode = MutableStateFlow(false)
     val isHoneycombEditMode: StateFlow<Boolean> = _isHoneycombEditMode.asStateFlow()
@@ -759,7 +782,13 @@ class LifeViewModel(
     // --- Task Actions ---
     fun toggleTaskCompletion(taskId: Long, dateIso: String = todayIso) {
         viewModelScope.launch {
-            repository.toggleTaskCompletion(taskId, dateIso)
+            val newlyCompleted = repository.toggleTaskCompletion(taskId, dateIso)
+            if (newlyCompleted == true) {
+                com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).triggerCompletionFeedback(
+                    soundEnabled = completionSoundEnabled.value,
+                    vibrationEnabled = completionVibrationEnabled.value
+                )
+            }
         }
     }
 
@@ -1360,6 +1389,30 @@ class LifeViewModel(
     fun reorderHoneycombShortcuts(newList: List<HoneycombShortcut>) {
         viewModelScope.launch {
             repository.saveHoneycombShortcutsOrder(newList)
+        }
+    }
+
+    fun swapHoneycombShortcuts(id1: Long, id2: Long) {
+        viewModelScope.launch {
+            val list = resolvedHoneycombShortcuts.value
+            val s1 = list.find { it.id == id1 } ?: return@launch
+            val s2 = list.find { it.id == id2 } ?: return@launch
+            repository.updateShortcutCoords(s1.id, s2.coordQ, s2.coordR, s2.orderIndex)
+            repository.updateShortcutCoords(s2.id, s1.coordQ, s1.coordR, s1.orderIndex)
+        }
+    }
+
+    fun moveHoneycombShortcutToCoord(shortcutId: Long, targetQ: Int, targetR: Int) {
+        viewModelScope.launch {
+            val list = resolvedHoneycombShortcuts.value
+            val item = list.find { it.id == shortcutId } ?: return@launch
+            val occupant = list.find { it.coordQ == targetQ && it.coordR == targetR && it.id != shortcutId }
+            if (occupant != null) {
+                repository.updateShortcutCoords(item.id, occupant.coordQ, occupant.coordR, occupant.orderIndex)
+                repository.updateShortcutCoords(occupant.id, item.coordQ, item.coordR, item.orderIndex)
+            } else {
+                repository.updateShortcutCoords(item.id, targetQ, targetR, item.orderIndex)
+            }
         }
     }
 

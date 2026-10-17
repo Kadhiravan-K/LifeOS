@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Notifications
@@ -104,6 +105,9 @@ fun SettingsScreen(
     var showHoneycombColorPicker by remember { mutableStateOf(false) }
 
     val appearance by viewModel.honeycombAppearance.collectAsStateWithLifecycle()
+    val completionSound by viewModel.completionSoundEnabled.collectAsStateWithLifecycle()
+    val completionVibration by viewModel.completionVibrationEnabled.collectAsStateWithLifecycle()
+    val completionAnimation by viewModel.completionAnimationEnabled.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -624,6 +628,99 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
+        // Task Completion Feedback Card
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("task_completion_feedback_card")
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Task Feedback",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Task Completion Feedback",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Immediate sensory feedback when marking tasks complete across all screens.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Sound Toggle
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = "Completion Sound", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        Text(text = "Pleasant minimal harmonic chime", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(
+                        checked = completionSound,
+                        onCheckedChange = { viewModel.setCompletionSoundEnabled(it) },
+                        modifier = Modifier.testTag("switch_completion_sound")
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Vibration Toggle
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = "Completion Vibration", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        Text(text = "Crisp, subtle haptic tap", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(
+                        checked = completionVibration,
+                        onCheckedChange = { viewModel.setCompletionVibrationEnabled(it) },
+                        modifier = Modifier.testTag("switch_completion_vibration")
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Animation Toggle
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = "Completion Animation", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        Text(text = "Smooth circle fill and checkmark spring effect", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(
+                        checked = completionAnimation,
+                        onCheckedChange = { viewModel.setCompletionAnimationEnabled(it) },
+                        modifier = Modifier.testTag("switch_completion_animation")
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
         // Data & Recovery (Trash Bin + Offline Backup)
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -774,21 +871,23 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Privacy & Architecture Card
+        // Privacy, Architecture & Release Info Card
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("settings_privacy_architecture_card")
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Security, contentDescription = "Security", tint = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "100% Offline Architecture", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text(text = "LifeOS v1.0.0-rc.1 • 100% Offline", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "• Room SQLite database v2 on-device\n• AlarmManager & WorkManager local background scheduling\n• Zero network calls, telemetry SDKs, or cloud dependencies\n• All tasks, habits, and challenge logs stay exclusively on your phone",
+                    text = "• Developed by Kadhiravan\n• Open-source native Android release candidate\n• Room SQLite database v6 (100% on-device)\n• Local AlarmManager & WorkManager background scheduling\n• Zero network calls, telemetry SDKs, analytics, ads, or accounts\n• Complete offline data ownership with JSON backup & restore",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 18.sp

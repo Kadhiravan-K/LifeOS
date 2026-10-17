@@ -385,31 +385,15 @@ fun TaskCard(
                 // Priority-colored Completion Toggle Circle (normal mode)
                 if (!isSelectionMode) {
                     val priorityColor = task.priority.composeColor
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .border(
-                                width = 2.dp,
-                                color = if (task.isCompletedForDate) MaterialTheme.colorScheme.primary else priorityColor,
-                                shape = CircleShape
-                            )
-                            .background(
-                                if (task.isCompletedForDate) MaterialTheme.colorScheme.primary else priorityColor.copy(alpha = 0.12f)
-                            )
-                            .clickable { onToggleComplete() }
-                            .testTag("task_checkbox_${task.id}")
-                    ) {
-                        if (task.isCompletedForDate) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = "Completed",
-                                tint = Color.White,
-                                modifier = Modifier.size(15.dp)
-                            )
-                        }
-                    }
+                    TaskCompletionCircle(
+                        isCompleted = task.isCompletedForDate,
+                        onToggle = onToggleComplete,
+                        activeColor = MaterialTheme.colorScheme.primary,
+                        borderColor = priorityColor,
+                        isAnimationEnabled = true,
+                        size = 24.dp,
+                        modifier = Modifier.testTag("task_checkbox_${task.id}")
+                    )
                 }
             }
 

@@ -188,7 +188,9 @@ object DefaultHoneycombShortcuts {
             targetId = "water",
             title = "Hydration",
             emoji = "💧",
-            orderIndex = 0
+            orderIndex = 0,
+            coordQ = 0,
+            coordR = 0
         ),
         HoneycombShortcut(
             id = 2,
@@ -196,7 +198,9 @@ object DefaultHoneycombShortcuts {
             targetId = "rule_reading",
             title = "Reading",
             emoji = "📖",
-            orderIndex = 1
+            orderIndex = 1,
+            coordQ = 1,
+            coordR = 0
         ),
         HoneycombShortcut(
             id = 3,
@@ -204,7 +208,9 @@ object DefaultHoneycombShortcuts {
             targetId = "Meditation",
             title = "Meditation",
             emoji = "🧘",
-            orderIndex = 2
+            orderIndex = 2,
+            coordQ = 2,
+            coordR = 0
         ),
         HoneycombShortcut(
             id = 4,
@@ -212,7 +218,9 @@ object DefaultHoneycombShortcuts {
             targetId = "rule_workout_1",
             title = "Exercise",
             emoji = "🏃",
-            orderIndex = 3
+            orderIndex = 3,
+            coordQ = 0,
+            coordR = 1
         ),
         HoneycombShortcut(
             id = 5,
@@ -220,7 +228,9 @@ object DefaultHoneycombShortcuts {
             targetId = "Yoga",
             title = "Yoga",
             emoji = "☀️",
-            orderIndex = 4
+            orderIndex = 4,
+            coordQ = 1,
+            coordR = 1
         ),
         HoneycombShortcut(
             id = 6,
@@ -228,7 +238,9 @@ object DefaultHoneycombShortcuts {
             targetId = "Make Bed",
             title = "Make Bed",
             emoji = "🛏️",
-            orderIndex = 5
+            orderIndex = 5,
+            coordQ = 0,
+            coordR = 2
         ),
         HoneycombShortcut(
             id = 7,
@@ -236,7 +248,9 @@ object DefaultHoneycombShortcuts {
             targetId = "Career Learning",
             title = "Career Learning",
             emoji = "💼",
-            orderIndex = 6
+            orderIndex = 6,
+            coordQ = 1,
+            coordR = 2
         ),
         HoneycombShortcut(
             id = 8,
@@ -244,7 +258,9 @@ object DefaultHoneycombShortcuts {
             targetId = "Clean room",
             title = "Cleaning",
             emoji = "🏠",
-            orderIndex = 7
+            orderIndex = 7,
+            coordQ = 2,
+            coordR = 2
         ),
         HoneycombShortcut(
             id = 9,
@@ -252,7 +268,9 @@ object DefaultHoneycombShortcuts {
             targetId = "Sleep Protection",
             title = "Sleep Routine",
             emoji = "🌙",
-            orderIndex = 8
+            orderIndex = 8,
+            coordQ = 0,
+            coordR = 3
         ),
         HoneycombShortcut(
             id = 10,
@@ -260,7 +278,9 @@ object DefaultHoneycombShortcuts {
             targetId = "Daily Planning",
             title = "Daily Planning",
             emoji = "📅",
-            orderIndex = 9
+            orderIndex = 9,
+            coordQ = 1,
+            coordR = 3
         )
     )
 }

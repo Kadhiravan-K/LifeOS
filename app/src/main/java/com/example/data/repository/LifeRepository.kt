@@ -250,25 +250,30 @@ class LifeRepository(
      * Toggles completion for a task on a specific date.
      * Completing today does NOT complete future occurrences of recurring tasks.
      */
-    suspend fun toggleTaskCompletion(taskId: Long, dateIso: String) {
-        val entity = taskDao.getTaskById(taskId) ?: return
+    suspend fun toggleTaskCompletion(taskId: Long, dateIso: String): Boolean? {
+        val entity = taskDao.getTaskById(taskId) ?: return null
         val currentCompletedDates = JsonMappers.parseStringList(entity.completedDatesJson).toMutableSet()
         val recurrenceType = RecurrenceType.fromString(entity.recurrenceType)
 
         val newOneTimeCompleted: Boolean
+        val isNowCompleted: Boolean
         if (recurrenceType == RecurrenceType.NONE) {
             if (entity.isOneTimeCompleted) {
                 newOneTimeCompleted = false
+                isNowCompleted = false
                 currentCompletedDates.remove(dateIso)
             } else {
                 newOneTimeCompleted = true
+                isNowCompleted = true
                 currentCompletedDates.add(dateIso)
             }
         } else {
             newOneTimeCompleted = false
             if (currentCompletedDates.contains(dateIso)) {
+                isNowCompleted = false
                 currentCompletedDates.remove(dateIso)
             } else {
+                isNowCompleted = true
                 currentCompletedDates.add(dateIso)
             }
         }
@@ -278,6 +283,7 @@ class LifeRepository(
             completedDatesJson = JsonMappers.serializeStringList(currentCompletedDates)
         )
         taskDao.updateTask(updatedEntity)
+        return isNowCompleted
     }
 
     suspend fun toggleSubtask(taskId: Long, subtaskId: String) {
@@ -1073,17 +1079,27 @@ class LifeRepository(
     suspend fun seedDefaultHoneycombShortcuts() {
         val existing = honeycombShortcutDao.getAllShortcutsList()
         if (existing.isEmpty()) {
+            val coords = HoneycombLayoutTemplate.generateCoordinates(HoneycombLayoutTemplate.STANDARD, DefaultHoneycombShortcuts.list.size)
             val entities = DefaultHoneycombShortcuts.list.mapIndexed { index, item ->
-                item.copy(orderIndex = index).toEntity()
+                val (q, r) = coords.getOrElse(index) { Pair(index % 3, index / 3) }
+                item.copy(orderIndex = index, coordQ = q, coordR = r).toEntity()
             }
             honeycombShortcutDao.insertShortcuts(entities)
+        } else if (existing.size > 1 && existing.all { it.coordQ == 0 && it.coordR == 0 }) {
+            val coords = HoneycombLayoutTemplate.generateCoordinates(HoneycombLayoutTemplate.STANDARD, existing.size)
+            existing.forEachIndexed { index, entity ->
+                val (q, r) = coords.getOrElse(index) { Pair(index % 3, index / 3) }
+                honeycombShortcutDao.updateCoords(entity.id, q, r, entity.orderIndex)
+            }
         }
     }
 
     suspend fun resetHoneycombShortcutsToDefault() {
         honeycombShortcutDao.clearAllShortcuts()
+        val coords = HoneycombLayoutTemplate.generateCoordinates(HoneycombLayoutTemplate.STANDARD, DefaultHoneycombShortcuts.list.size)
         val entities = DefaultHoneycombShortcuts.list.mapIndexed { index, item ->
-            item.copy(orderIndex = index).toEntity()
+            val (q, r) = coords.getOrElse(index) { Pair(index % 3, index / 3) }
+            item.copy(orderIndex = index, coordQ = q, coordR = r).toEntity()
         }
         honeycombShortcutDao.insertShortcuts(entities)
     }
