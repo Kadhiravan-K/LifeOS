@@ -43,13 +43,13 @@ class MaintenanceWorker(
 
             // Verify and schedule reminders for today and tomorrow
             val tasksToday = repository.getTasksForDateFlow(todayIso).first()
-            tasksToday.filter { it.isReminderEnabled && !it.isCompletedForDate }.forEach { task ->
-                NotificationHelper.scheduleTaskAlarm(applicationContext, task, todayIso)
+            tasksToday.filter { (it.isReminderEnabled || it.reminders.isNotEmpty()) && !it.isCompletedForDate }.forEach { task ->
+                NotificationHelper.scheduleAllTaskReminders(applicationContext, task, todayIso)
             }
 
             val tasksTomorrow = repository.getTasksForDateFlow(tomorrowIso).first()
-            tasksTomorrow.filter { it.isReminderEnabled }.forEach { task ->
-                NotificationHelper.scheduleTaskAlarm(applicationContext, task, tomorrowIso)
+            tasksTomorrow.filter { it.isReminderEnabled || it.reminders.isNotEmpty() }.forEach { task ->
+                NotificationHelper.scheduleAllTaskReminders(applicationContext, task, tomorrowIso)
             }
 
             Result.success()

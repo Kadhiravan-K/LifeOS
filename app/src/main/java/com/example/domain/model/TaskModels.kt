@@ -1,14 +1,36 @@
 package com.example.domain.model
 
-enum class TaskPriority(val displayName: String, val level: Int) {
-    LOW("Low", 1),
-    MEDIUM("Medium", 2),
-    HIGH("High", 3),
-    URGENT("Urgent", 4);
+import androidx.compose.ui.graphics.Color
+
+enum class TaskPriority(
+    val code: String,
+    val displayName: String,
+    val level: Int,
+    val colorHex: Long
+) {
+    URGENT("P1", "P1 (Urgent)", 4, 0xFFDB4035L),
+    HIGH("P2", "P2 (High)", 3, 0xFFFF9933L),
+    MEDIUM("P3", "P3 (Medium)", 2, 0xFF4073FFL),
+    LOW("P4", "P4 (Low)", 1, 0xFF808080L);
+
+    val composeColor: Color get() = Color(colorHex)
 
     companion object {
+        val P1 = URGENT
+        val P2 = HIGH
+        val P3 = MEDIUM
+        val P4 = LOW
+
+        val allPriorities: List<TaskPriority> = listOf(P1, P2, P3, P4)
+
         fun fromString(value: String): TaskPriority {
-            return entries.firstOrNull { it.name.equals(value, ignoreCase = true) } ?: MEDIUM
+            return when (value.uppercase()) {
+                "P1", "URGENT" -> URGENT
+                "P2", "HIGH" -> HIGH
+                "P3", "MEDIUM" -> MEDIUM
+                "P4", "LOW" -> LOW
+                else -> MEDIUM
+            }
         }
     }
 }
@@ -25,6 +47,7 @@ enum class RecurrenceType(val displayName: String) {
     EVERY_N_MONTHS("Every N months"),
     EVERY_6_MONTHS("Every 6 months"),
     YEARLY("Every year"),
+    EVERY_N_YEARS("Every N years"),
     CUSTOM("Custom");
 
     companion object {
@@ -68,20 +91,129 @@ data class Subtask(
     val isCompleted: Boolean = false
 )
 
+data class ProjectItem(
+    val id: Long = 0,
+    val name: String,
+    val description: String = "",
+    val colorId: String = "blue",
+    val emoji: String = "📁",
+    val isFavorite: Boolean = false,
+    val isArchived: Boolean = false,
+    val orderIndex: Int = 0,
+    val taskCount: Int = 0,
+    val completedCount: Int = 0,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+) {
+    val hexColor: String get() = TodoistColorPalette.getColorHex(colorId)
+    val composeColor: Color get() = Color(TodoistColorPalette.getColorLong(colorId))
+}
+
+data class LabelItem(
+    val id: Long = 0,
+    val name: String,
+    val colorId: String = "blue",
+    val isFavorite: Boolean = false,
+    val isArchived: Boolean = false,
+    val orderIndex: Int = 0,
+    val taskCount: Int = 0,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+) {
+    val hexColor: String get() = TodoistColorPalette.getColorHex(colorId)
+    val composeColor: Color get() = Color(TodoistColorPalette.getColorLong(colorId))
+}
+
+enum class SchedulingMode {
+    DURATION,
+    DEADLINE;
+
+    companion object {
+        fun fromString(value: String?): SchedulingMode {
+            return when (value?.uppercase()) {
+                "DEADLINE" -> DEADLINE
+                else -> DURATION
+            }
+        }
+    }
+}
+
+enum class DurationUnit(val displayName: String, val singularName: String) {
+    MINUTES("minutes", "minute"),
+    HOURS("hours", "hour"),
+    DAYS("days", "day"),
+    WEEKS("weeks", "week"),
+    MONTHS("months", "month"),
+    QUARTERS("quarters", "quarter"),
+    YEARS("years", "year");
+
+    companion object {
+        fun fromString(value: String?): DurationUnit {
+            return when (value?.uppercase()) {
+                "HOURS" -> HOURS
+                "DAYS" -> DAYS
+                "WEEKS" -> WEEKS
+                "MONTHS" -> MONTHS
+                "QUARTERS" -> QUARTERS
+                "YEARS" -> YEARS
+                else -> MINUTES
+            }
+        }
+    }
+}
+
+data class TaskReminderItem(
+    val id: Long = 0,
+    val taskId: Long = 0,
+    val minutesBefore: Int = 0, // 0 = at time, 15 = 15m before, etc.
+    val customTime: String? = null,
+    val type: String = "OFFSET", // "OFFSET" or "SPECIFIC_TIME"
+    val referenceType: String = "START_TIME", // "START_TIME" or "DEADLINE"
+    val isEnabled: Boolean = true,
+    val createdAt: Long = System.currentTimeMillis()
+) {
+    val displayLabel: String
+        get() = when {
+            type == "SPECIFIC_TIME" && !customTime.isNullOrBlank() -> "At $customTime"
+            minutesBefore == 0 -> if (referenceType == "DEADLINE") "At deadline" else "At time of task"
+            minutesBefore == 5 -> "5 minutes before"
+            minutesBefore == 10 -> "10 minutes before"
+            minutesBefore == 15 -> "15 minutes before"
+            minutesBefore == 30 -> "30 minutes before"
+            minutesBefore == 45 -> "45 minutes before"
+            minutesBefore == 60 -> "1 hour before"
+            minutesBefore == 120 -> "2 hours before"
+            minutesBefore == 1440 -> "1 day before"
+            minutesBefore == 2880 -> "2 days before"
+            minutesBefore % 1440 == 0 -> "${minutesBefore / 1440} days before"
+            minutesBefore % 60 == 0 -> "${minutesBefore / 60} hours before"
+            else -> "$minutesBefore minutes before"
+        }
+}
+
 data class TaskItem(
     val id: Long = 0,
     val title: String,
-    val emoji: String = "✅",
+    val emoji: String = "",
     val description: String = "",
     val category: String = "Habits & Daily Routine",
     val priority: TaskPriority = TaskPriority.MEDIUM,
     val dueDateIso: String, // "YYYY-MM-DD"
     val dueTime: String? = null, // "HH:mm"
-    val durationMinutes: Int = 30, // Duration in minutes (default 30)
+    val durationMinutes: Int = 30, // Duration in elapsed minutes (default 30)
+    val schedulingMode: SchedulingMode = SchedulingMode.DURATION,
+    val durationAmount: Int = 30,
+    val durationUnit: DurationUnit = DurationUnit.MINUTES,
+    val deadlineIso: String? = null,
+    val deadlineTime: String? = null,
+    val isAllDay: Boolean = true,
     val recurrenceType: RecurrenceType = RecurrenceType.NONE,
-    val recurrenceInterval: Int = 1, // For EVERY_N_DAYS, EVERY_N_WEEKS, EVERY_N_MONTHS
+    val recurrenceInterval: Int = 1, // For EVERY_N_DAYS, EVERY_N_WEEKS, etc.
+    val recurrenceUnit: String = "DAYS", // "DAYS", "WEEKS", "MONTHS", "YEARS"
     val recurrenceDaysOfWeek: List<String> = emptyList(), // e.g. ["TUESDAY", "THURSDAY", "SUNDAY"]
+    val recurrenceEndCondition: String = "NEVER", // "NEVER", "ON_DATE", "AFTER_COUNT"
     val recurrenceEndDateIso: String? = null, // Optional end date for recurrence
+    val recurrenceCount: Int = 1, // Optional occurrence count limit for recurrence
     val isCompletedForDate: Boolean = false, // Dynamically computed for query date
     val isOneTimeCompleted: Boolean = false, // Base DB flag for one-time tasks
     val completedDates: Set<String> = emptySet(), // Set of "YYYY-MM-DD"
@@ -93,5 +225,10 @@ data class TaskItem(
     val reminderMinutesBefore: Int = 0,
     val isArchived: Boolean = false,
     val isPaused: Boolean = false,
+    val projectId: Long? = null,
+    val projectName: String? = null,
+    val projectColorId: String? = null,
+    val labels: List<LabelItem> = emptyList(),
+    val reminders: List<TaskReminderItem> = emptyList(),
     val createdAt: Long = System.currentTimeMillis()
 )

@@ -88,7 +88,7 @@ fun MainScreen(
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .testTag("bottom_navigation_bar")
             ) {
-                NavigationItem.entries.forEach { item ->
+                NavigationItem.bottomNavItems.forEach { item ->
                     val isSelected = currentItem == item
                     NavigationBarItem(
                         selected = isSelected,
@@ -198,7 +198,9 @@ fun MainScreen(
                         NavigationItem.TASKS -> {
                             TasksScreen(
                                 viewModel = viewModel,
-                                uiState = tasksState
+                                uiState = tasksState,
+                                onNavigateToHabits = { currentItem = NavigationItem.HABITS },
+                                onNavigateToChallenge = { currentItem = NavigationItem.CHALLENGE }
                             )
                         }
 
@@ -210,6 +212,7 @@ fun MainScreen(
                         }
 
                         NavigationItem.HABITS -> {
+                            BackHandler { currentItem = NavigationItem.TASKS }
                             HabitsScreen(
                                 viewModel = viewModel,
                                 uiState = habitsState
@@ -217,6 +220,7 @@ fun MainScreen(
                         }
 
                         NavigationItem.CHALLENGE -> {
+                            BackHandler { currentItem = NavigationItem.TASKS }
                             ChallengeScreen(
                                 viewModel = viewModel,
                                 challenge = challengeState

@@ -10,15 +10,19 @@ import com.example.data.repository.LifeRepository
 import com.example.domain.model.ChallengePreset
 import com.example.domain.model.ChallengeRule
 import com.example.domain.model.ChallengeState
+import com.example.domain.model.ColorOrderingMode
 import com.example.domain.model.DefaultHoneycombShortcuts
 import com.example.domain.model.HabitItem
 import com.example.domain.model.HoneycombAppearanceConfig
 import com.example.domain.model.HoneycombShortcut
+import com.example.domain.model.LabelItem
+import com.example.domain.model.ProjectItem
 import com.example.domain.model.RecurrenceType
 import com.example.domain.model.ShortcutType
 import com.example.domain.model.Subtask
 import com.example.domain.model.TaskItem
 import com.example.domain.model.TaskPriority
+import com.example.domain.model.TaskReminderItem
 import com.example.domain.schedule.ScheduleConflict
 import com.example.domain.schedule.ScheduleConflictEngine
 import com.example.notifications.NotificationHelper
@@ -28,6 +32,17 @@ import com.example.ui.theme.engine.ThemeId
 import com.example.ui.theme.engine.ThemeRegistry
 import com.example.ui.theme.engine.PremiumEntitlementRepository
 import com.example.ui.theme.engine.LocalPremiumEntitlementRepository
+import com.example.domain.model.PlanItem
+import com.example.domain.model.PlanLevel
+import com.example.domain.model.PlanMilestone
+import com.example.domain.model.TrashItem
+import com.example.domain.model.GamificationProfile
+import com.example.domain.model.HunterRank
+import com.example.domain.model.AchievementItem
+import com.example.domain.model.RewardItem
+import com.example.domain.model.HoneycombLayoutTemplate
+import com.example.data.backup.DataExportImportManager
+import com.example.data.local.AppDatabase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -72,13 +87,17 @@ data class DashboardUiState(
 data class TasksUiState(
     val allTasks: List<TaskItem> = emptyList(),
     val filteredTasks: List<TaskItem> = emptyList(),
-    val selectedFilter: String = "All", // "All", "Today", "Upcoming", "Completed", "Archived"
+    val selectedFilter: String = "All", // "Inbox", "Today", "Upcoming", "Projects", "Labels", "Completed", "Archived"
     val selectedCategory: String? = null,
+    val selectedProjectId: Long? = null,
+    val selectedLabelId: Long? = null,
     val searchQuery: String = "",
     val selectedSort: String = "Priority", // "Priority", "Due Date", "Title"
     val selectedDateIso: String = DateUtils.todayString(),
     val isSelectionMode: Boolean = false,
-    val selectedTaskIds: Set<Long> = emptySet()
+    val selectedTaskIds: Set<Long> = emptySet(),
+    val projects: List<ProjectItem> = emptyList(),
+    val labels: List<LabelItem> = emptyList()
 )
 
 data class CalendarUiState(
@@ -86,9 +105,10 @@ data class CalendarUiState(
     val currentMonthZeroIndexed: Int = DateUtils.getMonthZeroIndexed(DateUtils.todayString()),
     val currentYear: Int = DateUtils.getYear(DateUtils.todayString()),
     val monthYearTitle: String = "",
-    val viewMode: String = "MONTH", // "MONTH", "WEEK"
+    val viewMode: String = "MONTH", // "DAY", "THREE_DAY", "WEEK", "MONTH", "AGENDA"
     val monthGridDates: List<String> = emptyList(),
     val weekDates: List<String> = emptyList(),
+    val threeDayDates: List<String> = emptyList(),
     val tasksOnSelectedDate: List<TaskItem> = emptyList(),
     val conflictsOnSelectedDate: List<ScheduleConflict> = emptyList(),
     val selectedCategoryFilter: String? = null,
@@ -113,6 +133,8 @@ private data class UserDashboardPrefs(
 private data class TaskFilterParams(
     val filter: String,
     val category: String?,
+    val projectId: Long?,
+    val labelId: Long?,
     val query: String,
     val sort: String,
     val isSelectionMode: Boolean,
@@ -130,6 +152,9 @@ class LifeViewModel(
     init {
         viewModelScope.launch {
             repository.seedDefaultHoneycombShortcuts()
+            repository.seedDefaultProjectsAndLabels()
+            repository.seedDefaultGamification()
+            repository.cleanupExpiredTrash()
         }
     }
 
@@ -139,6 +164,12 @@ class LifeViewModel(
 
     private val _taskFilter = MutableStateFlow("All")
     val taskFilter: StateFlow<String> = _taskFilter.asStateFlow()
+
+    private val _taskProjectIdFilter = MutableStateFlow<Long?>(null)
+    val taskProjectIdFilter: StateFlow<Long?> = _taskProjectIdFilter.asStateFlow()
+
+    private val _taskLabelIdFilter = MutableStateFlow<Long?>(null)
+    val taskLabelIdFilter: StateFlow<Long?> = _taskLabelIdFilter.asStateFlow()
 
     private val _taskCategoryFilter = MutableStateFlow<String?>(null)
     val taskCategoryFilter: StateFlow<String?> = _taskCategoryFilter.asStateFlow()
@@ -194,6 +225,51 @@ class LifeViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = com.example.data.local.entities.WaterLogEntity(dateIso = todayIso, amountMl = 0)
+    )
+
+    // --- Projects & Labels Flows ---
+    val allProjects: StateFlow<List<ProjectItem>> = repository.allProjectsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val allLabels: StateFlow<List<LabelItem>> = repository.allLabelsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val archivedProjects: StateFlow<List<ProjectItem>> = repository.archivedProjectsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val archivedLabels: StateFlow<List<LabelItem>> = repository.archivedLabelsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val colorOrderingMode: StateFlow<ColorOrderingMode> = preferences.colorOrderingMode.map { modeStr: String ->
+        ColorOrderingMode.fromString(modeStr)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ColorOrderingMode.AUTO
+    )
+
+    val colorUsageCounts: StateFlow<Map<String, Int>> = preferences.colorUsageCounts.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyMap()
+    )
+
+    val colorCustomOrder: StateFlow<List<String>> = preferences.colorCustomOrder.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
     )
 
     // --- Preferences Flows ---
@@ -399,12 +475,10 @@ class LifeViewModel(
     }
 
     private val filterParamsFlow = combine(
-        _taskFilter,
-        _taskCategoryFilter,
-        _taskSearchQuery,
-        _taskSort
-    ) { f, c, q, s ->
-        TaskFilterParams(f, c, q, s, _isSelectionMode.value, _selectedTaskIds.value)
+        combine(_taskFilter, _taskCategoryFilter, _taskProjectIdFilter) { f, c, p -> Triple(f, c, p) },
+        combine(_taskLabelIdFilter, _taskSearchQuery, _taskSort) { l, q, s -> Triple(l, q, s) }
+    ) { (f, c, p), (l, q, s) ->
+        TaskFilterParams(f, c, p, l, q, s, _isSelectionMode.value, _selectedTaskIds.value)
     }
 
     // --- Dashboard UI State ---
@@ -536,16 +610,19 @@ class LifeViewModel(
     val tasksUiState: StateFlow<TasksUiState> = combine(
         todayTasks,
         allTasks,
-        filterParamsFlow,
-        _isSelectionMode,
-        _selectedTaskIds
-    ) { todayList, fullList, params, isSel, selIds ->
-        val baseList = when (params.filter) {
-            "Today" -> todayList.filter { !it.isArchived }
-            "Completed" -> todayList.filter { it.isCompletedForDate && !it.isArchived }
-            "Upcoming" -> fullList.filter { !it.isCompletedForDate && !it.isArchived }
-            "Archived" -> fullList.filter { it.isArchived }
-            else -> todayList.filter { !it.isArchived }.ifEmpty { fullList.filter { !it.isArchived } }
+        allProjects,
+        allLabels,
+        filterParamsFlow
+    ) { todayList, fullList, projectsList, labelsList, params ->
+        val baseList = when {
+            params.projectId != null -> fullList.filter { it.projectId == params.projectId && !it.isArchived }
+            params.labelId != null -> fullList.filter { it.labels.any { lbl -> lbl.id == params.labelId } && !it.isArchived }
+            params.filter == "Inbox" -> fullList.filter { it.projectId == null && !it.isArchived }
+            params.filter == "Today" -> todayList.filter { !it.isArchived }
+            params.filter == "Upcoming" -> fullList.filter { it.dueDateIso > todayIso && !it.isCompletedForDate && !it.isArchived }
+            params.filter == "Completed" -> fullList.filter { (it.isCompletedForDate || it.isOneTimeCompleted) && !it.isArchived }
+            params.filter == "Archived" -> fullList.filter { it.isArchived }
+            else -> fullList.filter { !it.isArchived }
         }
 
         var filtered = baseList
@@ -554,7 +631,10 @@ class LifeViewModel(
         }
         if (params.query.isNotBlank()) {
             filtered = filtered.filter {
-                it.title.contains(params.query, ignoreCase = true) || it.description.contains(params.query, ignoreCase = true)
+                it.title.contains(params.query, ignoreCase = true) ||
+                it.description.contains(params.query, ignoreCase = true) ||
+                (it.projectName?.contains(params.query, ignoreCase = true) == true) ||
+                it.labels.any { l -> l.name.contains(params.query, ignoreCase = true) }
             }
         }
 
@@ -570,11 +650,15 @@ class LifeViewModel(
             filteredTasks = filtered,
             selectedFilter = params.filter,
             selectedCategory = params.category,
+            selectedProjectId = params.projectId,
+            selectedLabelId = params.labelId,
             searchQuery = params.query,
             selectedSort = params.sort,
             selectedDateIso = todayIso,
-            isSelectionMode = isSel,
-            selectedTaskIds = selIds
+            isSelectionMode = params.isSelectionMode,
+            selectedTaskIds = params.selectedIds,
+            projects = projectsList,
+            labels = labelsList
         )
     }.stateIn(
         scope = viewModelScope,
@@ -594,8 +678,9 @@ class LifeViewModel(
         val monthTitle = DateUtils.formatMonthYear(year, month)
         val monthGrid = DateUtils.getMonthCalendarGrid(year, month, firstDay)
         val weekGrid = DateUtils.getWeekDays(selDate, firstDay)
-        Pair(monthTitle, Pair(monthGrid, weekGrid))
-    }.flatMapLatest { (title, grids) ->
+        val threeDays = listOf(selDate, DateUtils.addDays(selDate, 1), DateUtils.addDays(selDate, 2))
+        Triple(monthTitle, Pair(monthGrid, weekGrid), threeDays)
+    }.flatMapLatest { (title, grids, threeDays) ->
         val (monthGrid, weekGrid) = grids
         val selDate = _calendarSelectedDate.value
         repository.getTasksForDateFlow(selDate).map { tasksOnDate ->
@@ -631,6 +716,7 @@ class LifeViewModel(
                 viewMode = _calendarViewMode.value,
                 monthGridDates = monthGrid,
                 weekDates = weekGrid,
+                threeDayDates = threeDays,
                 tasksOnSelectedDate = filtered,
                 conflictsOnSelectedDate = allConflicts.distinctBy { it.message },
                 selectedCategoryFilter = _calendarCategoryFilter.value,
@@ -675,6 +761,10 @@ class LifeViewModel(
         viewModelScope.launch {
             repository.toggleTaskCompletion(taskId, dateIso)
         }
+    }
+
+    fun toggleTask(taskId: Long, dateIso: String = todayIso) {
+        toggleTaskCompletion(taskId, dateIso)
     }
 
     fun toggleSubtask(taskId: Long, subtaskId: String) {
@@ -924,8 +1014,138 @@ class LifeViewModel(
         _taskSearchQuery.value = query
     }
 
-    fun setTaskFilter(filter: String) {
+    fun setTaskFilter(filter: String, projectId: Long? = null, labelId: Long? = null) {
         _taskFilter.value = filter
+        _taskProjectIdFilter.value = projectId
+        _taskLabelIdFilter.value = labelId
+    }
+
+    fun selectProject(projectId: Long?) {
+        _taskProjectIdFilter.value = projectId
+        _taskLabelIdFilter.value = null
+        _taskFilter.value = if (projectId != null) "Projects" else "All"
+    }
+
+    fun selectLabel(labelId: Long?) {
+        _taskLabelIdFilter.value = labelId
+        _taskProjectIdFilter.value = null
+        _taskFilter.value = if (labelId != null) "Labels" else "All"
+    }
+
+    // --- Phase 3A Project CRUD Operations ---
+    fun insertProject(project: ProjectItem, onComplete: ((Long) -> Unit)? = null) {
+        viewModelScope.launch {
+            val id = repository.insertProject(project)
+            onComplete?.invoke(id)
+        }
+    }
+
+    fun updateProject(project: ProjectItem) {
+        viewModelScope.launch {
+            repository.updateProject(project)
+        }
+    }
+
+    fun setProjectArchived(projectId: Long, isArchived: Boolean) {
+        viewModelScope.launch {
+            repository.setProjectArchived(projectId, isArchived)
+        }
+    }
+
+    fun setProjectFavorite(projectId: Long, isFavorite: Boolean) {
+        viewModelScope.launch {
+            repository.setProjectFavorite(projectId, isFavorite)
+        }
+    }
+
+    fun deleteProject(projectId: Long) {
+        viewModelScope.launch {
+            if (_taskProjectIdFilter.value == projectId) {
+                _taskProjectIdFilter.value = null
+                _taskFilter.value = "All"
+            }
+            repository.deleteProject(projectId)
+        }
+    }
+
+    // --- Phase 3A Label CRUD Operations ---
+    fun insertLabel(label: LabelItem, onComplete: ((Long) -> Unit)? = null) {
+        viewModelScope.launch {
+            val id = repository.insertLabel(label)
+            onComplete?.invoke(id)
+        }
+    }
+
+    fun updateLabel(label: LabelItem) {
+        viewModelScope.launch {
+            repository.updateLabel(label)
+        }
+    }
+
+    fun setLabelFavorite(labelId: Long, isFavorite: Boolean) {
+        viewModelScope.launch {
+            repository.setLabelFavorite(labelId, isFavorite)
+        }
+    }
+
+    fun deleteLabel(labelId: Long) {
+        viewModelScope.launch {
+            if (_taskLabelIdFilter.value == labelId) {
+                _taskLabelIdFilter.value = null
+                _taskFilter.value = "All"
+            }
+            repository.deleteLabel(labelId)
+        }
+    }
+
+    // --- Phase 3A Color Palette & Ordering Operations ---
+    fun recordColorUsage(colorId: String) {
+        viewModelScope.launch {
+            preferences.recordColorUsage(colorId)
+        }
+    }
+
+    fun setColorOrderingMode(mode: ColorOrderingMode) {
+        viewModelScope.launch {
+            preferences.setColorOrderingMode(mode.name)
+        }
+    }
+
+    fun saveCustomColorOrder(order: List<String>) {
+        viewModelScope.launch {
+            preferences.saveCustomColorOrder(order)
+        }
+    }
+
+    fun resetCustomColorOrder() {
+        viewModelScope.launch {
+            preferences.resetCustomColorOrder()
+        }
+    }
+
+    fun saveTaskItem(task: TaskItem) {
+        viewModelScope.launch {
+            val savedId = if (task.id == 0L) {
+                repository.insertTask(task)
+            } else {
+                repository.updateTask(task)
+                task.id
+            }
+            val fullTask = task.copy(id = savedId)
+            if (fullTask.isReminderEnabled) {
+                val qStart = DateUtils.timeToMinutes(quietHoursStartFlow.value).coerceAtLeast(1260)
+                val qEnd = DateUtils.timeToMinutes(quietHoursEndFlow.value).coerceAtLeast(330)
+                NotificationHelper.scheduleTaskAlarm(
+                    context = getApplication(),
+                    task = fullTask,
+                    dateIso = fullTask.dueDateIso,
+                    quietHoursStartMins = qStart,
+                    quietHoursEndMins = qEnd
+                )
+            } else {
+                NotificationHelper.cancelTaskAlarm(getApplication(), savedId, fullTask.dueDateIso)
+            }
+        }
     }
 
     fun setTaskCategoryFilter(category: String?) {
@@ -1231,6 +1451,116 @@ class LifeViewModel(
         viewModelScope.launch {
             repository.editChallengeRule(ruleId, title, emoji, description)
         }
+    }
+
+    // --- Phase 3 Master: Trash Bin ---
+    val trashItemsFlow: StateFlow<List<TrashItem>> = repository.allTrashItemsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    fun softDeleteTask(task: TaskItem) = viewModelScope.launch { repository.softDeleteTask(task) }
+    fun softDeleteHabit(habit: HabitItem) = viewModelScope.launch { repository.softDeleteHabit(habit) }
+    fun softDeleteProject(project: ProjectItem) = viewModelScope.launch { repository.softDeleteProject(project) }
+    fun softDeleteLabel(label: LabelItem) = viewModelScope.launch { repository.softDeleteLabel(label) }
+    fun restoreTrashItem(id: Long) = viewModelScope.launch { repository.restoreTrashItem(id) }
+    fun deleteTrashItemPermanently(id: Long) = viewModelScope.launch { repository.deleteTrashItemPermanently(id) }
+    fun clearTrash() = viewModelScope.launch { repository.clearTrash() }
+
+    // --- Phase 3 Master: Planning Engine ---
+    val allPlansFlow: StateFlow<List<PlanItem>> = repository.allPlansFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    fun insertPlan(plan: PlanItem, milestoneTitles: List<String>, linkedTaskIds: List<Long>, onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            repository.insertPlan(plan, milestoneTitles, linkedTaskIds)
+            repository.awardXpAndCoins("PLAN_${System.currentTimeMillis()}", 25, 5, "Strategic plan created: ${plan.title}")
+            repository.checkAndUnlockAchievement("PLANNER_INITIATE")
+            onComplete()
+        }
+    }
+
+    fun updatePlan(plan: PlanItem) = viewModelScope.launch { repository.updatePlan(plan) }
+    fun deletePlan(id: Long) = viewModelScope.launch { repository.deletePlan(id) }
+    fun getMilestonesForPlan(planId: Long) = repository.getMilestonesForPlan(planId)
+
+    // --- Phase 3 Master: Gamification & Rewards ---
+    val gamificationProfile: StateFlow<GamificationProfile> = repository.gamificationProfileFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = GamificationProfile()
+    )
+
+    val allAchievements: StateFlow<List<AchievementItem>> = repository.allAchievementsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val activeRewards: StateFlow<List<RewardItem>> = repository.activeRewardsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    fun redeemReward(rewardId: Long, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val success = repository.redeemReward(rewardId)
+            onResult(success)
+        }
+    }
+
+    fun insertReward(title: String, description: String, cost: Int, emoji: String) {
+        viewModelScope.launch {
+            repository.insertReward(RewardItem(title = title, description = description, coinCost = cost, iconEmoji = emoji))
+        }
+    }
+
+    // --- Honeycomb Custom Layouts ---
+    fun applyHoneycombTemplate(template: HoneycombLayoutTemplate) {
+        viewModelScope.launch {
+            repository.applyHoneycombTemplate(template)
+        }
+    }
+
+    fun updateShortcutCoords(id: Long, q: Int, r: Int, orderIndex: Int) {
+        viewModelScope.launch {
+            repository.updateShortcutCoords(id, q, r, orderIndex)
+        }
+    }
+
+    // --- Calendar Date Navigation ---
+    fun previousCalendarDay() {
+        val prev = DateUtils.addDays(_calendarSelectedDate.value, -1)
+        selectCalendarDate(prev)
+    }
+
+    fun nextCalendarDay() {
+        val next = DateUtils.addDays(_calendarSelectedDate.value, 1)
+        selectCalendarDate(next)
+    }
+
+    fun previousCalendarWeek() {
+        val prev = DateUtils.addDays(_calendarSelectedDate.value, -7)
+        selectCalendarDate(prev)
+    }
+
+    fun nextCalendarWeek() {
+        val next = DateUtils.addDays(_calendarSelectedDate.value, 7)
+        selectCalendarDate(next)
+    }
+
+    // --- Backup & Restore ---
+    suspend fun exportDataJson(): String {
+        return DataExportImportManager.exportAllData(AppDatabase.getInstance(getApplication()))
+    }
+
+    suspend fun importDataJson(jsonStr: String): Boolean {
+        return DataExportImportManager.importData(AppDatabase.getInstance(getApplication()), jsonStr)
     }
 }
 

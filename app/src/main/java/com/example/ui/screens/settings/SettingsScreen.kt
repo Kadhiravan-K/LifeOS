@@ -81,12 +81,16 @@ fun SettingsScreen(
     firstDayOfWeek: String,
     defaultDuration: Int,
     onNavigateToThemeGallery: () -> Unit = {},
+    onNavigateToPlanning: () -> Unit = {},
+    onNavigateToGamification: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showEditNameDialog by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf(userName) }
     var showInstallConfirmDialog by remember { mutableStateOf(false) }
     var showScheduleDialog by remember { mutableStateOf(false) }
+    var showTrashBinSheet by remember { mutableStateOf(false) }
+    var showBackupRestoreDialog by remember { mutableStateOf(false) }
 
     var tempWakeUp by remember { mutableStateOf(wakeUpTime) }
     var tempBedTime by remember { mutableStateOf(bedTime) }

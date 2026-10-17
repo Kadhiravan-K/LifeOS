@@ -26,6 +26,9 @@ interface TaskDao {
     @Update
     suspend fun updateTask(task: TaskEntity)
 
+    @Query("SELECT * FROM tasks ORDER BY createdAt DESC")
+    suspend fun getAllTasksList(): List<TaskEntity>
+
     @Query("DELETE FROM tasks WHERE id = :id")
     suspend fun deleteTaskById(id: Long)
 
@@ -37,6 +40,9 @@ interface TaskDao {
 interface HabitDao {
     @Query("SELECT * FROM habits ORDER BY orderIndex ASC, createdAt ASC")
     fun getAllHabits(): Flow<List<HabitEntity>>
+
+    @Query("SELECT * FROM habits ORDER BY orderIndex ASC, createdAt ASC")
+    suspend fun getAllHabitsList(): List<HabitEntity>
 
     @Query("SELECT * FROM habits WHERE id = :id LIMIT 1")
     suspend fun getHabitById(id: Long): HabitEntity?
@@ -106,6 +112,9 @@ interface HoneycombShortcutDao {
 
     @Update
     suspend fun updateShortcut(shortcut: HoneycombShortcutEntity)
+
+    @Query("UPDATE honeycomb_shortcuts SET coordQ = :q, coordR = :r, orderIndex = :orderIndex WHERE id = :id")
+    suspend fun updateCoords(id: Long, q: Int, r: Int, orderIndex: Int)
 
     @Query("DELETE FROM honeycomb_shortcuts WHERE id = :id")
     suspend fun deleteShortcutById(id: Long)

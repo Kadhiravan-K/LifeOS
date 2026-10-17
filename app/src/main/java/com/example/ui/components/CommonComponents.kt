@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditCalendar
@@ -69,34 +70,43 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.border
 import com.example.domain.model.DefaultTaskCategories
 import com.example.domain.model.HabitItem
 import com.example.domain.model.RecurrenceType
+import com.example.domain.model.SchedulingMode
+import com.example.domain.model.DurationUnit
 import com.example.domain.model.TaskItem
 import com.example.domain.model.TaskPriority
+import com.example.domain.model.TodoistColorPalette
 import com.example.utils.DateUtils
 
 @Composable
 fun PriorityBadge(priority: TaskPriority) {
-    val (bgColor, textColor) = when (priority) {
-        TaskPriority.URGENT -> Color(0xFFFEE2E2) to Color(0xFFDC2626)
-        TaskPriority.HIGH -> Color(0xFFFEF3C7) to Color(0xFFD97706)
-        TaskPriority.MEDIUM -> Color(0xFFE0E7FF) to Color(0xFF4F46E5)
-        TaskPriority.LOW -> Color(0xFFF1F5F9) to Color(0xFF475569)
-    }
-
     Surface(
-        color = bgColor,
+        color = priority.composeColor.copy(alpha = 0.15f),
         shape = RoundedCornerShape(6.dp),
-        modifier = Modifier.testTag("priority_badge_${priority.name.lowercase()}")
+        border = androidx.compose.foundation.BorderStroke(1.dp, priority.composeColor.copy(alpha = 0.5f)),
+        modifier = Modifier.testTag("priority_badge_${priority.code.lowercase()}")
     ) {
-        Text(
-            text = priority.displayName,
-            color = textColor,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Flag,
+                contentDescription = null,
+                tint = priority.composeColor,
+                modifier = Modifier.size(11.dp)
+            )
+            Spacer(modifier = Modifier.width(3.dp))
+            Text(
+                text = priority.code,
+                color = priority.composeColor,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
     }
 }
 
@@ -193,17 +203,18 @@ fun TaskCard(
                     )
                 }
 
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Text(text = task.emoji, fontSize = 20.sp)
+                if (task.emoji.isNotBlank()) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
+                    ) {
+                        Text(text = task.emoji, fontSize = 20.sp)
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
                 }
-
-                Spacer(modifier = Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -238,13 +249,46 @@ fun TaskCard(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Meta chips row
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
+                    // Meta chips row (Category, Project, Labels, Recurrence, Time, Reminders)
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         CategoryChip(categoryName = task.category)
+
+                        if (!task.projectName.isNullOrBlank()) {
+                            val projColorObj = task.projectColorId?.let { TodoistColorPalette.getColorById(it) }
+                            val projComposeColor = if (projColorObj != null) Color(projColorObj.colorLong) else MaterialTheme.colorScheme.primary
+                            Surface(
+                                color = projComposeColor.copy(alpha = 0.12f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "📁 ${task.projectName}",
+                                    fontSize = 11.sp,
+                                    color = projComposeColor,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        task.labels.forEach { label ->
+                            Surface(
+                                color = label.composeColor.copy(alpha = 0.12f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "#${label.name}",
+                                    fontSize = 11.sp,
+                                    color = label.composeColor,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
 
                         if (task.recurrenceType != RecurrenceType.NONE) {
                             Surface(
@@ -275,17 +319,49 @@ fun TaskCard(
                             }
                         }
 
-                        if (!task.dueTime.isNullOrBlank()) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text(
-                                    text = "⏰ ${task.dueTime} (${task.durationMinutes}m)",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
+                        if (task.schedulingMode == SchedulingMode.DEADLINE) {
+                            if (task.deadlineIso != null) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    val timeStr = if (!task.deadlineTime.isNullOrBlank()) " at ${task.deadlineTime}" else ""
+                                    Text(
+                                        text = "⏳ Due ${DateUtils.formatDisplayDate(task.deadlineIso)}$timeStr",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            if (!task.dueTime.isNullOrBlank()) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    val durLabel = if (task.durationAmount == 1) task.durationUnit.singularName else task.durationUnit.displayName
+                                    Text(
+                                        text = "⏰ ${task.dueTime} (${task.durationAmount} $durLabel)",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            } else if (task.durationAmount > 0 && task.durationUnit != DurationUnit.MINUTES) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    val durLabel = if (task.durationAmount == 1) task.durationUnit.singularName else task.durationUnit.displayName
+                                    Text(
+                                        text = "⏱️ ${task.durationAmount} $durLabel",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
                             }
                         }
 
@@ -306,17 +382,34 @@ fun TaskCard(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Completion Toggle Checkbox (normal mode)
+                // Priority-colored Completion Toggle Circle (normal mode)
                 if (!isSelectionMode) {
-                    Checkbox(
-                        checked = task.isCompletedForDate,
-                        onCheckedChange = { onToggleComplete() },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = MaterialTheme.colorScheme.primary,
-                            uncheckedColor = MaterialTheme.colorScheme.outline
-                        ),
-                        modifier = Modifier.testTag("task_checkbox_${task.id}")
-                    )
+                    val priorityColor = task.priority.composeColor
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .border(
+                                width = 2.dp,
+                                color = if (task.isCompletedForDate) MaterialTheme.colorScheme.primary else priorityColor,
+                                shape = CircleShape
+                            )
+                            .background(
+                                if (task.isCompletedForDate) MaterialTheme.colorScheme.primary else priorityColor.copy(alpha = 0.12f)
+                            )
+                            .clickable { onToggleComplete() }
+                            .testTag("task_checkbox_${task.id}")
+                    ) {
+                        if (task.isCompletedForDate) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Completed",
+                                tint = Color.White,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    }
                 }
             }
 

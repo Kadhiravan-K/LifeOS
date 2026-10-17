@@ -41,6 +41,11 @@ class UserPreferences(private val context: Context) {
         val KEY_HONEYCOMB_SPACING = intPreferencesKey("honeycomb_spacing")
         val KEY_HONEYCOMB_ICON_SIZE = intPreferencesKey("honeycomb_icon_size")
         val KEY_HONEYCOMB_ANIMATION = booleanPreferencesKey("honeycomb_animation")
+
+        // Phase 3A Color Picker Preferences
+        val KEY_COLOR_ORDERING_MODE = stringPreferencesKey("color_ordering_mode")
+        val KEY_COLOR_USAGE_COUNTS = stringPreferencesKey("color_usage_counts")
+        val KEY_COLOR_CUSTOM_ORDER = stringPreferencesKey("color_custom_order")
     }
 
     val userName: Flow<String> = context.dataStore.data.map { preferences ->
@@ -237,5 +242,55 @@ class UserPreferences(private val context: Context) {
             it[KEY_HONEYCOMB_ICON_SIZE] = 26
             it[KEY_HONEYCOMB_ANIMATION] = true
         }
+    }
+
+    // Phase 3A Color Picker Flows & Helpers
+    val colorOrderingMode: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[KEY_COLOR_ORDERING_MODE] ?: "AUTO"
+    }
+
+    val colorUsageCounts: Flow<Map<String, Int>> = context.dataStore.data.map { preferences ->
+        val raw = preferences[KEY_COLOR_USAGE_COUNTS] ?: ""
+        parseUsageCounts(raw)
+    }
+
+    val colorCustomOrder: Flow<List<String>> = context.dataStore.data.map { preferences ->
+        val raw = preferences[KEY_COLOR_CUSTOM_ORDER] ?: ""
+        if (raw.isBlank()) emptyList() else raw.split(",").map { it.trim() }
+    }
+
+    suspend fun setColorOrderingMode(mode: String) {
+        context.dataStore.edit { it[KEY_COLOR_ORDERING_MODE] = mode }
+    }
+
+    suspend fun recordColorUsage(colorId: String) {
+        context.dataStore.edit { prefs ->
+            val currentRaw = prefs[KEY_COLOR_USAGE_COUNTS] ?: ""
+            val map = parseUsageCounts(currentRaw).toMutableMap()
+            map[colorId] = (map[colorId] ?: 0) + 1
+            prefs[KEY_COLOR_USAGE_COUNTS] = map.entries.joinToString(",") { "${it.key}:${it.value}" }
+        }
+    }
+
+    suspend fun saveCustomColorOrder(order: List<String>) {
+        context.dataStore.edit {
+            it[KEY_COLOR_CUSTOM_ORDER] = order.joinToString(",")
+        }
+    }
+
+    suspend fun resetCustomColorOrder() {
+        context.dataStore.edit {
+            it.remove(KEY_COLOR_CUSTOM_ORDER)
+        }
+    }
+
+    private fun parseUsageCounts(raw: String): Map<String, Int> {
+        if (raw.isBlank()) return emptyMap()
+        return raw.split(",").mapNotNull { part ->
+            val pieces = part.split(":")
+            if (pieces.size == 2) {
+                pieces[0].trim() to (pieces[1].trim().toIntOrNull() ?: 0)
+            } else null
+        }.toMap()
     }
 }

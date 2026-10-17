@@ -75,6 +75,11 @@ import kotlin.math.hypot
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.FilterChip
+import com.example.domain.model.HoneycombLayoutTemplate
+
 /**
  * Reusable Honeycomb Task Grid component.
  * Renders interactive hexagonal cells with thick rounded borders, compact interlocking layout,
@@ -92,6 +97,7 @@ fun HoneycombTaskGrid(
     onAddShortcutClick: () -> Unit,
     onResetLayoutClick: () -> Unit,
     onDoneEditClick: () -> Unit,
+    onApplyTemplate: ((HoneycombLayoutTemplate) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     if (shortcuts.isEmpty()) {
@@ -163,55 +169,85 @@ fun HoneycombTaskGrid(
                     .padding(bottom = 12.dp)
                     .testTag("honeycomb_edit_toolbar")
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(10.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "✏️ Edit Layout Mode",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "✏️ Edit Layout Mode",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            IconButton(
+                                onClick = onAddShortcutClick,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Add Hexagon",
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                            IconButton(
+                                onClick = onResetLayoutClick,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.RestartAlt,
+                                    contentDescription = "Reset Default Layout",
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                            FilledTonalButton(
+                                onClick = onDoneEditClick,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Done,
+                                    contentDescription = "Done",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Done", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        IconButton(
-                            onClick = onAddShortcutClick,
-                            modifier = Modifier.size(36.dp)
+                    // Template Chips Row
+                    if (onApplyTemplate != null) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Layout Shapes:",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add Hexagon",
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
-                        IconButton(
-                            onClick = onResetLayoutClick,
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.RestartAlt,
-                                contentDescription = "Reset Default Layout",
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
-                        FilledTonalButton(
-                            onClick = onDoneEditClick,
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Done,
-                                contentDescription = "Done",
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Done", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            HoneycombLayoutTemplate.entries.forEach { tmpl ->
+                                FilterChip(
+                                    selected = false,
+                                    onClick = { onApplyTemplate.invoke(tmpl) },
+                                    label = { Text("${tmpl.icon} ${tmpl.displayName}", fontSize = 11.sp) }
+                                )
+                            }
                         }
                     }
                 }

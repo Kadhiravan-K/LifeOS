@@ -14,7 +14,7 @@ object RecurrenceEngine {
 
     /**
      * Checks if a task is scheduled to appear on a specific target date.
-     * Incorporates end dates, paused status, skipped dates, and rescheduled dates.
+     * Incorporates end dates, end conditions (ON_DATE, AFTER_COUNT), paused status, skipped dates, and rescheduled dates.
      */
     fun isTaskScheduledOnDate(task: TaskItem, targetDateIso: String): Boolean {
         // 1. Paused recurring tasks never generate occurrences
@@ -38,8 +38,10 @@ object RecurrenceEngine {
         }
 
         // 5. If target date is past the optional recurrence end date
-        if (task.recurrenceEndDateIso != null && targetDateIso > task.recurrenceEndDateIso) {
-            return false
+        if (task.recurrenceEndCondition == "ON_DATE" || task.recurrenceEndDateIso != null) {
+            if (task.recurrenceEndDateIso != null && targetDateIso > task.recurrenceEndDateIso) {
+                return false
+            }
         }
 
         val daysDiff = DateUtils.daysBetween(task.dueDateIso, targetDateIso)
@@ -48,17 +50,31 @@ object RecurrenceEngine {
             return false
         }
 
+        // Check base pattern match
+        if (!matchesBasePattern(task, targetDateIso, daysDiff)) {
+            return false
+        }
+
+        // 6. If recurrence end condition is AFTER_COUNT, check if within limit
+        if (task.recurrenceType != RecurrenceType.NONE &&
+            task.recurrenceEndCondition == "AFTER_COUNT" &&
+            task.recurrenceCount > 0
+        ) {
+            val count = countOccurrencesUpTo(task, targetDateIso)
+            if (count > task.recurrenceCount) {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    private fun matchesBasePattern(task: TaskItem, targetDateIso: String, daysDiff: Int = DateUtils.daysBetween(task.dueDateIso, targetDateIso)): Boolean {
+        if (daysDiff < 0) return false
+
         return when (task.recurrenceType) {
             RecurrenceType.NONE -> {
-                // One-time task scheduled on due date, or overdue on today if not completed
-                if (task.dueDateIso == targetDateIso) {
-                    true
-                } else if (targetDateIso == DateUtils.todayString() && !task.isOneTimeCompleted) {
-                    // Overdue tasks show on today
-                    true
-                } else {
-                    false
-                }
+                task.dueDateIso == targetDateIso
             }
 
             RecurrenceType.DAILY -> true
@@ -122,16 +138,48 @@ object RecurrenceEngine {
                 matchesYearly(task.dueDateIso, targetDateIso)
             }
 
+            RecurrenceType.EVERY_N_YEARS -> {
+                val interval = if (task.recurrenceInterval > 0) task.recurrenceInterval else 1
+                matchesYearlyInterval(task.dueDateIso, targetDateIso, intervalYears = interval)
+            }
+
             RecurrenceType.CUSTOM -> {
                 val interval = if (task.recurrenceInterval > 0) task.recurrenceInterval else 1
-                if (task.recurrenceDaysOfWeek.isNotEmpty()) {
-                    val targetDayOfWeek = DateUtils.getDayOfWeek(targetDateIso)
-                    task.recurrenceDaysOfWeek.contains(targetDayOfWeek) && (daysDiff % interval == 0)
-                } else {
-                    daysDiff % interval == 0
+                when (task.recurrenceUnit.uppercase()) {
+                    "WEEKS" -> {
+                        val targetDayOfWeek = DateUtils.getDayOfWeek(targetDateIso)
+                        val dayMatches = if (task.recurrenceDaysOfWeek.isNotEmpty()) {
+                            task.recurrenceDaysOfWeek.contains(targetDayOfWeek)
+                        } else {
+                            DateUtils.getDayOfWeek(task.dueDateIso) == targetDayOfWeek
+                        }
+                        if (!dayMatches) return false
+                        val weeksDiff = daysDiff / 7
+                        weeksDiff % interval == 0
+                    }
+                    "MONTHS" -> matchesMonthDay(task.dueDateIso, targetDateIso, intervalMonths = interval)
+                    "YEARS" -> matchesYearlyInterval(task.dueDateIso, targetDateIso, intervalYears = interval)
+                    else -> daysDiff % interval == 0 // DAYS
                 }
             }
         }
+    }
+
+    /**
+     * Counts how many occurrences match between task.dueDateIso and targetDateIso.
+     */
+    private fun countOccurrencesUpTo(task: TaskItem, targetDateIso: String): Int {
+        var count = 0
+        val maxDays = minOf(1460, DateUtils.daysBetween(task.dueDateIso, targetDateIso))
+        for (i in 0..maxDays) {
+            val date = DateUtils.addDays(task.dueDateIso, i)
+            if (matchesBasePattern(task, date, i)) {
+                count++
+                if (date == targetDateIso) return count
+                if (count > task.recurrenceCount) return count
+            }
+        }
+        return count
     }
 
     /**
@@ -150,13 +198,112 @@ object RecurrenceEngine {
      * Finds next upcoming occurrence date from referenceDateIso.
      */
     fun getNextOccurrenceDate(task: TaskItem, fromDateIso: String = DateUtils.todayString()): String? {
+        val nexts = getNextNOccurrences(task, count = 1, fromDateIso = fromDateIso)
+        return nexts.firstOrNull()
+    }
+
+    /**
+     * Returns up to [count] scheduled upcoming occurrence dates.
+     */
+    fun getNextNOccurrences(task: TaskItem, count: Int = 3, fromDateIso: String = DateUtils.todayString()): List<String> {
+        if (task.recurrenceType == RecurrenceType.NONE) return emptyList()
+        val results = mutableListOf<String>()
+        val start = if (fromDateIso < task.dueDateIso) task.dueDateIso else fromDateIso
         for (i in 0..730) { // Check up to 2 years ahead
-            val date = DateUtils.addDays(fromDateIso, i)
+            val date = DateUtils.addDays(start, i)
             if (isTaskScheduledOnDate(task, date)) {
-                return date
+                results.add(date)
+                if (results.size >= count) break
             }
         }
-        return null
+        return results
+    }
+
+    /**
+     * Formats a comprehensive human-readable preview of the recurrence rules.
+     */
+    fun formatRecurrencePreview(task: TaskItem): String {
+        val base = when (task.recurrenceType) {
+            RecurrenceType.NONE -> "Does not repeat"
+            RecurrenceType.DAILY -> "Every day"
+            RecurrenceType.EVERY_N_DAYS -> if (task.recurrenceInterval <= 1) "Every day" else "Every ${task.recurrenceInterval} days"
+            RecurrenceType.WEEKDAYS -> "Every weekday (Mon–Fri)"
+            RecurrenceType.SELECTED_WEEKDAYS -> {
+                val days = if (task.recurrenceDaysOfWeek.isEmpty()) "selected days" else task.recurrenceDaysOfWeek.joinToString(", ") { formatDayName(it) }
+                "Every week on $days"
+            }
+            RecurrenceType.WEEKLY -> {
+                val dayName = formatDayName(DateUtils.getDayOfWeek(task.dueDateIso))
+                "Every week on $dayName"
+            }
+            RecurrenceType.EVERY_N_WEEKS -> {
+                val days = if (task.recurrenceDaysOfWeek.isEmpty()) formatDayName(DateUtils.getDayOfWeek(task.dueDateIso)) else task.recurrenceDaysOfWeek.joinToString(", ") { formatDayName(it) }
+                if (task.recurrenceInterval <= 1) "Every week on $days" else "Every ${task.recurrenceInterval} weeks on $days"
+            }
+            RecurrenceType.MONTHLY -> {
+                val dayOfMonth = DateUtils.getDayOfMonth(task.dueDateIso)
+                "Every month on the ${formatOrdinal(dayOfMonth)}"
+            }
+            RecurrenceType.EVERY_N_MONTHS -> {
+                val dayOfMonth = DateUtils.getDayOfMonth(task.dueDateIso)
+                if (task.recurrenceInterval <= 1) "Every month on the ${formatOrdinal(dayOfMonth)}" else "Every ${task.recurrenceInterval} months on the ${formatOrdinal(dayOfMonth)}"
+            }
+            RecurrenceType.EVERY_6_MONTHS -> {
+                val dayOfMonth = DateUtils.getDayOfMonth(task.dueDateIso)
+                "Every 6 months on the ${formatOrdinal(dayOfMonth)}"
+            }
+            RecurrenceType.YEARLY -> {
+                val d = DateUtils.formatDisplayDate(task.dueDateIso)
+                "Every year on $d"
+            }
+            RecurrenceType.EVERY_N_YEARS -> {
+                val d = DateUtils.formatDisplayDate(task.dueDateIso)
+                if (task.recurrenceInterval <= 1) "Every year on $d" else "Every ${task.recurrenceInterval} years on $d"
+            }
+            RecurrenceType.CUSTOM -> {
+                val unit = task.recurrenceUnit.lowercase()
+                val interval = if (task.recurrenceInterval > 0) task.recurrenceInterval else 1
+                val intervalStr = if (interval <= 1) "Every $unit" else "Every $interval $unit"
+                if (task.recurrenceUnit.equals("WEEKS", ignoreCase = true) && task.recurrenceDaysOfWeek.isNotEmpty()) {
+                    val days = task.recurrenceDaysOfWeek.joinToString(", ") { formatDayName(it) }
+                    "$intervalStr on $days"
+                } else {
+                    intervalStr
+                }
+            }
+        }
+
+        val end = when (task.recurrenceEndCondition) {
+            "ON_DATE" -> if (task.recurrenceEndDateIso != null) " • Until ${DateUtils.formatDisplayDate(task.recurrenceEndDateIso)}" else ""
+            "AFTER_COUNT" -> " • Ends after ${task.recurrenceCount} occurrences"
+            else -> ""
+        }
+
+        return base + end
+    }
+
+    private fun formatDayName(day: String): String {
+        return when (day.uppercase()) {
+            "MONDAY" -> "Mon"
+            "TUESDAY" -> "Tue"
+            "WEDNESDAY" -> "Wed"
+            "THURSDAY" -> "Thu"
+            "FRIDAY" -> "Fri"
+            "SATURDAY" -> "Sat"
+            "SUNDAY" -> "Sun"
+            else -> day
+        }
+    }
+
+    private fun formatOrdinal(n: Int): String {
+        val suffix = when {
+            n in 11..13 -> "th"
+            n % 10 == 1 -> "st"
+            n % 10 == 2 -> "nd"
+            n % 10 == 3 -> "rd"
+            else -> "th"
+        }
+        return "$n$suffix"
     }
 
     private fun matchesMonthDay(startDateIso: String, targetDateIso: String, intervalMonths: Int): Boolean {
@@ -189,13 +336,18 @@ object RecurrenceEngine {
     }
 
     private fun matchesYearly(startDateIso: String, targetDateIso: String): Boolean {
+        return matchesYearlyInterval(startDateIso, targetDateIso, intervalYears = 1)
+    }
+
+    private fun matchesYearlyInterval(startDateIso: String, targetDateIso: String, intervalYears: Int): Boolean {
         return try {
             val dStart = isoFormat.parse(startDateIso) ?: Date()
             val dTarget = isoFormat.parse(targetDateIso) ?: Date()
             val calStart = Calendar.getInstance().apply { time = dStart }
             val calTarget = Calendar.getInstance().apply { time = dTarget }
 
-            if (calTarget.get(Calendar.YEAR) < calStart.get(Calendar.YEAR)) {
+            val yearDiff = calTarget.get(Calendar.YEAR) - calStart.get(Calendar.YEAR)
+            if (yearDiff < 0 || yearDiff % intervalYears != 0) {
                 return false
             }
 

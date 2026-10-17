@@ -56,5 +56,9 @@ enum class NavigationItem(
         label = "Settings",
         selectedIcon = Icons.Filled.Settings,
         unselectedIcon = Icons.Outlined.Settings
-    )
+    );
+
+    companion object {
+        val bottomNavItems: List<NavigationItem> = listOf(HOME, TASKS, CALENDAR, SETTINGS)
+    }
 }

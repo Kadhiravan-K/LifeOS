@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.example.MainActivity
 import com.example.domain.model.TaskItem
+import com.example.domain.model.TaskReminderItem
 import com.example.utils.DateUtils
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -222,6 +223,116 @@ object NotificationHelper {
             alarmManager.cancel(pendingIntent)
             pendingIntent.cancel()
         }
+    }
+
+    fun scheduleTaskReminderAlarm(
+        context: Context,
+        task: TaskItem,
+        reminder: TaskReminderItem,
+        dateIso: String,
+        quietHoursStartMins: Int = 21 * 60,
+        quietHoursEndMins: Int = 5 * 60 + 30
+    ) {
+        if (!reminder.isEnabled || task.dueTime.isNullOrBlank()) return
+
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+        val taskStartMins = DateUtils.timeToMinutes(task.dueTime)
+        if (taskStartMins < 0) return
+
+        var triggerMinutes = when (reminder.type) {
+            "SPECIFIC_TIME" -> reminder.customTime?.let { DateUtils.timeToMinutes(it) } ?: taskStartMins
+            else -> taskStartMins - reminder.minutesBefore
+        }
+        if (triggerMinutes < 0) triggerMinutes = 0
+
+        // Quiet Hours check
+        if (triggerMinutes >= quietHoursStartMins || triggerMinutes < quietHoursEndMins) {
+            triggerMinutes = quietHoursEndMins
+        }
+
+        val triggerCal = Calendar.getInstance().apply {
+            try {
+                val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(dateIso) ?: Date()
+                time = parsed
+            } catch (e: Exception) {}
+            set(Calendar.HOUR_OF_DAY, triggerMinutes / 60)
+            set(Calendar.MINUTE, triggerMinutes % 60)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        if (triggerCal.timeInMillis <= System.currentTimeMillis()) return
+
+        val intent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
+            action = ReminderBroadcastReceiver.ACTION_TASK_REMINDER
+            putExtra(EXTRA_TASK_ID, task.id)
+            putExtra(EXTRA_TASK_TITLE, task.title)
+            putExtra(EXTRA_TASK_EMOJI, task.emoji)
+            putExtra(EXTRA_DATE_ISO, dateIso)
+            putExtra("extra_due_time", task.dueTime)
+            putExtra("extra_reminder_id", reminder.id)
+        }
+
+        val requestCode = ((task.id.toInt() * 31 + reminder.id.toInt()) * 31) + dateIso.hashCode().and(0x7FFFFFFF) % 100000
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (alarmManager.canScheduleExactAlarms()) {
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
+                } else {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
+                }
+            } else {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
+            }
+        } catch (e: Exception) {
+            alarmManager.set(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
+        }
+    }
+
+    fun scheduleAllTaskReminders(
+        context: Context,
+        task: TaskItem,
+        dateIso: String
+    ) {
+        if (task.reminders.isNotEmpty()) {
+            task.reminders.forEach { reminder ->
+                scheduleTaskReminderAlarm(context, task, reminder, dateIso)
+            }
+        } else if (task.isReminderEnabled) {
+            scheduleTaskAlarm(context, task, dateIso)
+        }
+    }
+
+    fun cancelAllTaskReminders(
+        context: Context,
+        task: TaskItem,
+        dateIso: String = DateUtils.todayString()
+    ) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+        task.reminders.forEach { reminder ->
+            val requestCode = ((task.id.toInt() * 31 + reminder.id.toInt()) * 31) + dateIso.hashCode().and(0x7FFFFFFF) % 100000
+            val intent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
+                action = ReminderBroadcastReceiver.ACTION_TASK_REMINDER
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )
+            if (pendingIntent != null) {
+                alarmManager.cancel(pendingIntent)
+                pendingIntent.cancel()
+            }
+        }
+        cancelTaskAlarm(context, task.id, dateIso)
     }
 
     fun scheduleDailyReminder(context: Context, hour: Int = 8, minute: Int = 0) {

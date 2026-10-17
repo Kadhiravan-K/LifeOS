@@ -8,17 +8,26 @@ data class TaskEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val title: String,
-    val emoji: String = "✅",
+    val emoji: String = "",
     val description: String = "",
     val category: String,
     val priority: String = "MEDIUM",
     val dueDateIso: String,
     val dueTime: String? = null,
     val durationMinutes: Int = 30,
+    val schedulingMode: String = "DURATION",
+    val durationAmount: Int = 30,
+    val durationUnit: String = "MINUTES",
+    val deadlineIso: String? = null,
+    val deadlineTime: String? = null,
+    val isAllDay: Boolean = true,
     val recurrenceType: String = "NONE",
     val recurrenceInterval: Int = 1,
+    val recurrenceUnit: String = "DAYS",
     val recurrenceDaysOfWeek: String = "", // comma-separated e.g. "TUESDAY,THURSDAY,SUNDAY"
+    val recurrenceEndCondition: String = "NEVER",
     val recurrenceEndDateIso: String? = null,
+    val recurrenceCount: Int = 1,
     val isOneTimeCompleted: Boolean = false,
     val completedDatesJson: String = "[]", // JSON array of "YYYY-MM-DD"
     val skippedDatesJson: String = "[]", // JSON array of skipped "YYYY-MM-DD"
@@ -29,6 +38,7 @@ data class TaskEntity(
     val reminderMinutesBefore: Int = 0,
     val isArchived: Boolean = false,
     val isPaused: Boolean = false,
+    val projectId: Long? = null,
     val createdAt: Long = System.currentTimeMillis()
 )
 
@@ -77,6 +87,8 @@ data class HoneycombShortcutEntity(
     val emoji: String = "✅",
     val customColorHex: Long? = null,
     val orderIndex: Int = 0,
+    val coordQ: Int = 0,
+    val coordR: Int = 0,
     val isPinned: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 )

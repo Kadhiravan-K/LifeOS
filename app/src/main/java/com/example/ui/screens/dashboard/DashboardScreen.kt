@@ -324,6 +324,9 @@ fun DashboardScreen(
                     },
                     onDoneEditClick = {
                         viewModel.setHoneycombEditMode(false)
+                    },
+                    onApplyTemplate = { tmpl ->
+                        viewModel.applyHoneycombTemplate(tmpl)
                     }
                 )
             }

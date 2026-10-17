@@ -37,8 +37,8 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                 CoroutineScope(Dispatchers.IO).launch {
                     val todayIso = DateUtils.todayString()
                     val tasks = repository.getTasksForDateFlow(todayIso).first()
-                    tasks.filter { it.isReminderEnabled && !it.isCompletedForDate }.forEach { task ->
-                        NotificationHelper.scheduleTaskAlarm(context, task, todayIso)
+                    tasks.filter { (it.isReminderEnabled || it.reminders.isNotEmpty()) && !it.isCompletedForDate }.forEach { task ->
+                        NotificationHelper.scheduleAllTaskReminders(context, task, todayIso)
                     }
                 }
             }

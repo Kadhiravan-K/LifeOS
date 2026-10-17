@@ -127,7 +127,36 @@ Both unit test execution (`gradle :app:testDebugUnitTest`) and full APK assembly
 
 ---
 
-## 9. Recommendations for Phase 3
+## 9. Recommendations for Future Releases
 1. **Google Play Billing / In-App Purchases:** Replace `LocalPremiumEntitlementRepository` with the official Google Play Billing Library while preserving the same repository interface.
 2. **Theme Accent Customization:** Allow users to pick secondary accent highlights per theme (e.g., Gold vs Silver trim on Arcane Academy).
 3. **Sound Effects / Haptics:** Add optional subtle haptic feedback on task and honeycomb completion.
+
+---
+
+## 10. Phase 3A: Advanced Task Management, Projects, Labels & Smart Scheduling
+
+### Status: VERIFIED & BUILD SUCCESSFUL
+
+#### 1. Core Architecture Upgrades
+- **Room Database Migration (Version 4):**
+  - Added `projects` table (`ProjectEntity`) with color ID, emoji, order index, favorite, and archive flags.
+  - Added `labels` table (`LabelEntity`) with color ID, order index, and favorite flags.
+  - Added `task_label_cross_ref` table (`TaskLabelCrossRef`) for many-to-many task-to-label relationships.
+  - Added `task_reminders` table (`TaskReminderEntity`) supporting multi-offset reminder schedules.
+  - Enhanced `tasks` table with `projectId`, `deadlineIso`, `isAllDay`.
+- **4-Destination Primary Bottom Navigation:**
+  - Main navigation bar strictly displays: `Home`, `Tasks`, `Calendar`, and `Settings`.
+  - `Habits` and `75-Day Challenge` are surfaced via prominent, high-fidelity navigation cards directly on `TasksScreen` and `DashboardScreen`.
+  - Complete `HabitsScreen` and `ChallengeScreen` remain intact and functional with system `BackHandler` returning to Tasks.
+- **Two Creation Modes:**
+  - **Quick Add (`TaskQuickAddSheet`):** Todoist-inspired compact Material 3 bottom-sheet with title, description, date shortcuts ("Today", "Tomorrow", "Next Week"), priority selector (P1-P4), project picker, labels picker, reminder toggle, and an expandable icon to transition to the advanced editor.
+  - **Advanced Editor (`TaskAdvancedEditorSheet`):** Comprehensive editor supporting title, description, project, labels, deadline, date/time pickers, duration, recurrence rules, and multi-offset reminders.
+- **20-Color Palette & Dynamic Ordering (`TodoistColorPalette`):**
+  - Verified 20-color Todoist palette (`Berry Red`, `Red`, `Orange`, `Yellow`, `Olive Green`, `Lime Green`, `Green`, `Mint Green`, `Teal`, `Sky Blue`, `Light Blue`, `Blue`, `Grape`, `Violet`, `Lavender`, `Magenta`, `Salmon`, `Charcoal`, `Grey`, `Taupe`).
+  - Supports automatic sorting by usage frequency and manual reordering, persisted in DataStore.
+- **Task Cards & Interaction Polish:**
+  - Priority-colored completion circle with instant toggle.
+  - Interactive project pills and colored label chips with wrapped FlowRow layout.
+  - Tapping card opens the advanced editor; more menu provides duplicate, reschedule, archive, and delete.
+  - Offline-only, zero network permissions, zero cloud dependencies.
