@@ -29,10 +29,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.ui.screens.analytics.AnalyticsScreen
 import com.example.ui.screens.calendar.CalendarScreen
 import com.example.ui.screens.challenge.ChallengeScreen
 import com.example.ui.screens.dashboard.DashboardScreen
+import com.example.ui.screens.gamification.GamificationScreen
 import com.example.ui.screens.habits.HabitsScreen
+import com.example.ui.screens.planning.PlanningScreen
 import com.example.ui.screens.settings.SettingsScreen
 import com.example.ui.screens.tasks.TasksScreen
 import com.example.ui.viewmodel.LifeViewModel
@@ -191,7 +194,10 @@ fun MainScreen(
                                 onNavigateToTasks = { currentItem = NavigationItem.TASKS },
                                 onNavigateToHabits = { currentItem = NavigationItem.HABITS },
                                 onNavigateToChallenge = { currentItem = NavigationItem.CHALLENGE },
-                                onNavigateToCalendar = { currentItem = NavigationItem.CALENDAR }
+                                onNavigateToCalendar = { currentItem = NavigationItem.CALENDAR },
+                                onNavigateToPlanning = { currentItem = NavigationItem.PLANNING },
+                                onNavigateToGamification = { currentItem = NavigationItem.GAMIFICATION },
+                                onNavigateToAnalytics = { currentItem = NavigationItem.ANALYTICS }
                             )
                         }
 
@@ -227,6 +233,30 @@ fun MainScreen(
                             )
                         }
 
+                        NavigationItem.PLANNING -> {
+                            BackHandler { currentItem = NavigationItem.HOME }
+                            PlanningScreen(
+                                viewModel = viewModel,
+                                onBack = { currentItem = NavigationItem.HOME }
+                            )
+                        }
+
+                        NavigationItem.GAMIFICATION -> {
+                            BackHandler { currentItem = NavigationItem.HOME }
+                            GamificationScreen(
+                                viewModel = viewModel,
+                                onBack = { currentItem = NavigationItem.HOME }
+                            )
+                        }
+
+                        NavigationItem.ANALYTICS -> {
+                            BackHandler { currentItem = NavigationItem.HOME }
+                            AnalyticsScreen(
+                                viewModel = viewModel,
+                                onBack = { currentItem = NavigationItem.HOME }
+                            )
+                        }
+
                         NavigationItem.SETTINGS -> {
                             SettingsScreen(
                                 viewModel = viewModel,
@@ -242,7 +272,9 @@ fun MainScreen(
                                 clockFormat = clockFormat,
                                 firstDayOfWeek = firstDayOfWeek,
                                 defaultDuration = defaultDuration,
-                                onNavigateToThemeGallery = { showThemeGallery = true }
+                                onNavigateToThemeGallery = { showThemeGallery = true },
+                                onNavigateToPlanning = { currentItem = NavigationItem.PLANNING },
+                                onNavigateToGamification = { currentItem = NavigationItem.GAMIFICATION }
                             )
                         }
                     }

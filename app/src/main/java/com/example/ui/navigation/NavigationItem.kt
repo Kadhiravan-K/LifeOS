@@ -56,6 +56,24 @@ enum class NavigationItem(
         label = "Settings",
         selectedIcon = Icons.Filled.Settings,
         unselectedIcon = Icons.Outlined.Settings
+    ),
+    PLANNING(
+        route = "planning",
+        label = "Planning",
+        selectedIcon = Icons.Filled.CheckCircle,
+        unselectedIcon = Icons.Outlined.CheckCircle
+    ),
+    GAMIFICATION(
+        route = "gamification",
+        label = "Hunter Ranks",
+        selectedIcon = Icons.Filled.LocalFireDepartment,
+        unselectedIcon = Icons.Outlined.LocalFireDepartment
+    ),
+    ANALYTICS(
+        route = "analytics",
+        label = "Analytics",
+        selectedIcon = Icons.Filled.Dashboard,
+        unselectedIcon = Icons.Outlined.Dashboard
     );
 
     companion object {
