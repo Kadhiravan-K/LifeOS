@@ -1,0 +1,31 @@
+package com.example.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+// Light Palette (Refined Minimalist Slate & Electric Indigo)
+val SlateBackgroundLight = Color(0xFFF8FAFC)
+val SlateSurfaceLight = Color(0xFFFFFFFF)
+val SlateSurfaceVariantLight = Color(0xFFF1F5F9)
+val SlateBorderLight = Color(0xFFE2E8F0)
+val PrimaryLight = Color(0xFF2563EB)
+val OnPrimaryLight = Color(0xFFFFFFFF)
+val SecondaryLight = Color(0xFF4F46E5)
+val AccentAmberLight = Color(0xFFD97706)
+val AccentEmeraldLight = Color(0xFF059669)
+val AccentRoseLight = Color(0xFFE11D48)
+val OnSurfaceLight = Color(0xFF0F172A)
+val OnSurfaceVariantLight = Color(0xFF475569)
+
+// Dark Palette (Midnight Executive Dark)
+val SlateBackgroundDark = Color(0xFF090D16)
+val SlateSurfaceDark = Color(0xFF0F172A)
+val SlateSurfaceVariantDark = Color(0xFF1E293B)
+val SlateBorderDark = Color(0xFF334155)
+val PrimaryDark = Color(0xFF38BDF8)
+val OnPrimaryDark = Color(0xFF082F49)
+val SecondaryDark = Color(0xFF818CF8)
+val AccentAmberDark = Color(0xFFFBBF24)
+val AccentEmeraldDark = Color(0xFF34D399)
+val AccentRoseDark = Color(0xFFFB7185)
+val OnSurfaceDark = Color(0xFFF8FAFC)
+val OnSurfaceVariantDark = Color(0xFF94A3B8)
