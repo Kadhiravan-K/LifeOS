@@ -10,6 +10,9 @@ jobs:
   build:
     name: Build & Test LifeOS
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout Repository
