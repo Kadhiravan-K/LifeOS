@@ -19,3 +19,5 @@ release.properties
 *.apk
 *.aab
 metadata.json
+hs_err_pid*.log
+replay_pid*.log

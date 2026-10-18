@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -21,8 +24,8 @@ android {
   signingConfigs {
     val keystorePropsFile = rootProject.file("keystore.properties")
     if (keystorePropsFile.exists()) {
-      val props = java.util.Properties().apply {
-        load(java.io.FileInputStream(keystorePropsFile))
+      val props = Properties().apply {
+        load(FileInputStream(keystorePropsFile))
       }
       val keyPath = props.getProperty("storeFile") ?: "${rootDir}/release.keystore"
       val keyFile = file(keyPath)
