@@ -19,14 +19,32 @@ android {
   }
 
   signingConfigs {
-    val releaseKeyPath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-    val releaseKeyFile = file(releaseKeyPath)
-    if (releaseKeyFile.exists()) {
-      create("release") {
-        storeFile = releaseKeyFile
-        storePassword = System.getenv("STORE_PASSWORD")
-        keyAlias = "upload"
-        keyPassword = System.getenv("KEY_PASSWORD")
+    val keystorePropsFile = rootProject.file("keystore.properties")
+    if (keystorePropsFile.exists()) {
+      val props = java.util.Properties().apply {
+        load(java.io.FileInputStream(keystorePropsFile))
+      }
+      val keyPath = props.getProperty("storeFile") ?: "${rootDir}/release.keystore"
+      val keyFile = file(keyPath)
+      if (keyFile.exists()) {
+        create("release") {
+          storeFile = keyFile
+          storePassword = props.getProperty("storePassword")
+          keyAlias = props.getProperty("keyAlias") ?: "lifeos"
+          keyPassword = props.getProperty("keyPassword") ?: props.getProperty("storePassword")
+        }
+      }
+    } else {
+      val releaseKeyPath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/release.keystore"
+      val releaseKeyFile = file(releaseKeyPath)
+      val storePass = System.getenv("STORE_PASSWORD")
+      if (releaseKeyFile.exists() && storePass != null) {
+        create("release") {
+          storeFile = releaseKeyFile
+          storePassword = storePass
+          keyAlias = System.getenv("KEY_ALIAS") ?: "lifeos"
+          keyPassword = System.getenv("KEY_PASSWORD") ?: storePass
+        }
       }
     }
     val debugKeyFile = file("${rootDir}/debug.keystore")
