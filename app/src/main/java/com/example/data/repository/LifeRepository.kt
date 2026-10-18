@@ -409,16 +409,19 @@ class LifeRepository(
         return habitDao.getHabitById(habitId)?.toDomainModel(todayStr)
     }
 
-    suspend fun toggleHabitCompletion(habitId: Long, dateIso: String) {
-        val entity = habitDao.getHabitById(habitId) ?: return
+    suspend fun toggleHabitCompletion(habitId: Long, dateIso: String): Boolean {
+        val entity = habitDao.getHabitById(habitId) ?: return false
         val completedDates = JsonMappers.parseStringList(entity.completedDatesJson).toMutableSet()
-        if (completedDates.contains(dateIso)) {
+        val isNewlyCompleted = if (completedDates.contains(dateIso)) {
             completedDates.remove(dateIso)
+            false
         } else {
             completedDates.add(dateIso)
+            true
         }
         val updated = entity.copy(completedDatesJson = JsonMappers.serializeStringList(completedDates))
         habitDao.updateHabit(updated)
+        return isNewlyCompleted
     }
 
     // --- 75-Day Challenge Flow ---
@@ -430,7 +433,7 @@ class LifeRepository(
         }
     }
 
-    suspend fun toggleChallengeRule(ruleId: String, dateIso: String) {
+    suspend fun toggleChallengeRule(ruleId: String, dateIso: String): Boolean {
         var entity = challengeDao.getActiveChallenge()
         if (entity == null) {
             val defaultState = createDefaultChallengeState()
@@ -442,10 +445,12 @@ class LifeRepository(
         val currentLog = logs[dateIso] ?: ChallengeDailyLog(dateIso = dateIso)
         val completedSet = currentLog.completedRuleIds.toMutableSet()
 
-        if (completedSet.contains(ruleId)) {
+        val isNewlyCompleted = if (completedSet.contains(ruleId)) {
             completedSet.remove(ruleId)
+            false
         } else {
             completedSet.add(ruleId)
+            true
         }
 
         val updatedLog = currentLog.copy(completedRuleIds = completedSet)
@@ -455,6 +460,7 @@ class LifeRepository(
             dailyLogsJson = JsonMappers.serializeChallengeDailyLogs(logs)
         )
         challengeDao.insertOrUpdateChallenge(updatedEntity)
+        return isNewlyCompleted
     }
 
     suspend fun restartChallenge(newStartDateIso: String, customRules: List<ChallengeRule>? = null) {
@@ -1085,11 +1091,33 @@ class LifeRepository(
                 item.copy(orderIndex = index, coordQ = q, coordR = r).toEntity()
             }
             honeycombShortcutDao.insertShortcuts(entities)
-        } else if (existing.size > 1 && existing.all { it.coordQ == 0 && it.coordR == 0 }) {
-            val coords = HoneycombLayoutTemplate.generateCoordinates(HoneycombLayoutTemplate.STANDARD, existing.size)
-            existing.forEachIndexed { index, entity ->
-                val (q, r) = coords.getOrElse(index) { Pair(index % 3, index / 3) }
-                honeycombShortcutDao.updateCoords(entity.id, q, r, entity.orderIndex)
+        } else {
+            // Check for any duplicate / overlapping coordinates and de-overlap them
+            val occupied = mutableSetOf<Pair<Int, Int>>()
+            var nextR = 0
+            fun findNextFree(): Pair<Int, Int> {
+                while (nextR < 100) {
+                    val rowLen = if (nextR % 2 == 0) 3 else 2
+                    for (q in 0 until rowLen) {
+                        val candidate = Pair(q, nextR)
+                        if (candidate !in occupied) {
+                            return candidate
+                        }
+                    }
+                    nextR++
+                }
+                return Pair(0, (occupied.maxOfOrNull { it.second } ?: 0) + 1)
+            }
+
+            existing.forEach { entity ->
+                val coord = Pair(entity.coordQ, entity.coordR)
+                if (coord !in occupied) {
+                    occupied.add(coord)
+                } else {
+                    val freeCoord = findNextFree()
+                    occupied.add(freeCoord)
+                    honeycombShortcutDao.updateCoords(entity.id, freeCoord.first, freeCoord.second, entity.orderIndex)
+                }
             }
         }
     }

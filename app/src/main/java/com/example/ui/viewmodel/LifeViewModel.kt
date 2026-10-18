@@ -438,15 +438,56 @@ class LifeViewModel(
         habits,
         challengeState
     ) { rawList, todayTaskList, allTaskList, habitList, challenge ->
-        val effectiveList = if (rawList.isEmpty()) DefaultHoneycombShortcuts.list else rawList
+        val baseList = if (rawList.isEmpty()) DefaultHoneycombShortcuts.list else rawList
+
+        // Ensure no overlapping coordinates in the displayed grid
+        val occupied = mutableSetOf<Pair<Int, Int>>()
+        var nextR = 0
+        fun findNextFree(): Pair<Int, Int> {
+            while (nextR < 100) {
+                val rowLen = if (nextR % 2 == 0) 3 else 2
+                for (q in 0 until rowLen) {
+                    val candidate = Pair(q, nextR)
+                    if (candidate !in occupied) {
+                        return candidate
+                    }
+                }
+                nextR++
+            }
+            return Pair(0, (occupied.maxOfOrNull { it.second } ?: 0) + 1)
+        }
+
+        val effectiveList = baseList.map { item ->
+            val coord = Pair(item.coordQ, item.coordR)
+            if (coord !in occupied) {
+                occupied.add(coord)
+                item
+            } else {
+                val freeCoord = findNextFree()
+                occupied.add(freeCoord)
+                item.copy(coordQ = freeCoord.first, coordR = freeCoord.second)
+            }
+        }
+
         val waterCurrent = todayWaterLog.value.amountMl
         val waterGoal = waterGoalFlow.value.coerceAtLeast(1000)
 
         effectiveList.map { shortcut ->
             when (shortcut.type) {
                 ShortcutType.TASK -> {
-                    val matchedTask = todayTaskList.find { it.id.toString() == shortcut.targetId || it.title.contains(shortcut.targetId, ignoreCase = true) }
-                        ?: allTaskList.find { it.id.toString() == shortcut.targetId || it.title.contains(shortcut.targetId, ignoreCase = true) }
+                    val matchedTask = todayTaskList.find {
+                        it.id.toString() == shortcut.targetId ||
+                        it.title.equals(shortcut.targetId, ignoreCase = true) ||
+                        it.title.contains(shortcut.targetId, ignoreCase = true) ||
+                        it.title.equals(shortcut.title, ignoreCase = true) ||
+                        it.title.contains(shortcut.title, ignoreCase = true)
+                    } ?: allTaskList.find {
+                        it.id.toString() == shortcut.targetId ||
+                        it.title.equals(shortcut.targetId, ignoreCase = true) ||
+                        it.title.contains(shortcut.targetId, ignoreCase = true) ||
+                        it.title.equals(shortcut.title, ignoreCase = true) ||
+                        it.title.contains(shortcut.title, ignoreCase = true)
+                    }
                     val isDone = matchedTask?.isCompletedForDate ?: false
                     shortcut.copy(
                         isCompletedToday = isDone,
@@ -455,7 +496,13 @@ class LifeViewModel(
                     )
                 }
                 ShortcutType.HABIT -> {
-                    val matchedHabit = habitList.find { it.id.toString() == shortcut.targetId || it.title.contains(shortcut.targetId, ignoreCase = true) }
+                    val matchedHabit = habitList.find {
+                        it.id.toString() == shortcut.targetId ||
+                        it.title.equals(shortcut.targetId, ignoreCase = true) ||
+                        it.title.contains(shortcut.targetId, ignoreCase = true) ||
+                        it.title.equals(shortcut.title, ignoreCase = true) ||
+                        it.title.contains(shortcut.title, ignoreCase = true)
+                    }
                     val isDone = matchedHabit?.completedDates?.contains(todayIso) ?: false
                     shortcut.copy(
                         isCompletedToday = isDone,
@@ -464,7 +511,13 @@ class LifeViewModel(
                     )
                 }
                 ShortcutType.CHALLENGE_RULE -> {
-                    val rule = challenge.rules.find { it.id == shortcut.targetId || it.title.contains(shortcut.targetId, ignoreCase = true) }
+                    val rule = challenge.rules.find {
+                        it.id == shortcut.targetId ||
+                        it.title.equals(shortcut.targetId, ignoreCase = true) ||
+                        it.title.contains(shortcut.targetId, ignoreCase = true) ||
+                        it.title.equals(shortcut.title, ignoreCase = true) ||
+                        it.title.contains(shortcut.title, ignoreCase = true)
+                    }
                     val todayLog = challenge.logs[todayIso]
                     val isDone = rule != null && (todayLog?.completedRuleIds?.contains(rule.id) == true)
                     shortcut.copy(
@@ -1188,7 +1241,13 @@ class LifeViewModel(
     // --- Habit Actions ---
     fun toggleHabit(habitId: Long, dateIso: String = todayIso) {
         viewModelScope.launch {
-            repository.toggleHabitCompletion(habitId, dateIso)
+            val newlyCompleted = repository.toggleHabitCompletion(habitId, dateIso)
+            if (newlyCompleted) {
+                com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).triggerCompletionFeedback(
+                    soundEnabled = completionSoundEnabled.value,
+                    vibrationEnabled = completionVibrationEnabled.value
+                )
+            }
         }
     }
 
@@ -1226,7 +1285,13 @@ class LifeViewModel(
     // --- 75-Day Challenge Actions ---
     fun toggleChallengeRule(ruleId: String, dateIso: String = todayIso) {
         viewModelScope.launch {
-            repository.toggleChallengeRule(ruleId, dateIso)
+            val newlyCompleted = repository.toggleChallengeRule(ruleId, dateIso)
+            if (newlyCompleted) {
+                com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).triggerCompletionFeedback(
+                    soundEnabled = completionSoundEnabled.value,
+                    vibrationEnabled = completionVibrationEnabled.value
+                )
+            }
         }
     }
 
@@ -1348,10 +1413,30 @@ class LifeViewModel(
             when (shortcut.type) {
                 ShortcutType.TASK -> {
                     val taskId = shortcut.targetId.toLongOrNull()
-                    val targetTask = if (taskId != null) {
+                    var targetTask = if (taskId != null) {
                         repository.getTaskById(taskId)
                     } else {
-                        allTasks.value.find { it.title.contains(shortcut.targetId, ignoreCase = true) }
+                        allTasks.value.find {
+                            it.id.toString() == shortcut.targetId ||
+                            it.title.equals(shortcut.targetId, ignoreCase = true) ||
+                            it.title.contains(shortcut.targetId, ignoreCase = true) ||
+                            it.title.equals(shortcut.title, ignoreCase = true) ||
+                            it.title.contains(shortcut.title, ignoreCase = true)
+                        }
+                    }
+                    if (targetTask == null) {
+                        // Auto-create task for today so the button immediately works and persists!
+                        val newTaskId = repository.insertTask(
+                            TaskItem(
+                                title = shortcut.title,
+                                dueDateIso = todayIso,
+                                category = "Routines",
+                                priority = TaskPriority.MEDIUM,
+                                emoji = shortcut.emoji
+                            )
+                        )
+                        repository.updateHoneycombShortcut(shortcut.copy(targetId = newTaskId.toString()))
+                        targetTask = repository.getTaskById(newTaskId)
                     }
                     if (targetTask != null) {
                         toggleTaskCompletion(targetTask.id, todayIso)
@@ -1359,10 +1444,27 @@ class LifeViewModel(
                 }
                 ShortcutType.HABIT -> {
                     val habitId = shortcut.targetId.toLongOrNull()
-                    val targetHabit = if (habitId != null) {
+                    var targetHabit = if (habitId != null) {
                         repository.getHabitById(habitId)
                     } else {
-                        habits.value.find { it.title.contains(shortcut.targetId, ignoreCase = true) }
+                        habits.value.find {
+                            it.id.toString() == shortcut.targetId ||
+                            it.title.equals(shortcut.targetId, ignoreCase = true) ||
+                            it.title.contains(shortcut.targetId, ignoreCase = true) ||
+                            it.title.equals(shortcut.title, ignoreCase = true) ||
+                            it.title.contains(shortcut.title, ignoreCase = true)
+                        }
+                    }
+                    if (targetHabit == null) {
+                        val newHabitId = repository.insertHabit(
+                            HabitItem(
+                                title = shortcut.title,
+                                emoji = shortcut.emoji,
+                                colorHex = shortcut.customColorHex ?: 0xFF3B82F6L
+                            )
+                        )
+                        repository.updateHoneycombShortcut(shortcut.copy(targetId = newHabitId.toString()))
+                        targetHabit = repository.getHabitById(newHabitId)
                     }
                     if (targetHabit != null) {
                         toggleHabit(targetHabit.id, todayIso)
@@ -1370,17 +1472,41 @@ class LifeViewModel(
                 }
                 ShortcutType.CHALLENGE_RULE -> {
                     val rule = challengeState.value.rules.find {
-                        it.id == shortcut.targetId || it.title.contains(shortcut.targetId, ignoreCase = true)
+                        it.id == shortcut.targetId ||
+                        it.title.equals(shortcut.targetId, ignoreCase = true) ||
+                        it.title.contains(shortcut.targetId, ignoreCase = true) ||
+                        it.title.equals(shortcut.title, ignoreCase = true) ||
+                        it.title.contains(shortcut.title, ignoreCase = true)
                     }
                     if (rule != null) {
                         toggleChallengeRule(rule.id, todayIso)
+                    } else {
+                        val newTaskId = repository.insertTask(
+                            TaskItem(
+                                title = shortcut.title,
+                                dueDateIso = todayIso,
+                                category = "Challenge",
+                                priority = TaskPriority.HIGH,
+                                emoji = shortcut.emoji
+                            )
+                        )
+                        toggleTaskCompletion(newTaskId, todayIso)
                     }
                 }
                 ShortcutType.WATER -> {
                     addWater(250)
                 }
                 ShortcutType.CUSTOM -> {
-                    // Custom non-binary toggle
+                    val newTaskId = repository.insertTask(
+                        TaskItem(
+                            title = shortcut.title,
+                            dueDateIso = todayIso,
+                            category = "Routines",
+                            priority = TaskPriority.MEDIUM,
+                            emoji = shortcut.emoji
+                        )
+                    )
+                    toggleTaskCompletion(newTaskId, todayIso)
                 }
             }
         }
@@ -1433,8 +1559,34 @@ class LifeViewModel(
 
     fun addHoneycombShortcut(shortcut: HoneycombShortcut) {
         viewModelScope.launch {
-            val maxOrder = resolvedHoneycombShortcuts.value.maxOfOrNull { it.orderIndex } ?: 0
-            repository.insertHoneycombShortcut(shortcut.copy(orderIndex = maxOrder + 1))
+            val currentList = resolvedHoneycombShortcuts.value
+            val maxOrder = currentList.maxOfOrNull { it.orderIndex } ?: 0
+            val occupied = currentList.map { Pair(it.coordQ, it.coordR) }.toSet()
+
+            // Find next free axial coordinate in 3-2-3-2 standard honeycomb pattern
+            var nextR = 0
+            var targetCoord: Pair<Int, Int>? = null
+            while (nextR < 100) {
+                val rowLen = if (nextR % 2 == 0) 3 else 2
+                for (q in 0 until rowLen) {
+                    val candidate = Pair(q, nextR)
+                    if (candidate !in occupied) {
+                        targetCoord = candidate
+                        break
+                    }
+                }
+                if (targetCoord != null) break
+                nextR++
+            }
+            val (finalQ, finalR) = targetCoord ?: Pair(0, (occupied.maxOfOrNull { it.second } ?: 0) + 1)
+
+            repository.insertHoneycombShortcut(
+                shortcut.copy(
+                    orderIndex = maxOrder + 1,
+                    coordQ = finalQ,
+                    coordR = finalR
+                )
+            )
         }
     }
 

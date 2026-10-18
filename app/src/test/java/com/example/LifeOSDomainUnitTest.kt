@@ -396,6 +396,73 @@ class LifeOSDomainUnitTest {
         }
     }
 
+    @Test
+    fun `test next available slot finder selects first unoccupied coordinate in 3-2-3-2 hex grid`() {
+        // Given 10 default shortcuts occupying (0,0)..(1,3)
+        val occupied = DefaultHoneycombShortcuts.list.map { Pair(it.coordQ, it.coordR) }.toSet()
+        assertEquals(10, occupied.size)
+
+        var nextR = 0
+        var targetCoord: Pair<Int, Int>? = null
+        while (nextR < 100) {
+            val rowLen = if (nextR % 2 == 0) 3 else 2
+            for (q in 0 until rowLen) {
+                val candidate = Pair(q, nextR)
+                if (candidate !in occupied) {
+                    targetCoord = candidate
+                    break
+                }
+            }
+            if (targetCoord != null) break
+            nextR++
+        }
+
+        // The 11th shortcut should auto-align to row 4, column 0: (0, 4)
+        assertEquals(Pair(0, 4), targetCoord)
+    }
+
+    @Test
+    fun `test deoverlapping logic correctly repositions duplicated shortcuts into open axial cells`() {
+        // Scenario: Two shortcuts both saved at (0, 0)
+        val s1 = HoneycombShortcut(id = 1, type = ShortcutType.WATER, targetId = "w", title = "Water", emoji = "💧", coordQ = 0, coordR = 0)
+        val s2 = HoneycombShortcut(id = 2, type = ShortcutType.TASK, targetId = "t", title = "Task", emoji = "📝", coordQ = 0, coordR = 0) // Duplicate!
+        val rawList = listOf(s1, s2)
+
+        val occupied = mutableSetOf<Pair<Int, Int>>()
+        var nextR = 0
+        fun findNextFree(): Pair<Int, Int> {
+            while (nextR < 100) {
+                val rowLen = if (nextR % 2 == 0) 3 else 2
+                for (q in 0 until rowLen) {
+                    val candidate = Pair(q, nextR)
+                    if (candidate !in occupied) {
+                        return candidate
+                    }
+                }
+                nextR++
+            }
+            return Pair(0, (occupied.maxOfOrNull { it.second } ?: 0) + 1)
+        }
+
+        val deoverlapped = rawList.map { item ->
+            val coord = Pair(item.coordQ, item.coordR)
+            if (coord !in occupied) {
+                occupied.add(coord)
+                item
+            } else {
+                val freeCoord = findNextFree()
+                occupied.add(freeCoord)
+                item.copy(coordQ = freeCoord.first, coordR = freeCoord.second)
+            }
+        }
+
+        assertEquals(2, deoverlapped.size)
+        assertEquals(Pair(0, 0), Pair(deoverlapped[0].coordQ, deoverlapped[0].coordR))
+        // s2 was auto-aligned to (1, 0) - the next available cell in row 0
+        assertEquals(Pair(1, 0), Pair(deoverlapped[1].coordQ, deoverlapped[1].coordR))
+        assertFalse(deoverlapped[0].coordQ == deoverlapped[1].coordQ && deoverlapped[0].coordR == deoverlapped[1].coordR)
+    }
+
     // =========================================================================
     // 4. TASK COMPLETION AUDIO SYNTHESIS & WAV FORMAT VERIFICATION
     // =========================================================================
