@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -106,6 +107,7 @@ fun HoneycombTaskGrid(
     onResetLayoutClick: () -> Unit,
     onDoneEditClick: () -> Unit,
     onApplyTemplate: ((HoneycombLayoutTemplate) -> Unit)? = null,
+    onBrowseTemplatesClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     if (shortcuts.isEmpty()) {
@@ -123,23 +125,43 @@ fun HoneycombTaskGrid(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "⬡ Honeycomb Dashboard Empty",
+                    text = "⬡ Honeycomb Canvas",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Add task and habit shortcuts to create your interactive honeycomb grid",
+                    text = "Your daily cockpit is ready. Add custom habit & task shortcuts or explore our curated master templates.",
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(12.dp))
-                FilledTonalButton(
-                    onClick = onResetLayoutClick,
-                    shape = RoundedCornerShape(10.dp)
+                Spacer(modifier = Modifier.height(14.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Load Suggested Hexagons")
+                    FilledTonalButton(
+                        onClick = onAddShortcutClick,
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("+ Add Shortcut")
+                    }
+                    if (onBrowseTemplatesClick != null) {
+                        Button(
+                            onClick = onBrowseTemplatesClick,
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Browse Templates")
+                        }
+                    } else {
+                        FilledTonalButton(
+                            onClick = onResetLayoutClick,
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Load Defaults")
+                        }
+                    }
                 }
             }
         }

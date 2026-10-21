@@ -16,6 +16,10 @@ import com.example.ui.theme.engine.HoneycombEngravingType
 import com.example.ui.theme.engine.ThemeDefinition
 import com.example.ui.theme.engine.ThemeId
 import com.example.ui.theme.engine.ThemeRegistry
+import com.example.domain.gamification.GamificationEngine
+import com.example.domain.model.HunterRank
+import com.example.domain.templates.TemplateCatalog
+import com.example.domain.templates.TemplateCategory
 import com.example.utils.DateUtils
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -591,5 +595,136 @@ class LifeOSDomainUnitTest {
         assertTrue(titles.contains("Cleaning"))
         assertTrue(titles.contains("Sleep Routine"))
         assertTrue(titles.contains("Daily Planning"))
+    }
+
+    // =========================================================================
+    // 6. GAMIFICATION ENGINE & TEMPLATE CATALOG TESTS
+    // =========================================================================
+
+    @Test
+    fun `test gamification engine level calculation is deterministic and strictly monotonic`() {
+        assertEquals(1, GamificationEngine.calculateLevelFromXp(0L))
+        assertEquals(1, GamificationEngine.calculateLevelFromXp(50L))
+        assertEquals(1, GamificationEngine.calculateLevelFromXp(99L))
+        assertEquals(2, GamificationEngine.calculateLevelFromXp(100L))
+        assertEquals(2, GamificationEngine.calculateLevelFromXp(200L))
+        assertEquals(2, GamificationEngine.calculateLevelFromXp(299L))
+        assertEquals(3, GamificationEngine.calculateLevelFromXp(300L))
+        assertEquals(3, GamificationEngine.calculateLevelFromXp(599L))
+        assertEquals(4, GamificationEngine.calculateLevelFromXp(600L))
+        assertEquals(5, GamificationEngine.calculateLevelFromXp(1000L))
+        assertEquals(10, GamificationEngine.calculateLevelFromXp(4500L))
+    }
+
+    @Test
+    fun `test gamification engine cumulative XP matches level thresholds and inverts perfectly`() {
+        assertEquals(0L, GamificationEngine.cumulativeXpForLevel(1))
+        assertEquals(100L, GamificationEngine.cumulativeXpForLevel(2))
+        assertEquals(300L, GamificationEngine.cumulativeXpForLevel(3))
+        assertEquals(600L, GamificationEngine.cumulativeXpForLevel(4))
+        assertEquals(1000L, GamificationEngine.cumulativeXpForLevel(5))
+
+        // Inversion check across 50 levels
+        for (lvl in 1..50) {
+            val base = GamificationEngine.cumulativeXpForLevel(lvl)
+            assertEquals(lvl, GamificationEngine.calculateLevelFromXp(base))
+            val topOfLevel = base + (lvl * 100L) - 1L
+            assertEquals(lvl, GamificationEngine.calculateLevelFromXp(topOfLevel))
+        }
+    }
+
+    @Test
+    fun `test hunter rank resolution matches level boundaries`() {
+        assertEquals(HunterRank.E, HunterRank.fromLevel(1))
+        assertEquals(HunterRank.E, HunterRank.fromLevel(5))
+        assertEquals(HunterRank.D, HunterRank.fromLevel(6))
+        assertEquals(HunterRank.D, HunterRank.fromLevel(12))
+        assertEquals(HunterRank.C, HunterRank.fromLevel(13))
+        assertEquals(HunterRank.C, HunterRank.fromLevel(20))
+        assertEquals(HunterRank.B, HunterRank.fromLevel(21))
+        assertEquals(HunterRank.B, HunterRank.fromLevel(30))
+        assertEquals(HunterRank.A, HunterRank.fromLevel(31))
+        assertEquals(HunterRank.A, HunterRank.fromLevel(45))
+        assertEquals(HunterRank.S, HunterRank.fromLevel(46))
+        assertEquals(HunterRank.S, HunterRank.fromLevel(60))
+        assertEquals(HunterRank.SS, HunterRank.fromLevel(61))
+        assertEquals(HunterRank.SS, HunterRank.fromLevel(80))
+        assertEquals(HunterRank.SSS, HunterRank.fromLevel(81))
+        assertEquals(HunterRank.SSS, HunterRank.fromLevel(100))
+    }
+
+    @Test
+    fun `test anti-farming event key format`() {
+        val key1 = GamificationEngine.createEventKey("TASK", "101", "2026-10-21")
+        assertEquals("TASK:101:2026-10-21", key1)
+
+        val key2 = GamificationEngine.createEventKey("HABIT", "55", "2026-10-22")
+        assertEquals("HABIT:55:2026-10-22", key2)
+
+        val key3 = GamificationEngine.createEventKey("CHALLENGE", "1", "2026-10-23")
+        assertEquals("CHALLENGE:1:2026-10-23", key3)
+    }
+
+    @Test
+    fun `test streak calculation with consecutive days, gaps, and today`() {
+        val today = "2026-10-21"
+
+        // 1. Empty dates set
+        val emptyResult = GamificationEngine.calculateStreaks(emptySet<String>(), today)
+        assertEquals(0, emptyResult.currentStreak)
+        assertEquals(0, emptyResult.bestStreak)
+
+        // 2. Active streak including today (3 days: 19, 20, 21)
+        val activeDates = setOf("2026-10-21", "2026-10-20", "2026-10-19")
+        val activeResult = GamificationEngine.calculateStreaks(activeDates, today)
+        assertEquals(3, activeResult.currentStreak)
+        assertEquals(3, activeResult.bestStreak)
+
+        // 3. Active streak ending yesterday (not done today yet, 2 days: 19, 20)
+        val yesterdayDates = setOf("2026-10-20", "2026-10-19")
+        val yesterdayResult = GamificationEngine.calculateStreaks(yesterdayDates, today)
+        assertEquals(2, yesterdayResult.currentStreak)
+        assertEquals(2, yesterdayResult.bestStreak)
+
+        // 4. Broken streak (done 18th and 19th, missed 20th and 21st)
+        val brokenDates = setOf("2026-10-19", "2026-10-18")
+        val brokenResult = GamificationEngine.calculateStreaks(brokenDates, today)
+        assertEquals(0, brokenResult.currentStreak)
+        assertEquals(2, brokenResult.bestStreak)
+
+        // 5. Historic best streak was 5 days, current streak is 2 days
+        val multiIntervalDates = setOf(
+            "2026-10-21", "2026-10-20", // Current: 2
+            // gap on 19th
+            "2026-10-18", "2026-10-17", "2026-10-16", "2026-10-15", "2026-10-14" // Historic: 5
+        )
+        val multiResult = GamificationEngine.calculateStreaks(multiIntervalDates, today)
+        assertEquals(2, multiResult.currentStreak)
+        assertEquals(5, multiResult.bestStreak)
+    }
+
+    @Test
+    fun `test template catalog contains 11 distinct categories and valid definitions`() {
+        val templates = TemplateCatalog.list
+        assertEquals(11, templates.size)
+
+        // Ensure IDs are unique
+        val ids = templates.map { it.id }.toSet()
+        assertEquals(11, ids.size)
+
+        // Ensure all categories are covered
+        val categories = templates.map { it.category }.toSet()
+        assertEquals(TemplateCategory.entries.toSet(), categories)
+
+        // Ensure all templates have non-blank content and items
+        for (tmpl in templates) {
+            assertTrue(tmpl.id.isNotBlank())
+            assertTrue(tmpl.title.isNotBlank())
+            assertTrue(tmpl.description.isNotBlank())
+            val hasContent = tmpl.tasks.isNotEmpty() || tmpl.habits.isNotEmpty() ||
+                    tmpl.shortcuts.isNotEmpty() || tmpl.projects.isNotEmpty() ||
+                    tmpl.challenge != null
+            assertTrue("Template ${tmpl.id} must have items", hasContent)
+        }
     }
 }

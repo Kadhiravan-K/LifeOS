@@ -32,6 +32,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -74,9 +75,12 @@ fun GamificationScreen(
     val profile by viewModel.gamificationProfile.collectAsStateWithLifecycle()
     val achievements by viewModel.allAchievements.collectAsStateWithLifecycle()
     val rewards by viewModel.activeRewards.collectAsStateWithLifecycle()
+    val habitStreaks by viewModel.habitStreaks.collectAsStateWithLifecycle()
+    val taskStreaks by viewModel.taskStreaks.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var selectedTab by remember { mutableIntStateOf(0) } // 0 = Achievements, 1 = Rewards Shop
+    var achievementFilter by remember { mutableStateOf("ALL") } // "ALL", "UNLOCKED", "LOCKED"
     var showAddRewardDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -224,6 +228,74 @@ fun GamificationScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Streak Summary Cards
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "🔥", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Habit Streak",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "${habitStreaks.currentStreak} days",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFEA580C)
+                        )
+                        Text(
+                            text = "Best: ${habitStreaks.bestStreak} days",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "⚡", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Task Streak",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "${taskStreaks.currentStreak} days",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFD97706)
+                        )
+                        Text(
+                            text = "Best: ${taskStreaks.bestStreak} days",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             // Tabs: Achievements vs Rewards Shop
@@ -243,13 +315,50 @@ fun GamificationScreen(
             Spacer(modifier = Modifier.height(10.dp))
 
             if (selectedTab == 0) {
+                // Filter Chips for achievements
+                val unlockedCount = achievements.count { it.isUnlocked }
+                val lockedCount = achievements.size - unlockedCount
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    FilterChip(
+                        selected = achievementFilter == "ALL",
+                        onClick = { achievementFilter = "ALL" },
+                        label = { Text("All (${achievements.size})") }
+                    )
+                    FilterChip(
+                        selected = achievementFilter == "UNLOCKED",
+                        onClick = { achievementFilter = "UNLOCKED" },
+                        label = { Text("Unlocked ($unlockedCount)") }
+                    )
+                    FilterChip(
+                        selected = achievementFilter == "LOCKED",
+                        onClick = { achievementFilter = "LOCKED" },
+                        label = { Text("Locked ($lockedCount)") }
+                    )
+                }
+
+                val filteredAchievements = remember(achievements, achievementFilter) {
+                    when (achievementFilter) {
+                        "UNLOCKED" -> achievements.filter { it.isUnlocked }
+                        "LOCKED" -> achievements.filter { !it.isUnlocked }
+                        else -> achievements
+                    }
+                }
+
                 // Achievements List
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(achievements, key = { it.code }) { ach ->
-                        AchievementCard(achievement = ach)
+                    items(filteredAchievements, key = { it.code }) { ach ->
+                        AchievementCard(
+                            achievement = ach,
+                            currentLevel = profile.currentLevel,
+                            habitStreak = habitStreaks.currentStreak,
+                            taskStreak = taskStreaks.currentStreak
+                        )
                     }
                     item {
                         Spacer(modifier = Modifier.height(72.dp))
@@ -296,7 +405,35 @@ fun GamificationScreen(
 }
 
 @Composable
-fun AchievementCard(achievement: AchievementItem) {
+fun AchievementCard(
+    achievement: AchievementItem,
+    currentLevel: Int = 1,
+    habitStreak: Int = 0,
+    taskStreak: Int = 0
+) {
+    val progressInfo = remember(achievement.code, currentLevel, habitStreak, taskStreak) {
+        if (achievement.isUnlocked) null
+        else when (achievement.code) {
+            "LEVEL_10" -> {
+                val fraction = (currentLevel / 10f).coerceIn(0f, 1f)
+                Pair(fraction, "Level $currentLevel / 10")
+            }
+            "STREAK_3" -> {
+                val fraction = (habitStreak / 3f).coerceIn(0f, 1f)
+                Pair(fraction, "$habitStreak / 3 days")
+            }
+            "STREAK_7" -> {
+                val fraction = (habitStreak / 7f).coerceIn(0f, 1f)
+                Pair(fraction, "$habitStreak / 7 days")
+            }
+            "STREAK_30" -> {
+                val fraction = (habitStreak / 30f).coerceIn(0f, 1f)
+                Pair(fraction, "$habitStreak / 30 days")
+            }
+            else -> null
+        }
+    }
+
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
@@ -379,7 +516,34 @@ fun AchievementCard(achievement: AchievementItem) {
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                if (progressInfo != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        LinearProgressIndicator(
+                            progress = { progressInfo.first },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp)),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                        Text(
+                            text = progressInfo.second,
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.outline,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
             }
+
+            Spacer(modifier = Modifier.width(8.dp))
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(

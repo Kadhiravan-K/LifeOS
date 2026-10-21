@@ -41,6 +41,10 @@ import com.example.domain.model.HunterRank
 import com.example.domain.model.AchievementItem
 import com.example.domain.model.RewardItem
 import com.example.domain.model.HoneycombLayoutTemplate
+import com.example.domain.gamification.GamificationEngine
+import com.example.domain.gamification.StreakResult
+import com.example.domain.templates.LifeTemplate
+import com.example.domain.templates.TemplateImportSummary
 import com.example.data.backup.DataExportImportManager
 import com.example.data.local.AppDatabase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -80,6 +84,7 @@ data class DashboardUiState(
     val challengeRulesCompletedToday: Int = 0,
     val challengeRulesTotal: Int = 6,
     val hasInstalledDefaults: Boolean = false,
+    val hasCompletedOnboarding: Boolean = false,
     val honeycombShortcuts: List<HoneycombShortcut> = emptyList(),
     val isHoneycombEditMode: Boolean = false
 )
@@ -127,7 +132,8 @@ data class HabitsUiState(
 private data class UserDashboardPrefs(
     val userName: String,
     val hasInstalledDefaults: Boolean,
-    val is24Hour: Boolean
+    val is24Hour: Boolean,
+    val hasCompletedOnboarding: Boolean
 )
 
 private data class TaskFilterParams(
@@ -546,8 +552,8 @@ class LifeViewModel(
         initialValue = DefaultHoneycombShortcuts.list
     )
 
-    private val userPrefsFlow = combine(userNameFlow, hasInstalledDefaultsFlow, clockFormatFlow) { name, defaults, clock ->
-        UserDashboardPrefs(name, defaults, clock == "24_HOUR")
+    private val userPrefsFlow = combine(userNameFlow, hasInstalledDefaultsFlow, clockFormatFlow, preferences.hasCompletedOnboarding) { name, defaults, clock, onboarding ->
+        UserDashboardPrefs(name, defaults, clock == "24_HOUR", onboarding)
     }
 
     private val filterParamsFlow = combine(
@@ -655,7 +661,8 @@ class LifeViewModel(
             challengeProgressPercentage = challenge.progressPercentage,
             challengeRulesCompletedToday = challengeCompletedRules,
             challengeRulesTotal = challenge.rules.size,
-            hasInstalledDefaults = prefs.hasInstalledDefaults
+            hasInstalledDefaults = prefs.hasInstalledDefaults,
+            hasCompletedOnboarding = prefs.hasCompletedOnboarding
         )
     }.stateIn(
         scope = viewModelScope,
@@ -1403,6 +1410,16 @@ class LifeViewModel(
         viewModelScope.launch { preferences.setDefaultTaskDuration(duration) }
     }
 
+    val defaultReminderBehavior: StateFlow<String> = preferences.defaultReminderBehavior.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "AT_TIME"
+    )
+
+    fun updateDefaultReminderBehavior(behavior: String) {
+        viewModelScope.launch { preferences.setDefaultReminderBehavior(behavior) }
+    }
+
     // --- Honeycomb Actions ---
     fun setHoneycombEditMode(enabled: Boolean) {
         _isHoneycombEditMode.value = enabled
@@ -1722,6 +1739,84 @@ class LifeViewModel(
     fun insertReward(title: String, description: String, cost: Int, emoji: String) {
         viewModelScope.launch {
             repository.insertReward(RewardItem(title = title, description = description, coinCost = cost, iconEmoji = emoji))
+        }
+    }
+
+    val habitStreaks: StateFlow<StreakResult> = repository.habitStreaksFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = StreakResult(0, 0, false)
+    )
+
+    val taskStreaks: StateFlow<StreakResult> = repository.taskStreaksFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = StreakResult(0, 0, false)
+    )
+
+    val hasCompletedOnboarding: StateFlow<Boolean> = preferences.hasCompletedOnboarding.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val installedTemplateIds: StateFlow<Set<String>> = preferences.installedTemplateIds.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptySet()
+    )
+
+    val gamificationSoundEnabled: StateFlow<Boolean> = preferences.gamificationSoundEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    val gamificationVibrationEnabled: StateFlow<Boolean> = preferences.gamificationVibrationEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    fun installTemplate(
+        template: LifeTemplate,
+        selectedTaskIndices: Set<Int> = template.tasks.indices.toSet(),
+        selectedHabitIndices: Set<Int> = template.habits.indices.toSet(),
+        onResult: (TemplateImportSummary) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val summary = repository.installTemplate(template, selectedTaskIndices, selectedHabitIndices)
+            onResult(summary)
+        }
+    }
+
+    fun setHasCompletedOnboarding(completed: Boolean) {
+        viewModelScope.launch {
+            preferences.setHasCompletedOnboarding(completed)
+        }
+    }
+
+    fun resetGamificationProgress() {
+        viewModelScope.launch {
+            repository.resetGamificationProgress()
+        }
+    }
+
+    fun setGamificationSound(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setGamificationSoundEnabled(enabled)
+        }
+    }
+
+    fun setGamificationVibration(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setGamificationVibrationEnabled(enabled)
+        }
+    }
+
+    fun clearInstalledTemplates() {
+        viewModelScope.launch {
+            preferences.clearInstalledTemplates()
         }
     }
 

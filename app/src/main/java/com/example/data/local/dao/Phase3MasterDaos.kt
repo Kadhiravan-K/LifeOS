@@ -46,6 +46,9 @@ interface PlanDao {
     @Query("SELECT * FROM plans ORDER BY createdAt DESC")
     fun getAllPlans(): Flow<List<PlanEntity>>
 
+    @Query("SELECT * FROM plans ORDER BY createdAt DESC")
+    suspend fun getAllPlansList(): List<PlanEntity>
+
     @Query("SELECT * FROM plans WHERE level = :level ORDER BY createdAt DESC")
     fun getPlansByLevel(level: String): Flow<List<PlanEntity>>
 

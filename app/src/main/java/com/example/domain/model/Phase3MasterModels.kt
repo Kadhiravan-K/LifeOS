@@ -166,7 +166,9 @@ object DefaultAchievements {
         AchievementItem("CHALLENGE_DAY_30", "Iron Will", "Survive 30 days of 75-Day Challenge", "GOLD", 750, 150),
         AchievementItem("CHALLENGE_COMPLETE", "The Apex Champion", "Complete all 75 days of the challenge", "PLATINUM", 2000, 500),
         AchievementItem("PLANNER_INITIATE", "Master Strategist", "Create your first Weekly or Monthly Plan", "BRONZE", 100, 25),
-        AchievementItem("CLEAN_SLATE", "Zero Inbox", "Clear all tasks scheduled for today", "SILVER", 150, 30)
+        AchievementItem("CLEAN_SLATE", "Zero Inbox", "Clear all tasks scheduled for today", "SILVER", 150, 30),
+        AchievementItem("TEMPLATE_MASTER", "Template Pioneer", "Install your first offline routine or habit template", "BRONZE", 75, 15),
+        AchievementItem("LEVEL_10", "Elite Hunter", "Reach Level 10 and unlock Hunter Rank D", "SILVER", 200, 40)
     )
 }
 

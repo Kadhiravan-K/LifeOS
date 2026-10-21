@@ -51,6 +51,14 @@ class UserPreferences(private val context: Context) {
         val KEY_COMPLETION_SOUND = booleanPreferencesKey("completion_sound_enabled")
         val KEY_COMPLETION_VIBRATION = booleanPreferencesKey("completion_vibration_enabled")
         val KEY_COMPLETION_ANIMATION = booleanPreferencesKey("completion_animation_enabled")
+
+        // Clean Onboarding & Templates
+        val KEY_HAS_COMPLETED_ONBOARDING = booleanPreferencesKey("has_completed_onboarding")
+        val KEY_INSTALLED_TEMPLATE_IDS = stringPreferencesKey("installed_template_ids_json")
+
+        // Gamification Feedback Preferences
+        val KEY_GAMIFICATION_SOUND_ENABLED = booleanPreferencesKey("gamification_sound_enabled")
+        val KEY_GAMIFICATION_VIBRATION_ENABLED = booleanPreferencesKey("gamification_vibration_enabled")
     }
 
     val userName: Flow<String> = context.dataStore.data.map { preferences ->
@@ -115,6 +123,57 @@ class UserPreferences(private val context: Context) {
 
     val defaultTaskDuration: Flow<Int> = context.dataStore.data.map { preferences ->
         preferences[KEY_DEFAULT_TASK_DURATION] ?: 30
+    }
+
+    val hasCompletedOnboarding: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_HAS_COMPLETED_ONBOARDING] ?: false
+    }
+
+    val installedTemplateIds: Flow<Set<String>> = context.dataStore.data.map { preferences ->
+        val raw = preferences[KEY_INSTALLED_TEMPLATE_IDS] ?: ""
+        if (raw.isBlank()) emptySet() else raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+    }
+
+    val gamificationSoundEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_GAMIFICATION_SOUND_ENABLED] ?: true
+    }
+
+    val gamificationVibrationEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_GAMIFICATION_VIBRATION_ENABLED] ?: true
+    }
+
+    suspend fun setHasCompletedOnboarding(completed: Boolean) {
+        context.dataStore.edit { it[KEY_HAS_COMPLETED_ONBOARDING] = completed }
+    }
+
+    suspend fun addInstalledTemplateId(templateId: String) {
+        context.dataStore.edit { prefs ->
+            val currentRaw = prefs[KEY_INSTALLED_TEMPLATE_IDS] ?: ""
+            val currentSet = if (currentRaw.isBlank()) mutableSetOf() else currentRaw.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toMutableSet()
+            currentSet.add(templateId)
+            prefs[KEY_INSTALLED_TEMPLATE_IDS] = currentSet.joinToString(",")
+        }
+    }
+
+    suspend fun removeInstalledTemplateId(templateId: String) {
+        context.dataStore.edit { prefs ->
+            val currentRaw = prefs[KEY_INSTALLED_TEMPLATE_IDS] ?: ""
+            val currentSet = if (currentRaw.isBlank()) mutableSetOf() else currentRaw.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toMutableSet()
+            currentSet.remove(templateId)
+            prefs[KEY_INSTALLED_TEMPLATE_IDS] = currentSet.joinToString(",")
+        }
+    }
+
+    suspend fun clearInstalledTemplates() {
+        context.dataStore.edit { it.remove(KEY_INSTALLED_TEMPLATE_IDS) }
+    }
+
+    suspend fun setGamificationSoundEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_GAMIFICATION_SOUND_ENABLED] = enabled }
+    }
+
+    suspend fun setGamificationVibrationEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_GAMIFICATION_VIBRATION_ENABLED] = enabled }
     }
 
     suspend fun setUserName(name: String) {

@@ -72,6 +72,7 @@ import com.example.ui.components.PriorityBadge
 import com.example.ui.components.QuickHydrationDialog
 import com.example.ui.components.TaskCompletionCircle
 import com.example.ui.components.WaterTrackerCard
+import com.example.ui.screens.templates.TemplateBrowserDialog
 import com.example.ui.viewmodel.DashboardUiState
 import com.example.ui.viewmodel.LifeViewModel
 import com.example.utils.DateUtils
@@ -102,6 +103,7 @@ fun DashboardScreen(
     var contextMenuShortcut by remember { mutableStateOf<HoneycombShortcut?>(null) }
     var showCustomizeDialog by remember { mutableStateOf(false) }
     var showHydrationDialog by remember { mutableStateOf(false) }
+    var showTemplateBrowserDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -338,6 +340,9 @@ fun DashboardScreen(
                     },
                     onApplyTemplate = { tmpl ->
                         viewModel.applyHoneycombTemplate(tmpl)
+                    },
+                    onBrowseTemplatesClick = {
+                        showTemplateBrowserDialog = true
                     }
                 )
             }
@@ -390,46 +395,68 @@ fun DashboardScreen(
             Spacer(modifier = Modifier.height(14.dp))
         }
 
-        // --- First Launch Banner (If routines not installed) ---
-        if (!uiState.hasInstalledDefaults) {
+        // --- First Launch Onboarding Banner ---
+        if (!uiState.hasCompletedOnboarding) {
             Card(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("first_launch_banner")
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(14.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = "Setup",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Set Up Master Life Routines",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Text(
-                            text = "One-tap load: 9:30 PM Sleep, Laundry, Room Cleaning, Head Bath schedules & Habits",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                        )
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "🚀", fontSize = 20.sp)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Welcome to LifeOS!",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "Your personal life operating system is ready. Start by adding your first task or browse our 11+ curated master templates.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = { viewModel.installDefaultRoutines() },
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.testTag("install_defaults_button")
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Install", fontSize = 12.sp)
+                        Button(
+                            onClick = { showTemplateBrowserDialog = true },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.testTag("onboarding_browse_templates_button")
+                        ) {
+                            Text("Browse Templates", fontSize = 12.sp)
+                        }
+                        FilledTonalButton(
+                            onClick = onNavigateToTasks,
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("+ Create Task", fontSize = 12.sp)
+                        }
+                        TextButton(
+                            onClick = { viewModel.setHasCompletedOnboarding(true) },
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Dismiss", fontSize = 12.sp)
+                        }
                     }
                 }
             }
@@ -941,6 +968,17 @@ fun DashboardScreen(
                 viewModel.resetWater()
             },
             onDismiss = { showHydrationDialog = false }
+        )
+    }
+
+    if (showTemplateBrowserDialog) {
+        val installedTemplateIds by viewModel.installedTemplateIds.collectAsStateWithLifecycle()
+        TemplateBrowserDialog(
+            installedTemplateIds = installedTemplateIds,
+            onInstallTemplate = { template, selectedTasks, selectedHabits, onDone ->
+                viewModel.installTemplate(template, selectedTasks, selectedHabits, onDone)
+            },
+            onDismiss = { showTemplateBrowserDialog = false }
         )
     }
 }

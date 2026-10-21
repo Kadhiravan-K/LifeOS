@@ -91,6 +91,9 @@ interface WaterLogDao {
 
     @Query("SELECT * FROM water_logs ORDER BY dateIso DESC LIMIT 30")
     fun getRecentWaterLogs(): Flow<List<WaterLogEntity>>
+
+    @Query("SELECT * FROM water_logs ORDER BY dateIso DESC")
+    suspend fun getAllWaterLogsList(): List<WaterLogEntity>
 }
 
 @Dao

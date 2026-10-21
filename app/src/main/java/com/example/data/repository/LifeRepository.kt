@@ -59,6 +59,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import androidx.room.withTransaction
+import com.example.domain.gamification.GamificationEngine
+import com.example.domain.gamification.StreakResult
+import com.example.domain.templates.LifeTemplate
+import com.example.domain.templates.TemplateImportSummary
 
 class LifeRepository(
     private val database: AppDatabase,
@@ -225,6 +230,13 @@ class LifeRepository(
 
     // --- Seed Default Projects and Labels if empty ---
     suspend fun seedDefaultProjectsAndLabels() {
+        val hasCompleted = preferences.hasCompletedOnboarding.first()
+        val hasExistingData = taskDao.getAllTasksList().isNotEmpty() || habitDao.getAllHabitsList().isNotEmpty()
+        if (!hasCompleted && !hasExistingData) {
+            // Fresh install starts with a blank canvas
+            return
+        }
+
         val existingProjects = projectDao.getAllProjectsList()
         if (existingProjects.isEmpty()) {
             val defaults = listOf(
@@ -283,6 +295,21 @@ class LifeRepository(
             completedDatesJson = JsonMappers.serializeStringList(currentCompletedDates)
         )
         taskDao.updateTask(updatedEntity)
+
+        // Gamification: Deterministic anti-farming XP reward or revocation
+        val eventKey = GamificationEngine.createEventKey("TASK_COMPLETE", taskId.toString(), dateIso)
+        if (isNowCompleted) {
+            val (xp, coins) = GamificationEngine.getTaskXpReward(TaskPriority.fromString(entity.priority))
+            awardXpAndCoins(eventKey, xp, coins, "Completed task: ${entity.title}")
+            val scheduledToday = getTasksForDateFlow(dateIso).first()
+            if (scheduledToday.isNotEmpty() && scheduledToday.all { it.isCompletedForDate }) {
+                checkAndUnlockAchievement("CLEAN_SLATE")
+            }
+        } else {
+            revokeXpAndCoins(eventKey)
+        }
+        evaluateAchievements()
+
         return isNowCompleted
     }
 
@@ -421,6 +448,35 @@ class LifeRepository(
         }
         val updated = entity.copy(completedDatesJson = JsonMappers.serializeStringList(completedDates))
         habitDao.updateHabit(updated)
+
+        // Gamification: Anti-farming event key & habit check-in XP
+        val eventKey = GamificationEngine.createEventKey("HABIT_COMPLETE", habitId.toString(), dateIso)
+        val allHabitsKey = GamificationEngine.createEventKey("HABITS_ALL_COMPLETE", "all", dateIso)
+        if (isNewlyCompleted) {
+            awardXpAndCoins(
+                eventKey,
+                GamificationEngine.XP_HABIT_CHECKIN,
+                GamificationEngine.COINS_HABIT_CHECKIN,
+                "Checked in habit: ${entity.title}"
+            )
+            val allHabits = habitDao.getAllHabitsList()
+            val allDoneToday = allHabits.isNotEmpty() && allHabits.all { h ->
+                if (h.id == habitId) true else JsonMappers.parseStringList(h.completedDatesJson).contains(dateIso)
+            }
+            if (allDoneToday) {
+                awardXpAndCoins(
+                    allHabitsKey,
+                    GamificationEngine.XP_ALL_HABITS_BONUS,
+                    GamificationEngine.COINS_ALL_HABITS_BONUS,
+                    "Completed all habits for today!"
+                )
+            }
+        } else {
+            revokeXpAndCoins(eventKey)
+            revokeXpAndCoins(allHabitsKey)
+        }
+        evaluateAchievements()
+
         return isNewlyCompleted
     }
 
@@ -460,6 +516,21 @@ class LifeRepository(
             dailyLogsJson = JsonMappers.serializeChallengeDailyLogs(logs)
         )
         challengeDao.insertOrUpdateChallenge(updatedEntity)
+
+        // Gamification: Anti-farming event key & challenge objective XP
+        val ruleEventKey = GamificationEngine.createEventKey("CHALLENGE_RULE", ruleId, dateIso)
+        if (isNewlyCompleted) {
+            awardXpAndCoins(
+                ruleEventKey,
+                GamificationEngine.XP_CHALLENGE_OBJECTIVE,
+                GamificationEngine.COINS_CHALLENGE_OBJECTIVE,
+                "Completed challenge objective: $ruleId"
+            )
+        } else {
+            revokeXpAndCoins(ruleEventKey)
+        }
+        evaluateAchievements()
+
         return isNewlyCompleted
     }
 
@@ -1084,13 +1155,19 @@ class LifeRepository(
 
     suspend fun seedDefaultHoneycombShortcuts() {
         val existing = honeycombShortcutDao.getAllShortcutsList()
+        val hasCompleted = preferences.hasCompletedOnboarding.first()
+        val hasExistingData = taskDao.getAllTasksList().isNotEmpty() || habitDao.getAllHabitsList().isNotEmpty()
+
         if (existing.isEmpty()) {
-            val coords = HoneycombLayoutTemplate.generateCoordinates(HoneycombLayoutTemplate.STANDARD, DefaultHoneycombShortcuts.list.size)
-            val entities = DefaultHoneycombShortcuts.list.mapIndexed { index, item ->
-                val (q, r) = coords.getOrElse(index) { Pair(index % 3, index / 3) }
-                item.copy(orderIndex = index, coordQ = q, coordR = r).toEntity()
+            if (hasCompleted || hasExistingData) {
+                val coords = HoneycombLayoutTemplate.generateCoordinates(HoneycombLayoutTemplate.STANDARD, DefaultHoneycombShortcuts.list.size)
+                val entities = DefaultHoneycombShortcuts.list.mapIndexed { index, item ->
+                    val (q, r) = coords.getOrElse(index) { Pair(index % 3, index / 3) }
+                    item.copy(orderIndex = index, coordQ = q, coordR = r).toEntity()
+                }
+                honeycombShortcutDao.insertShortcuts(entities)
             }
-            honeycombShortcutDao.insertShortcuts(entities)
+            // For fresh install (!hasCompleted && !hasExistingData), leave empty so the honeycomb grid displays empty slots!
         } else {
             // Check for any duplicate / overlapping coordinates and de-overlap them
             val occupied = mutableSetOf<Pair<Int, Int>>()
@@ -1408,6 +1485,16 @@ class LifeRepository(
         }
     }
 
+    val habitStreaksFlow: Flow<StreakResult> = habitDao.getAllHabits().map { habits ->
+        val allDates = habits.flatMap { JsonMappers.parseStringList(it.completedDatesJson) }.toSet()
+        GamificationEngine.calculateStreaks(allDates, DateUtils.todayString())
+    }
+
+    val taskStreaksFlow: Flow<StreakResult> = taskDao.getAllTasks().map { tasks ->
+        val allDates = tasks.flatMap { JsonMappers.parseStringList(it.completedDatesJson) }.toSet()
+        GamificationEngine.calculateStreaks(allDates, DateUtils.todayString())
+    }
+
     suspend fun awardXpAndCoins(eventKey: String, xp: Int, coins: Int, description: String): Boolean {
         val existing = gamificationDao.getXpEvent(eventKey)
         if (existing != null) return false
@@ -1421,20 +1508,12 @@ class LifeRepository(
             )
         )
 
-        val profile = gamificationDao.getProfile() ?: GamificationProfileEntity(1, 0, 0, 1, "E")
+        val profile = gamificationDao.getProfile() ?: GamificationProfileEntity(1, 0, 50, 1, "E")
         val newXp = profile.currentXp + xp
         val newCoins = profile.currentCoins + coins
+        val level = GamificationEngine.calculateLevelFromXp(newXp)
+        val rank = GamificationEngine.calculateHunterRank(level).rankCode
 
-        var level = 1
-        var needed = 100L
-        var totalNeeded = 100L
-        while (newXp >= totalNeeded && level < 100) {
-            level++
-            needed = level * 100L
-            totalNeeded += needed
-        }
-
-        val rank = HunterRank.fromLevel(level).rankCode
         gamificationDao.insertOrUpdateProfile(
             profile.copy(
                 currentXp = newXp,
@@ -1445,6 +1524,251 @@ class LifeRepository(
             )
         )
         return true
+    }
+
+    suspend fun revokeXpAndCoins(eventKey: String): Boolean {
+        val existing = gamificationDao.getXpEvent(eventKey) ?: return false
+        gamificationDao.deleteXpEvent(eventKey)
+        val profile = gamificationDao.getProfile() ?: return false
+        val newXp = (profile.currentXp - existing.xpAwarded).coerceAtLeast(0L)
+        val newCoins = (profile.currentCoins - existing.coinsAwarded).coerceAtLeast(0)
+        val level = GamificationEngine.calculateLevelFromXp(newXp)
+        val rank = GamificationEngine.calculateHunterRank(level).rankCode
+
+        gamificationDao.insertOrUpdateProfile(
+            profile.copy(
+                currentXp = newXp,
+                currentCoins = newCoins,
+                currentLevel = level,
+                hunterRank = rank,
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+        return true
+    }
+
+    suspend fun evaluateAchievements() {
+        // 1. Task completions
+        val allTasks = taskDao.getAllTasksList()
+        val totalCompletedTasks = allTasks.count { it.isOneTimeCompleted } + allTasks.sumOf {
+            JsonMappers.parseStringList(it.completedDatesJson).size
+        }
+        if (totalCompletedTasks >= 1) checkAndUnlockAchievement("FIRST_TASK")
+        if (totalCompletedTasks >= 10) checkAndUnlockAchievement("TASK_10")
+        if (totalCompletedTasks >= 50) checkAndUnlockAchievement("TASK_50")
+        if (totalCompletedTasks >= 100) checkAndUnlockAchievement("TASK_100")
+
+        // 2. Habit streaks
+        val allHabits = habitDao.getAllHabitsList()
+        val allHabitDates = allHabits.flatMap {
+            JsonMappers.parseStringList(it.completedDatesJson)
+        }.toSet()
+        val streakInfo = GamificationEngine.calculateStreaks(allHabitDates)
+        val maxStreak = maxOf(streakInfo.currentStreak, streakInfo.longestStreak)
+        if (maxStreak >= 3) checkAndUnlockAchievement("STREAK_3")
+        if (maxStreak >= 7) checkAndUnlockAchievement("STREAK_7")
+        if (maxStreak >= 30) checkAndUnlockAchievement("STREAK_30")
+
+        // 3. Hydration
+        val allWaterLogs = waterLogDao.getAllWaterLogsList()
+        val goalMetCount = allWaterLogs.count { it.amountMl >= it.goalMl && it.goalMl > 0 }
+        if (goalMetCount >= 5) checkAndUnlockAchievement("HYDRATION_HERO")
+
+        // 4. Challenge
+        val challenge = challengeDao.getActiveChallenge()
+        if (challenge != null) {
+            val logs = JsonMappers.parseChallengeDailyLogs(challenge.dailyLogsJson)
+            val rules = JsonMappers.parseChallengeRules(challenge.rulesJson)
+            val ruleIds = rules.map { it.id }.toSet()
+            val successfulDays = logs.values.count { log ->
+                ruleIds.isNotEmpty() && log.completedRuleIds.containsAll(ruleIds)
+            }
+            if (successfulDays >= 7) checkAndUnlockAchievement("CHALLENGE_DAY_7")
+            if (successfulDays >= 30) checkAndUnlockAchievement("CHALLENGE_DAY_30")
+            if (successfulDays >= 75) checkAndUnlockAchievement("CHALLENGE_COMPLETE")
+        }
+
+        // 5. Plans
+        val planCount = planDao.getAllPlansList().size
+        if (planCount >= 1) checkAndUnlockAchievement("PLANNER_INITIATE")
+
+        // 6. Templates
+        val installedTemplates = preferences.installedTemplateIds.first()
+        if (installedTemplates.isNotEmpty()) checkAndUnlockAchievement("TEMPLATE_MASTER")
+
+        // 7. Level 10
+        val profile = gamificationDao.getProfile()
+        if (profile != null && profile.currentLevel >= 10) checkAndUnlockAchievement("LEVEL_10")
+    }
+
+    suspend fun resetGamificationProgress() {
+        gamificationDao.insertOrUpdateProfile(
+            GamificationProfileEntity(
+                id = 1,
+                currentXp = 0L,
+                currentCoins = 50,
+                currentLevel = 1,
+                hunterRank = "E",
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+        // Reset achievements to locked state
+        val defaultAchievements = DefaultAchievements.list.map {
+            AchievementEntity(
+                code = it.code,
+                title = it.title,
+                description = it.description,
+                tier = it.tier,
+                xpReward = it.xpReward,
+                coinsReward = it.coinsReward,
+                isUnlocked = false,
+                unlockedAt = null
+            )
+        }
+        gamificationDao.insertAchievements(defaultAchievements)
+    }
+
+    suspend fun installTemplate(
+        template: LifeTemplate,
+        selectedTaskIndices: Set<Int> = template.tasks.indices.toSet(),
+        selectedHabitIndices: Set<Int> = template.habits.indices.toSet()
+    ): TemplateImportSummary {
+        val todayIso = DateUtils.todayString()
+        var tasksAdded = 0
+        var habitsAdded = 0
+        var projectsAdded = 0
+        var shortcutsAdded = 0
+        var challengeConfigured = false
+
+        database.withTransaction {
+            // 1. Project
+            var createdProjectId: Long? = null
+            template.project?.let { projDef ->
+                val existingProjects = projectDao.getAllProjectsList()
+                val match = existingProjects.find { it.name.equals(projDef.name, ignoreCase = true) }
+                createdProjectId = if (match != null) {
+                    match.id
+                } else {
+                    projectsAdded++
+                    projectDao.insertProject(
+                        ProjectEntity(
+                            name = projDef.name,
+                            description = projDef.description,
+                            colorId = projDef.colorId,
+                            emoji = projDef.emoji
+                        )
+                    )
+                }
+            }
+
+            // 2. Tasks
+            val existingTasks = taskDao.getAllTasksList()
+            template.tasks.forEachIndexed { index, taskDef ->
+                if (index in selectedTaskIndices) {
+                    val isDuplicate = existingTasks.any { it.title.equals(taskDef.title, ignoreCase = true) }
+                    if (!isDuplicate) {
+                        taskDao.insertTask(
+                            TaskEntity(
+                                title = taskDef.title,
+                                emoji = taskDef.emoji,
+                                description = taskDef.description,
+                                category = taskDef.category,
+                                priority = taskDef.priority.name,
+                                dueDateIso = todayIso,
+                                dueTime = taskDef.dueTime,
+                                durationMinutes = taskDef.durationMinutes,
+                                schedulingMode = taskDef.schedulingMode,
+                                recurrenceType = taskDef.recurrenceType.name,
+                                recurrenceDaysOfWeek = taskDef.recurrenceDaysOfWeek.joinToString(","),
+                                isReminderEnabled = taskDef.isReminderEnabled,
+                                projectId = createdProjectId,
+                                createdAt = System.currentTimeMillis()
+                            )
+                        )
+                        tasksAdded++
+                    }
+                }
+            }
+
+            // 3. Habits
+            val existingHabits = habitDao.getAllHabitsList()
+            template.habits.forEachIndexed { index, habitDef ->
+                if (index in selectedHabitIndices) {
+                    val isDuplicate = existingHabits.any { it.title.equals(habitDef.title, ignoreCase = true) }
+                    if (!isDuplicate) {
+                        habitDao.insertHabit(
+                            HabitEntity(
+                                title = habitDef.title,
+                                emoji = habitDef.emoji,
+                                description = habitDef.description,
+                                reminderTime = habitDef.reminderTime,
+                                colorHex = habitDef.colorHex,
+                                completedDatesJson = "[]",
+                                orderIndex = existingHabits.size + habitsAdded,
+                                createdAt = System.currentTimeMillis()
+                            )
+                        )
+                        habitsAdded++
+                    }
+                }
+            }
+
+            // 4. Challenge if specified
+            template.challenge?.let { chalDef ->
+                val rules = chalDef.rules.map { ruleDef ->
+                    ChallengeRule(id = ruleDef.id, title = ruleDef.title, emoji = ruleDef.emoji, description = ruleDef.description)
+                }
+                restartChallenge(todayIso, rules)
+                challengeConfigured = true
+            }
+
+            // 5. Honeycomb shortcuts
+            val existingShortcuts = honeycombShortcutDao.getAllShortcutsList()
+            template.shortcuts.forEach { scDef ->
+                val alreadyExists = existingShortcuts.any { it.title.equals(scDef.title, ignoreCase = true) }
+                if (!alreadyExists && existingShortcuts.size + shortcutsAdded < 19) {
+                    val nextOrder = existingShortcuts.size + shortcutsAdded
+                    honeycombShortcutDao.insertShortcut(
+                        HoneycombShortcutEntity(
+                            type = scDef.type.name,
+                            targetId = scDef.targetId,
+                            title = scDef.title,
+                            emoji = scDef.emoji,
+                            customColorHex = scDef.customColorHex,
+                            orderIndex = nextOrder,
+                            coordQ = scDef.coordQ,
+                            coordR = scDef.coordR
+                        )
+                    )
+                    shortcutsAdded++
+                }
+            }
+        }
+
+        // Record installed template ID
+        preferences.addInstalledTemplateId(template.id)
+        preferences.setHasCompletedOnboarding(true)
+
+        // Award Template XP
+        awardXpAndCoins(
+            eventKey = "TEMPLATE_INSTALL:${template.id}",
+            xp = GamificationEngine.XP_TEMPLATE_INSTALLED,
+            coins = GamificationEngine.COINS_TEMPLATE_INSTALLED,
+            description = "Installed template: ${template.title}"
+        )
+
+        evaluateAchievements()
+
+        return TemplateImportSummary(
+            templateId = template.id,
+            templateTitle = template.title,
+            tasksImported = tasksAdded,
+            habitsImported = habitsAdded,
+            shortcutsImported = shortcutsAdded,
+            projectsImported = projectsAdded,
+            challengeConfigured = challengeConfigured,
+            xpAwarded = GamificationEngine.XP_TEMPLATE_INSTALLED
+        )
     }
 
     suspend fun redeemReward(rewardId: Long): Boolean {
