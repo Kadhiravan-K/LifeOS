@@ -103,6 +103,7 @@ fun TaskQuickAddSheet(
     var selectedProjectId by remember { mutableStateOf<Long?>(initialTask?.projectId) }
     var selectedLabelIds by remember { mutableStateOf<Set<Long>>(initialTask?.labels?.map { it.id }?.toSet() ?: emptySet()) }
     var isReminderEnabled by remember { mutableStateOf(initialTask?.isReminderEnabled ?: false) }
+    var isQuickReminder by remember { mutableStateOf(initialTask?.isQuickReminder ?: false) }
 
     var showDatePicker by remember { mutableStateOf(false) }
     var showEmojiDialog by remember { mutableStateOf(false) }
@@ -133,6 +134,7 @@ fun TaskQuickAddSheet(
             projectId = selectedProjectId,
             labels = selectedLabels,
             isReminderEnabled = isReminderEnabled,
+            isQuickReminder = isQuickReminder,
             reminders = reminders
         )
     }
@@ -477,6 +479,30 @@ fun TaskQuickAddSheet(
                             text = if (isReminderEnabled) "Remind On" else "Reminder",
                             fontSize = 11.sp,
                             color = if (isReminderEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Quick Reminders tile toggle chip
+                Surface(
+                    onClick = { isQuickReminder = !isQuickReminder },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isQuickReminder) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (isQuickReminder) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    modifier = Modifier.testTag("quick_add_qr_toggle")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isQuickReminder) "⚡ In QR Tiles" else "⚡ Add to QR",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isQuickReminder) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

@@ -38,6 +38,7 @@ data class TaskEntity(
     val reminderMinutesBefore: Int = 0,
     val isArchived: Boolean = false,
     val isPaused: Boolean = false,
+    val isQuickReminder: Boolean = false,
     val projectId: Long? = null,
     val createdAt: Long = System.currentTimeMillis()
 )
@@ -84,6 +85,7 @@ data class HoneycombShortcutEntity(
     val type: String, // "TASK", "HABIT", "CHALLENGE_RULE", "WATER", "CUSTOM"
     val targetId: String,
     val title: String,
+    val customTileName: String? = null,
     val emoji: String = "✅",
     val customColorHex: Long? = null,
     val orderIndex: Int = 0,

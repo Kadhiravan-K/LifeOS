@@ -19,6 +19,7 @@ data class HoneycombShortcut(
     val type: ShortcutType,
     val targetId: String,
     val title: String,
+    val customTileName: String? = null,
     val emoji: String,
     val customColorHex: Long? = null,
     val orderIndex: Int = 0,
@@ -29,7 +30,9 @@ data class HoneycombShortcut(
     val subtitle: String = "",
     val progressFraction: Float = 0f,
     val isBinary: Boolean = true
-)
+) {
+    val displayTitle: String get() = if (!customTileName.isNullOrBlank()) customTileName else title
+}
 
 enum class HoneycombLayoutTemplate(val displayName: String, val icon: String) {
     STANDARD("Standard Honeycomb", "⬡"),

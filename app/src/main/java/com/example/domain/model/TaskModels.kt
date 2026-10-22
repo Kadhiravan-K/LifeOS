@@ -225,6 +225,7 @@ data class TaskItem(
     val reminderMinutesBefore: Int = 0,
     val isArchived: Boolean = false,
     val isPaused: Boolean = false,
+    val isQuickReminder: Boolean = false,
     val projectId: Long? = null,
     val projectName: String? = null,
     val projectColorId: String? = null,

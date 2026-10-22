@@ -83,10 +83,12 @@ fun HoneycombContextMenuDialog(
     onEnterEditMode: () -> Unit,
     onChangeEmoji: (String) -> Unit,
     onChangeColor: (Long?) -> Unit,
-    onRemoveFromDashboard: () -> Unit
+    onRemoveFromDashboard: () -> Unit,
+    onRenameTile: (String?) -> Unit = {}
 ) {
     var showColorPicker by remember { mutableStateOf(false) }
     var showEmojiPicker by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -133,7 +135,22 @@ fun HoneycombContextMenuDialog(
                     Text(if (shortcut.isCompletedToday) "Mark as Incomplete" else "Mark as Complete")
                 }
 
-                // Action 2: Change Icon
+                // Action 2: Custom Tile Name (Rename QR Tile)
+                OutlinedButton(
+                    onClick = { showRenameDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Rename Tile",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (!shortcut.customTileName.isNullOrBlank()) "Rename QR Tile (${shortcut.customTileName})" else "Set Custom QR Tile Name")
+                }
+
+                // Action 3: Change Icon
                 OutlinedButton(
                     onClick = { showEmojiPicker = true },
                     modifier = Modifier.fillMaxWidth(),
@@ -142,7 +159,7 @@ fun HoneycombContextMenuDialog(
                     Text("Change Icon / Emoji (${shortcut.emoji})")
                 }
 
-                // Action 3: Change Hexagon Color
+                // Action 4: Change Hexagon Color
                 OutlinedButton(
                     onClick = { showColorPicker = true },
                     modifier = Modifier.fillMaxWidth(),
@@ -157,7 +174,7 @@ fun HoneycombContextMenuDialog(
                     Text("Change Hexagon Color")
                 }
 
-                // Action 4: Enter Edit Layout Mode
+                // Action 5: Enter Edit Layout Mode
                 OutlinedButton(
                     onClick = {
                         onEnterEditMode()
@@ -230,6 +247,61 @@ fun HoneycombContextMenuDialog(
                 onChangeEmoji(emoji)
                 showEmojiPicker = false
                 onDismiss()
+            }
+        )
+    }
+
+    if (showRenameDialog) {
+        var draftName by remember { mutableStateOf(shortcut.customTileName ?: "") }
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("Rename QR Tile") },
+            text = {
+                Column {
+                    Text(
+                        text = "Give this Quick Reminder tile a custom display name. The underlying task title will remain unchanged.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = draftName,
+                        onValueChange = { draftName = it },
+                        label = { Text("Custom Tile Name") },
+                        placeholder = { Text(shortcut.title) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onRenameTile(draftName.trim().ifBlank { null })
+                        showRenameDialog = false
+                        onDismiss()
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                Row {
+                    if (!shortcut.customTileName.isNullOrBlank()) {
+                        TextButton(
+                            onClick = {
+                                onRenameTile(null)
+                                showRenameDialog = false
+                                onDismiss()
+                            }
+                        ) {
+                            Text("Reset")
+                        }
+                    }
+                    TextButton(onClick = { showRenameDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
             }
         )
     }

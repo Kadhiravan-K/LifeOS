@@ -119,6 +119,9 @@ interface HoneycombShortcutDao {
     @Query("UPDATE honeycomb_shortcuts SET coordQ = :q, coordR = :r, orderIndex = :orderIndex WHERE id = :id")
     suspend fun updateCoords(id: Long, q: Int, r: Int, orderIndex: Int)
 
+    @Query("UPDATE honeycomb_shortcuts SET customTileName = :customTileName WHERE id = :id")
+    suspend fun updateCustomTileName(id: Long, customTileName: String?)
+
     @Query("DELETE FROM honeycomb_shortcuts WHERE id = :id")
     suspend fun deleteShortcutById(id: Long)
 

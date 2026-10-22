@@ -38,6 +38,8 @@ import androidx.compose.material.icons.filled.SentimentSatisfied
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
@@ -122,6 +124,7 @@ fun TaskAdvancedEditorSheet(
     var priority by remember { mutableStateOf(task?.priority ?: TaskPriority.P3) }
     var selectedProjectId by remember { mutableStateOf<Long?>(task?.projectId) }
     var selectedLabelIds by remember { mutableStateOf<Set<Long>>(task?.labels?.map { it.id }?.toSet() ?: emptySet()) }
+    var isQuickReminder by remember { mutableStateOf(task?.isQuickReminder ?: false) }
 
     // 2. Schedule Date & Time
     var dueDateIso by remember { mutableStateOf(task?.dueDateIso ?: today) }
@@ -309,6 +312,7 @@ fun TaskAdvancedEditorSheet(
                                 projectId = selectedProjectId,
                                 labels = selectedLabels,
                                 isReminderEnabled = remindersList.isNotEmpty(),
+                                isQuickReminder = isQuickReminder,
                                 reminders = remindersList
                             )
                             onSaveTask(updatedTask)
@@ -1187,6 +1191,41 @@ fun TaskAdvancedEditorSheet(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Add Custom Reminder")
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Quick Reminders Card
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "⚡ Add to Quick Reminders",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Automatically place this task on your Home Dashboard QR grid for one-tap execution",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    androidx.compose.material3.Switch(
+                        checked = isQuickReminder,
+                        onCheckedChange = { isQuickReminder = it },
+                        modifier = Modifier.testTag("adv_editor_qr_switch")
+                    )
                 }
             }
         }

@@ -58,7 +58,7 @@ object ThemeRegistry {
             taskSectionTitle = "Daily Tasks",
             habitsSectionTitle = "Habit Streaks",
             challengeSectionTitle = "75-Day Challenge",
-            honeycombTitle = "My Daily Honeycomb"
+            honeycombTitle = "⚡ QR — Quick Reminders"
         ),
         honeycombEngraving = HoneycombEngravingType.MINIMAL
     )
@@ -118,7 +118,7 @@ object ThemeRegistry {
             taskSectionTitle = "Grimoire of Directives",
             habitsSectionTitle = "Enchanted Skill Mastery",
             challengeSectionTitle = "75 Magical Ascensions",
-            honeycombTitle = "Arcane Rune Honeycomb"
+            honeycombTitle = "🔮 Arcane QR — Quick Reminders"
         ),
         honeycombEngraving = HoneycombEngravingType.RUNE
     )
@@ -180,7 +180,7 @@ object ThemeRegistry {
             taskSectionTitle = "Directive Queue",
             habitsSectionTitle = "Cybernetic Performance Matrix",
             challengeSectionTitle = "75-Cycle Cyber Protocol",
-            honeycombTitle = "Nexus Core Honeycomb"
+            honeycombTitle = "⚡ Nexus Core QR — Quick Reminders"
         ),
         honeycombEngraving = HoneycombEngravingType.CIRCUIT
     )
@@ -240,7 +240,7 @@ object ThemeRegistry {
             taskSectionTitle = "Guild Quest Log",
             habitsSectionTitle = "Heroic Skill Progression",
             challengeSectionTitle = "75-League Grand Expedition",
-            honeycombTitle = "Guild Badge Honeycomb"
+            honeycombTitle = "⚔️ Guild Quest QR — Quick Reminders"
         ),
         honeycombEngraving = HoneycombEngravingType.COMPASS_BADGE
     )
@@ -294,7 +294,7 @@ object ThemeRegistry {
             taskSectionTitle = "Mission Directives",
             habitsSectionTitle = "Planetary Habitation Matrix",
             challengeSectionTitle = "75-Day Deep Space Odyssey",
-            honeycombTitle = "Orbital Star-Map Honeycomb"
+            honeycombTitle = "🚀 Orbital QR — Quick Reminders"
         ),
         honeycombEngraving = HoneycombEngravingType.ORBITAL
     )

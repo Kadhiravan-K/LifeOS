@@ -125,13 +125,13 @@ fun HoneycombTaskGrid(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "⬡ Honeycomb Canvas",
+                    text = "⚡ QR — Quick Reminders Canvas",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Your daily cockpit is ready. Add custom habit & task shortcuts or explore our curated master templates.",
+                    text = "Your daily cockpit is ready. Add quick reminder tiles or explore curated master productivity templates.",
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -523,7 +523,7 @@ fun HoneycombCell(
     )
 
     val widthDp = (sqrt(3.0) * (sizeDp.value / 2f)).dp
-    val semanticsDescription = "${shortcut.title}, ${if (shortcut.isCompletedToday) "Completed" else "Incomplete"}. ${shortcut.subtitle}"
+    val semanticsDescription = "${shortcut.displayTitle}, ${if (shortcut.isCompletedToday) "Completed" else "Incomplete"}. ${shortcut.subtitle}"
 
     Box(
         modifier = modifier
@@ -624,9 +624,10 @@ fun HoneycombCell(
                 textAlign = TextAlign.Center
             )
 
-            if (shortcut.title.isNotBlank()) {
+            val tileTitle = shortcut.displayTitle
+            if (tileTitle.isNotBlank()) {
                 Text(
-                    text = shortcut.title,
+                    text = tileTitle,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,

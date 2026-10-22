@@ -928,6 +928,9 @@ fun DashboardScreen(
             },
             onRemoveFromDashboard = {
                 viewModel.removeHoneycombShortcut(sc.id)
+            },
+            onRenameTile = { newName ->
+                viewModel.updateShortcutCustomTileName(sc.id, newName)
             }
         )
     }
