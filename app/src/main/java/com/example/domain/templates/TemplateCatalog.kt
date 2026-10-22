@@ -374,6 +374,188 @@ object TemplateCatalog {
                 TemplateShortcutDef(ShortcutType.CHALLENGE_RULE, "rule_reading", "Reading", "📖", 2, 0)
             ),
             tags = listOf("75hard", "discipline", "toughness", "challenge")
+        ),
+
+        // 12. Special Collection: Life Bucket List
+        LifeTemplate(
+            id = "special_life_bucket_list",
+            version = 1,
+            title = "Life Bucket List",
+            description = "Lifelong aspirations, transformative milestones, and unforgettable experiences to achieve in your lifetime.",
+            category = TemplateCategory.BUCKET_LIST,
+            emoji = "🌟",
+            tasks = listOf(
+                TemplateTaskDef("Run a 10K or Half-Marathon", "Train consistently and cross the finish line", "Milestone", TaskPriority.HIGH, null, 120, RecurrenceType.NONE),
+                TemplateTaskDef("Master an Instrument Piece", "Learn to play a complete classic song with fluency", "Skill", TaskPriority.MEDIUM, null, 45, RecurrenceType.NONE),
+                TemplateTaskDef("Write and Publish a Creative Work", "Complete a book chapter, essay, or creative article", "Legacy", TaskPriority.HIGH, null, 90, RecurrenceType.NONE),
+                TemplateTaskDef("Mentor Someone Towards Their Dream Goal", "Invest guidance into someone building their future", "Impact", TaskPriority.HIGH, null, 60, RecurrenceType.NONE),
+                TemplateTaskDef("Plant a Tree and Watch It Grow", "Contribute positively to the Earth and leave roots behind", "Nature", TaskPriority.MEDIUM, null, 60, RecurrenceType.NONE)
+            ),
+            projects = listOf(
+                TemplateProjectDef("Life Bucket List", "🌟", "purple", "Lifetime achievements and memories")
+            ),
+            tags = listOf("bucketlist", "dreams", "goals", "milestones")
+        ),
+
+        // 13. Special Collection: Couples Bucket List ❤️
+        LifeTemplate(
+            id = "special_couples_bucket_list",
+            version = 1,
+            title = "Couples Bucket List ❤️",
+            description = "Meaningful shared adventures, intimate traditions, and memorable milestones for couples.",
+            category = TemplateCategory.BUCKET_LIST,
+            emoji = "❤️",
+            tasks = listOf(
+                TemplateTaskDef("Sunrise Breakfast Picnic", "Pack warm coffee and watch the sunrise from a scenic peak", "Romance", TaskPriority.HIGH, "06:00", 90, RecurrenceType.NONE),
+                TemplateTaskDef("Cook an Authentic 3-Course Feast Together", "Select an international recipe and cook every dish from scratch", "Date Night", TaskPriority.MEDIUM, "18:00", 120, RecurrenceType.NONE),
+                TemplateTaskDef("Unplugged Weekend Cabin Retreat", "48 hours in nature with zero smartphone distractions", "Connection", TaskPriority.HIGH, null, 2880, RecurrenceType.NONE),
+                TemplateTaskDef("Midnight Stargazing with Hot Cocoa", "Lie back on a blanket and map constellations together", "Romance", TaskPriority.MEDIUM, "22:00", 60, RecurrenceType.NONE),
+                TemplateTaskDef("Shared Wellness & Spa Day", "Recharge together with massage, sauna, and deep relaxation", "Wellness", TaskPriority.MEDIUM, null, 180, RecurrenceType.NONE)
+            ),
+            projects = listOf(
+                TemplateProjectDef("Couples Adventures", "❤️", "pink", "Cherished moments and shared milestones")
+            ),
+            tags = listOf("couples", "love", "date", "bucketlist", "relationship")
+        ),
+
+        // 14. Special Collection: Travel & Exploration
+        LifeTemplate(
+            id = "special_travel_bucket_list",
+            version = 1,
+            title = "Travel & Exploration",
+            description = "Broaden horizons through cultural expeditions, scenic train voyages, and awe-inspiring historic marvels.",
+            category = TemplateCategory.BUCKET_LIST,
+            emoji = "✈️",
+            tasks = listOf(
+                TemplateTaskDef("Solo Expedition to a Historic Capital", "Navigate, explore, and immerse in local history solo", "Travel", TaskPriority.HIGH, null, 1440, RecurrenceType.NONE),
+                TemplateTaskDef("Scenic Train Journey Across Mountains", "Experience panoramic rail transit across peaks and valleys", "Adventure", TaskPriority.MEDIUM, null, 360, RecurrenceType.NONE),
+                TemplateTaskDef("Explore an Ancient UNESCO Heritage Site", "Witness ancient architectural mastery and culture in person", "Culture", TaskPriority.HIGH, null, 240, RecurrenceType.NONE),
+                TemplateTaskDef("Coastal Road Trip with Ocean Views", "Drive along dramatic coastal highways with favorite soundtrack", "Exploration", TaskPriority.MEDIUM, null, 480, RecurrenceType.NONE),
+                TemplateTaskDef("Camp Under an Open Night Sky", "Pitch a tent away from city lights and fall asleep under stars", "Outdoors", TaskPriority.MEDIUM, null, 720, RecurrenceType.NONE)
+            ),
+            projects = listOf(
+                TemplateProjectDef("Travel Expeditions", "✈️", "blue", "Global destinations and journeys")
+            ),
+            tags = listOf("travel", "wanderlust", "adventure", "explore")
+        ),
+
+        // 15. Special Collection: Adventure & Thrills
+        LifeTemplate(
+            id = "special_adventure_bucket_list",
+            version = 1,
+            title = "Adventure & Thrills",
+            description = "Heart-pounding outdoor challenges, wilderness summits, and adrenaline-charged exploits.",
+            category = TemplateCategory.BUCKET_LIST,
+            emoji = "🏔️",
+            tasks = listOf(
+                TemplateTaskDef("Summit a Mountain Peak", "Hike to the summit and take in the panoramic vista from above the clouds", "Trek", TaskPriority.HIGH, null, 360, RecurrenceType.NONE),
+                TemplateTaskDef("Whitewater River Rafting / Kayak Run", "Navigate roaring rapids with teamwork and adrenaline", "Water Sport", TaskPriority.HIGH, null, 180, RecurrenceType.NONE),
+                TemplateTaskDef("Scuba Dive or Snorkel a Coral Reef", "Descend beneath the surface to explore vibrant marine ecology", "Ocean", TaskPriority.MEDIUM, null, 120, RecurrenceType.NONE),
+                TemplateTaskDef("Multi-Day Wilderness Backpacking Trail", "Carry everything on your back and navigate wild terrain", "Survival", TaskPriority.HIGH, null, 2880, RecurrenceType.NONE),
+                TemplateTaskDef("Rock Climbing / Bouldering Challenge", "Conquer a technical outdoor or gym climbing route", "Fitness", TaskPriority.MEDIUM, null, 90, RecurrenceType.NONE)
+            ),
+            projects = listOf(
+                TemplateProjectDef("Adventure & Thrills", "🏔️", "orange", "Extreme feats and outdoor challenges")
+            ),
+            tags = listOf("adventure", "hiking", "nature", "outdoor", "thrills")
+        )
+    )
+
+    val allBundles: List<TemplateBundle> = listOf(
+        TemplateBundle(
+            id = "bundle_morning_productivity",
+            title = "Morning Productivity",
+            description = "Kickstart high energy: sunlight, breathwork, hydration, and immediate distraction-free focus.",
+            emoji = "🌅",
+            templateIds = listOf("template_high_perf_morning", "template_health_hydration"),
+            bonusXp = 50
+        ),
+        TemplateBundle(
+            id = "bundle_deep_focus",
+            title = "Deep Focus",
+            description = "Total concentration system: deep work sprint blocks, zero distractions, and clear daily shutdown.",
+            emoji = "🎯",
+            templateIds = listOf("template_deep_work_focus", "template_master_daily_flow"),
+            bonusXp = 50
+        ),
+        TemplateBundle(
+            id = "bundle_sleep_recovery",
+            title = "Sleep & Recovery",
+            description = "Complete restoration: evening wind-down, sleep environment tuning, and morning recharge.",
+            emoji = "🌙",
+            templateIds = listOf("template_deep_sleep_winddown", "template_health_hydration"),
+            bonusXp = 50
+        ),
+        TemplateBundle(
+            id = "bundle_healthy_lifestyle",
+            title = "Healthy Lifestyle",
+            description = "Holistic vitality: consistent movement, optimal hydration, balanced meals, and posture.",
+            emoji = "🥗",
+            templateIds = listOf("template_fitness_movement", "template_health_hydration"),
+            bonusXp = 50
+        ),
+        TemplateBundle(
+            id = "bundle_student_success",
+            title = "Student Success",
+            description = "Academic excellence: active recall, spaced study blocks, lecture notes, and distraction control.",
+            emoji = "🎓",
+            templateIds = listOf("template_study_learning", "template_deep_work_focus"),
+            bonusXp = 50
+        ),
+        TemplateBundle(
+            id = "bundle_personal_growth",
+            title = "Personal Growth",
+            description = "Self-mastery framework: daily journaling, atomic habit tracking, and high-impact reading.",
+            emoji = "🌱",
+            templateIds = listOf("template_personal_growth", "template_atomic_habits"),
+            bonusXp = 50
+        ),
+        TemplateBundle(
+            id = "bundle_weekly_reset",
+            title = "Weekly Reset",
+            description = "Executive life alignment: weekly audit, financial check, clean workspace, and calendar setup.",
+            emoji = "📅",
+            templateIds = listOf("template_sunday_review", "template_master_daily_flow"),
+            bonusXp = 50
+        )
+    )
+
+    val allSpecialCollections: List<TemplateBundle> = listOf(
+        TemplateBundle(
+            id = "bundle_special_life",
+            title = "Life Bucket List",
+            description = "Peak lifetime milestones, creative legacy, and meaningful life ambitions.",
+            emoji = "🌟",
+            isSpecialCollection = true,
+            templateIds = listOf("special_life_bucket_list"),
+            bonusXp = 75
+        ),
+        TemplateBundle(
+            id = "bundle_special_couples",
+            title = "Couples Bucket List ❤️",
+            description = "Romantic adventures, intimate memories, and relationship bonding traditions.",
+            emoji = "❤️",
+            isSpecialCollection = true,
+            templateIds = listOf("special_couples_bucket_list"),
+            bonusXp = 75
+        ),
+        TemplateBundle(
+            id = "bundle_special_travel",
+            title = "Travel & Exploration",
+            description = "World wanderlust, scenic rail journeys, and UNESCO cultural discoveries.",
+            emoji = "✈️",
+            isSpecialCollection = true,
+            templateIds = listOf("special_travel_bucket_list"),
+            bonusXp = 75
+        ),
+        TemplateBundle(
+            id = "bundle_special_adventure",
+            title = "Adventure & Thrills",
+            description = "Mountain peaks, whitewater rapids, and epic outdoor backcountry challenges.",
+            emoji = "🏔️",
+            isSpecialCollection = true,
+            templateIds = listOf("special_adventure_bucket_list"),
+            bonusXp = 75
         )
     )
 

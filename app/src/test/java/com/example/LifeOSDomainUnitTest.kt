@@ -704,13 +704,13 @@ class LifeOSDomainUnitTest {
     }
 
     @Test
-    fun `test template catalog contains 11 distinct categories and valid definitions`() {
+    fun `test template catalog contains 15 templates across all categories and valid definitions`() {
         val templates = TemplateCatalog.list
-        assertEquals(11, templates.size)
+        assertEquals(15, templates.size)
 
         // Ensure IDs are unique
         val ids = templates.map { it.id }.toSet()
-        assertEquals(11, ids.size)
+        assertEquals(15, ids.size)
 
         // Ensure all categories are covered
         val categories = templates.map { it.category }.toSet()
@@ -725,6 +725,69 @@ class LifeOSDomainUnitTest {
                     tmpl.shortcuts.isNotEmpty() || tmpl.projects.isNotEmpty() ||
                     tmpl.challenge != null
             assertTrue("Template ${tmpl.id} must have items", hasContent)
+        }
+    }
+
+    @Test
+    fun `test diminishing returns for task XP prevents XP farming`() {
+        // Daily count 0-9 (first 10 tasks: 100% XP)
+        assertEquals(Pair(10, 2), GamificationEngine.calculateTaskXpWithDiminishingReturns(0, TaskPriority.MEDIUM))
+        assertEquals(Pair(10, 2), GamificationEngine.calculateTaskXpWithDiminishingReturns(9, TaskPriority.MEDIUM))
+        assertEquals(Pair(20, 5), GamificationEngine.calculateTaskXpWithDiminishingReturns(0, TaskPriority.HIGH))
+
+        // Daily count 10-19 (tasks 11-20: 50% XP)
+        assertEquals(Pair(5, 1), GamificationEngine.calculateTaskXpWithDiminishingReturns(10, TaskPriority.MEDIUM))
+        assertEquals(Pair(5, 1), GamificationEngine.calculateTaskXpWithDiminishingReturns(19, TaskPriority.MEDIUM))
+        assertEquals(Pair(10, 2), GamificationEngine.calculateTaskXpWithDiminishingReturns(10, TaskPriority.HIGH))
+
+        // Daily count 20-29 (tasks 21-30: 20% XP)
+        assertEquals(Pair(2, 1), GamificationEngine.calculateTaskXpWithDiminishingReturns(20, TaskPriority.MEDIUM))
+        assertEquals(Pair(2, 1), GamificationEngine.calculateTaskXpWithDiminishingReturns(29, TaskPriority.MEDIUM))
+        assertEquals(Pair(4, 1), GamificationEngine.calculateTaskXpWithDiminishingReturns(20, TaskPriority.HIGH))
+
+        // Daily count >= 30 (tasks 31+: 0 XP cap)
+        assertEquals(Pair(0, 0), GamificationEngine.calculateTaskXpWithDiminishingReturns(30, TaskPriority.MEDIUM))
+        assertEquals(Pair(0, 0), GamificationEngine.calculateTaskXpWithDiminishingReturns(50, TaskPriority.HIGH))
+    }
+
+    @Test
+    fun `test QR tile custom name and display title fallback`() {
+        val defaultTile = HoneycombShortcut(
+            id = 1,
+            type = ShortcutType.TASK,
+            targetId = "101",
+            title = "Morning Run",
+            emoji = "🏃",
+            customTileName = null
+        )
+        assertEquals("Morning Run", defaultTile.displayTitle)
+
+        val renamedTile = defaultTile.copy(customTileName = "Sprint")
+        assertEquals("Sprint", renamedTile.displayTitle)
+
+        val blankRenamedTile = defaultTile.copy(customTileName = "   ")
+        assertEquals("Morning Run", blankRenamedTile.displayTitle)
+    }
+
+    @Test
+    fun `test template bundles and special collections catalog`() {
+        assertEquals(7, TemplateCatalog.allBundles.size)
+        assertEquals(4, TemplateCatalog.allSpecialCollections.size)
+
+        // Ensure all bundle template IDs resolve to real templates
+        TemplateCatalog.allBundles.forEach { bundle ->
+            assertTrue("Bundle ${bundle.id} must have non-empty templates", bundle.templateIds.isNotEmpty())
+            bundle.templateIds.forEach { templateId ->
+                assertNotNull("Template $templateId in bundle ${bundle.id} must exist", TemplateCatalog.getTemplateById(templateId))
+            }
+        }
+
+        // Ensure all special collections resolve to real templates
+        TemplateCatalog.allSpecialCollections.forEach { special ->
+            assertTrue(special.isSpecialCollection)
+            special.templateIds.forEach { templateId ->
+                assertNotNull("Special collection template $templateId must exist", TemplateCatalog.getTemplateById(templateId))
+            }
         }
     }
 }

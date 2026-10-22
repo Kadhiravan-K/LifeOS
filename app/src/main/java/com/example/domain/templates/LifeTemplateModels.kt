@@ -16,7 +16,8 @@ enum class TemplateCategory(val displayName: String, val emoji: String) {
     HABIT_BUILDING("Habit Building", "🌱"),
     WEEKLY_PLANNING("Weekly Planning", "📅"),
     PERSONAL_DEV("Personal Development", "🧠"),
-    CHALLENGE_75("75-Day Challenge", "🔥");
+    CHALLENGE_75("75-Day Challenge", "🔥"),
+    BUCKET_LIST("Special Bucket List", "✨");
 
     companion object {
         fun fromString(value: String): TemplateCategory {
@@ -111,3 +112,14 @@ data class TemplateImportSummary(
     val projectsAdded: Int
         get() = projectsImported
 }
+
+data class TemplateBundle(
+    val id: String,
+    val title: String,
+    val description: String,
+    val emoji: String,
+    val isSpecialCollection: Boolean = false,
+    val templateIds: List<String>,
+    val bonusXp: Int = 50
+)
+

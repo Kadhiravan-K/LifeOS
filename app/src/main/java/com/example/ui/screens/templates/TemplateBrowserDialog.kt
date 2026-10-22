@@ -63,28 +63,62 @@ import com.example.domain.templates.TemplateCatalog
 import com.example.domain.templates.TemplateCategory
 import com.example.domain.templates.TemplateImportSummary
 
+import com.example.domain.templates.TemplateBundle
+
+enum class TemplateBrowserTab(val title: String, val emoji: String) {
+    INDIVIDUAL("Individual Templates", "📋"),
+    BUNDLES("Productivity Bundles", "📦"),
+    SPECIAL_BUCKET_LISTS("Special Bucket Lists", "✨"),
+    IMPORTED("Imported", "✅")
+}
+
 @Composable
 fun TemplateBrowserDialog(
     installedTemplateIds: Set<String>,
     onInstallTemplate: (LifeTemplate, Set<Int>, Set<Int>, (TemplateImportSummary) -> Unit) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var selectedTab by remember { mutableStateOf(TemplateBrowserTab.INDIVIDUAL) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<TemplateCategory?>(null) }
     var previewTemplate by remember { mutableStateOf<LifeTemplate?>(null) }
     var lastImportSummary by remember { mutableStateOf<TemplateImportSummary?>(null) }
 
-    val filteredTemplates = remember(searchQuery, selectedCategory) {
+    val individualTemplates = remember(searchQuery, selectedCategory) {
         TemplateCatalog.allTemplates.filter { template ->
-            val matchesCategory = selectedCategory == null || template.category == selectedCategory
-            val matchesSearch = if (searchQuery.isBlank()) {
-                true
-            } else {
-                template.title.contains(searchQuery, ignoreCase = true) ||
-                        template.description.contains(searchQuery, ignoreCase = true) ||
-                        template.tags.any { it.contains(searchQuery, ignoreCase = true) }
-            }
-            matchesCategory && matchesSearch
+            template.category != TemplateCategory.BUCKET_LIST &&
+                    (selectedCategory == null || template.category == selectedCategory) &&
+                    (searchQuery.isBlank() ||
+                            template.title.contains(searchQuery, ignoreCase = true) ||
+                            template.description.contains(searchQuery, ignoreCase = true) ||
+                            template.tags.any { it.contains(searchQuery, ignoreCase = true) })
+        }
+    }
+
+    val bucketListTemplates = remember(searchQuery) {
+        TemplateCatalog.allTemplates.filter { template ->
+            template.category == TemplateCategory.BUCKET_LIST &&
+                    (searchQuery.isBlank() ||
+                            template.title.contains(searchQuery, ignoreCase = true) ||
+                            template.description.contains(searchQuery, ignoreCase = true) ||
+                            template.tags.any { it.contains(searchQuery, ignoreCase = true) })
+        }
+    }
+
+    val productivityBundles = remember(searchQuery) {
+        TemplateCatalog.allBundles.filter { bundle ->
+            searchQuery.isBlank() ||
+                    bundle.title.contains(searchQuery, ignoreCase = true) ||
+                    bundle.description.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    val importedTemplates = remember(installedTemplateIds, searchQuery) {
+        TemplateCatalog.allTemplates.filter { template ->
+            installedTemplateIds.contains(template.id) &&
+                    (searchQuery.isBlank() ||
+                            template.title.contains(searchQuery, ignoreCase = true) ||
+                            template.description.contains(searchQuery, ignoreCase = true))
         }
     }
 
@@ -130,13 +164,42 @@ fun TemplateBrowserDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 4-Tab Selector
+                val tabScrollState = rememberScrollState()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(tabScrollState),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TemplateBrowserTab.entries.forEach { tab ->
+                        FilterChip(
+                            selected = selectedTab == tab,
+                            onClick = { selectedTab = tab },
+                            label = { Text("${tab.emoji} ${tab.title}") },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Search Bar
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search 11+ offline templates...") },
+                    placeholder = {
+                        Text(
+                            when (selectedTab) {
+                                TemplateBrowserTab.INDIVIDUAL -> "Search individual templates..."
+                                TemplateBrowserTab.BUNDLES -> "Search 7 productivity bundles..."
+                                TemplateBrowserTab.SPECIAL_BUCKET_LISTS -> "Search 4 special bucket lists..."
+                                TemplateBrowserTab.IMPORTED -> "Search imported templates..."
+                            }
+                        )
+                    },
                     leadingIcon = {
                         Icon(imageVector = Icons.Default.Search, contentDescription = "Search")
                     },
@@ -154,46 +217,148 @@ fun TemplateBrowserDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Category Filter Chips
-                val chipScrollState = rememberScrollState()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(chipScrollState),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = selectedCategory == null,
-                        onClick = { selectedCategory = null },
-                        label = { Text("All (${TemplateCatalog.allTemplates.size})") },
-                        shape = RoundedCornerShape(10.dp)
-                    )
-                    TemplateCategory.entries.forEach { cat ->
-                        FilterChip(
-                            selected = selectedCategory == cat,
-                            onClick = { selectedCategory = if (selectedCategory == cat) null else cat },
-                            label = { Text("${cat.emoji} ${cat.displayName}") },
-                            shape = RoundedCornerShape(10.dp)
-                        )
+                when (selectedTab) {
+                    TemplateBrowserTab.INDIVIDUAL -> {
+                        // Category Filter Chips
+                        val chipScrollState = rememberScrollState()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(chipScrollState),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = selectedCategory == null,
+                                onClick = { selectedCategory = null },
+                                label = { Text("All (${TemplateCatalog.allTemplates.count { it.category != TemplateCategory.BUCKET_LIST }})") },
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            TemplateCategory.entries.filter { it != TemplateCategory.BUCKET_LIST }.forEach { cat ->
+                                FilterChip(
+                                    selected = selectedCategory == cat,
+                                    onClick = { selectedCategory = if (selectedCategory == cat) null else cat },
+                                    label = { Text("${cat.emoji} ${cat.displayName}") },
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Template List
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(individualTemplates, key = { it.id }) { template ->
+                                val isInstalled = installedTemplateIds.contains(template.id)
+                                TemplateCard(
+                                    template = template,
+                                    isInstalled = isInstalled,
+                                    onPreviewClick = { previewTemplate = template }
+                                )
+                            }
+                        }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                    TemplateBrowserTab.BUNDLES -> {
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(productivityBundles, key = { it.id }) { bundle ->
+                                val allBundleInstalled = bundle.templateIds.all { installedTemplateIds.contains(it) }
+                                BundleCard(
+                                    bundle = bundle,
+                                    isInstalled = allBundleInstalled,
+                                    onInstallClick = {
+                                        val templatesToInstall = bundle.templateIds.mapNotNull { TemplateCatalog.getTemplateById(it) }
+                                        var count = 0
+                                        templatesToInstall.forEach { tmpl ->
+                                            onInstallTemplate(tmpl, tmpl.tasks.indices.toSet(), tmpl.habits.indices.toSet()) {
+                                                count++
+                                                if (count == templatesToInstall.size) {
+                                                    lastImportSummary = TemplateImportSummary(
+                                                        templateId = bundle.id,
+                                                        templateTitle = "${bundle.emoji} ${bundle.title} Bundle",
+                                                        tasksImported = templatesToInstall.sumOf { it.tasks.size },
+                                                        habitsImported = templatesToInstall.sumOf { it.habits.size },
+                                                        shortcutsImported = templatesToInstall.sumOf { it.shortcuts.size },
+                                                        projectsImported = templatesToInstall.sumOf { it.projects.size },
+                                                        challengeConfigured = templatesToInstall.any { it.challenge != null },
+                                                        xpAwarded = bundle.bonusXp
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
 
-                // Template List
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(filteredTemplates, key = { it.id }) { template ->
-                        val isInstalled = installedTemplateIds.contains(template.id)
-                        TemplateCard(
-                            template = template,
-                            isInstalled = isInstalled,
-                            onPreviewClick = { previewTemplate = template }
-                        )
+                    TemplateBrowserTab.SPECIAL_BUCKET_LISTS -> {
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(bucketListTemplates, key = { it.id }) { template ->
+                                val isInstalled = installedTemplateIds.contains(template.id)
+                                TemplateCard(
+                                    template = template,
+                                    isInstalled = isInstalled,
+                                    onPreviewClick = { previewTemplate = template }
+                                )
+                            }
+                        }
+                    }
+
+                    TemplateBrowserTab.IMPORTED -> {
+                        if (importedTemplates.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(text = "📥", fontSize = 48.sp)
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = "No Templates Installed Yet",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Select templates from Individual, Bundles, or Special Bucket Lists.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                items(importedTemplates, key = { it.id }) { template ->
+                                    TemplateCard(
+                                        template = template,
+                                        isInstalled = true,
+                                        onPreviewClick = { previewTemplate = template }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -357,6 +522,147 @@ fun TemplateCard(
                     }
                 ) {
                     Text(text = if (isInstalled) "View / Re-add" else "Preview", fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BundleCard(
+    bundle: TemplateBundle,
+    isInstalled: Boolean,
+    onInstallClick: () -> Unit
+) {
+    val includedTemplates = remember(bundle) {
+        bundle.templateIds.mapNotNull { TemplateCatalog.getTemplateById(it) }
+    }
+    val totalTasks = remember(includedTemplates) { includedTemplates.sumOf { it.tasks.size } }
+    val totalHabits = remember(includedTemplates) { includedTemplates.sumOf { it.habits.size } }
+
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("bundle_card_${bundle.id}"),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = bundle.emoji, fontSize = 22.sp)
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = bundle.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (isInstalled) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Installed",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text(
+                                        text = "Installed",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Text(
+                        text = "Includes ${includedTemplates.size} modules • +${bundle.bonusXp} XP",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = bundle.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                includedTemplates.forEach { tmpl ->
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                    ) {
+                        Text(
+                            text = "${tmpl.iconEmoji} ${tmpl.title}",
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "📋 $totalTasks Tasks • 🌱 $totalHabits Habits",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Button(
+                    onClick = onInstallClick,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isInstalled) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primary,
+                        contentColor = if (isInstalled) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Icon(
+                        imageVector = if (isInstalled) Icons.Default.Check else Icons.Default.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = if (isInstalled) "Re-import Bundle" else "Install Bundle", fontSize = 12.sp)
                 }
             }
         }
