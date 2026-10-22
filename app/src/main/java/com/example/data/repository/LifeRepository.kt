@@ -573,6 +573,23 @@ class LifeRepository(
         waterLogDao.insertOrUpdateWaterLog(current.copy(amountMl = 0, updatedAt = System.currentTimeMillis()))
     }
 
+    suspend fun updateWaterGoal(goalMl: Int, dateIso: String) {
+        preferences.setWaterGoalMl(goalMl)
+        val current = waterLogDao.getWaterLog(dateIso)
+        if (current != null) {
+            waterLogDao.insertOrUpdateWaterLog(current.copy(goalMl = goalMl, updatedAt = System.currentTimeMillis()))
+        } else {
+            waterLogDao.insertOrUpdateWaterLog(
+                WaterLogEntity(
+                    dateIso = dateIso,
+                    amountMl = 0,
+                    goalMl = goalMl,
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
     // --- Default Routine Installation ---
     suspend fun installDefaultRoutinesAndHabits(force: Boolean = false) {
         val alreadyInstalled = preferences.hasInstalledDefaultRoutines.first()
@@ -1210,7 +1227,16 @@ class LifeRepository(
     }
 
     suspend fun applyHoneycombTemplate(template: HoneycombLayoutTemplate) {
-        val shortcuts = honeycombShortcutDao.getAllShortcutsList()
+        var shortcuts = honeycombShortcutDao.getAllShortcutsList()
+        if (shortcuts.isEmpty()) {
+            val defaultCoords = HoneycombLayoutTemplate.generateCoordinates(template, DefaultHoneycombShortcuts.list.size)
+            val entities = DefaultHoneycombShortcuts.list.mapIndexed { index, item ->
+                val (q, r) = defaultCoords.getOrElse(index) { Pair(index % 3, index / 3) }
+                item.copy(orderIndex = index, coordQ = q, coordR = r).toEntity()
+            }
+            honeycombShortcutDao.insertShortcuts(entities)
+            return
+        }
         val coords = HoneycombLayoutTemplate.generateCoordinates(template, shortcuts.size)
         shortcuts.forEachIndexed { index, entity ->
             val coord = coords.getOrElse(index) { Pair(index % 3, index / 3) }

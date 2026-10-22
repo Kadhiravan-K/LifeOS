@@ -11,10 +11,12 @@ import com.example.domain.model.ChallengePreset
 import com.example.domain.model.ChallengeRule
 import com.example.domain.model.ChallengeState
 import com.example.domain.model.ColorOrderingMode
+import com.example.domain.model.DashboardShape
 import com.example.domain.model.DefaultHoneycombShortcuts
 import com.example.domain.model.HabitItem
 import com.example.domain.model.HoneycombAppearanceConfig
 import com.example.domain.model.HoneycombShortcut
+import com.example.ui.feedback.FeedbackSoundType
 import com.example.domain.model.LabelItem
 import com.example.domain.model.ProjectItem
 import com.example.domain.model.RecurrenceType
@@ -410,12 +412,17 @@ class LifeViewModel(
     val isHoneycombEditMode: StateFlow<Boolean> = _isHoneycombEditMode.asStateFlow()
 
     val honeycombAppearance: StateFlow<HoneycombAppearanceConfig> = combine(
-        preferences.honeycombDefaultColorHex,
-        preferences.honeycombBorderColor,
-        preferences.honeycombBorderWidthDp,
-        preferences.honeycombSizeDp,
-        preferences.honeycombSpacingDp
-    ) { color, border, width, size, spacing ->
+        combine(
+            preferences.honeycombDefaultColorHex,
+            preferences.honeycombBorderColor,
+            preferences.honeycombBorderWidthDp
+        ) { color, border, width -> Triple(color, border, width) },
+        combine(
+            preferences.honeycombSizeDp,
+            preferences.honeycombSpacingDp,
+            preferences.dashboardShape
+        ) { size, spacing, shape -> Triple(size, spacing, shape) }
+    ) { (color, border, width), (size, spacing, shape) ->
         HoneycombAppearanceConfig(
             defaultColorHex = color,
             borderColorType = border,
@@ -423,13 +430,19 @@ class LifeViewModel(
             hexagonSizeDp = size,
             spacingDp = spacing,
             iconSizeSp = 26,
-            isAnimationEnabled = true
+            isAnimationEnabled = true,
+            shape = shape
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = HoneycombAppearanceConfig()
     )
+
+    fun setDashboardShape(shape: DashboardShape) = viewModelScope.launch { preferences.setDashboardShape(shape) }
+    fun playSoundPreview(type: FeedbackSoundType) {
+        com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).playSound(type)
+    }
 
     val rawHoneycombShortcuts: StateFlow<List<HoneycombShortcut>> = repository.allHoneycombShortcutsFlow.stateIn(
         scope = viewModelScope,
@@ -494,7 +507,11 @@ class LifeViewModel(
                         it.title.equals(shortcut.title, ignoreCase = true) ||
                         it.title.contains(shortcut.title, ignoreCase = true)
                     }
-                    val isDone = matchedTask?.isCompletedForDate ?: false
+                    val isDone = matchedTask != null && (
+                        matchedTask.isCompletedForDate ||
+                        matchedTask.isOneTimeCompleted ||
+                        matchedTask.completedDates.contains(todayIso)
+                    )
                     shortcut.copy(
                         isCompletedToday = isDone,
                         subtitle = matchedTask?.dueTime ?: matchedTask?.category ?: "",
@@ -844,9 +861,14 @@ class LifeViewModel(
         viewModelScope.launch {
             val newlyCompleted = repository.toggleTaskCompletion(taskId, dateIso)
             if (newlyCompleted == true) {
+                val currentTodayTasks = todayTasks.value
+                val allDone = currentTodayTasks.isNotEmpty() && currentTodayTasks.all {
+                    it.isCompletedForDate || it.isOneTimeCompleted || it.completedDates.contains(dateIso)
+                }
                 com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).triggerCompletionFeedback(
                     soundEnabled = completionSoundEnabled.value,
-                    vibrationEnabled = completionVibrationEnabled.value
+                    vibrationEnabled = completionVibrationEnabled.value,
+                    soundType = if (allDone) FeedbackSoundType.ALL_DONE else FeedbackSoundType.TASK
                 )
             }
         }
@@ -1252,7 +1274,8 @@ class LifeViewModel(
             if (newlyCompleted) {
                 com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).triggerCompletionFeedback(
                     soundEnabled = completionSoundEnabled.value,
-                    vibrationEnabled = completionVibrationEnabled.value
+                    vibrationEnabled = completionVibrationEnabled.value,
+                    soundType = FeedbackSoundType.HABIT
                 )
             }
         }
@@ -1296,7 +1319,8 @@ class LifeViewModel(
             if (newlyCompleted) {
                 com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).triggerCompletionFeedback(
                     soundEnabled = completionSoundEnabled.value,
-                    vibrationEnabled = completionVibrationEnabled.value
+                    vibrationEnabled = completionVibrationEnabled.value,
+                    soundType = FeedbackSoundType.MILESTONE
                 )
             }
         }
@@ -1313,6 +1337,13 @@ class LifeViewModel(
         viewModelScope.launch {
             val currentGoal = waterGoalFlow.value
             repository.addWater(deltaMl, todayIso, currentGoal)
+            if (deltaMl > 0) {
+                com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).triggerCompletionFeedback(
+                    soundEnabled = completionSoundEnabled.value,
+                    vibrationEnabled = completionVibrationEnabled.value,
+                    soundType = FeedbackSoundType.WATER
+                )
+            }
         }
     }
 
@@ -1374,7 +1405,10 @@ class LifeViewModel(
     }
 
     fun updateWaterGoal(goalMl: Int) {
-        viewModelScope.launch { preferences.setWaterGoalMl(goalMl) }
+        if (goalMl <= 0) return
+        viewModelScope.launch {
+            repository.updateWaterGoal(goalMl, todayIso)
+        }
     }
 
     fun toggleNotifications(enabled: Boolean) {

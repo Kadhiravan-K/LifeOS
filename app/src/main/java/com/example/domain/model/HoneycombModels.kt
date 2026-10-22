@@ -148,6 +148,18 @@ enum class HoneycombLayoutTemplate(val displayName: String, val icon: String) {
     }
 }
 
+enum class DashboardShape(val displayName: String, val icon: String) {
+    HEXAGON("Hexagon", "⬡"),
+    SQUARE("Square", "■"),
+    CIRCLE("Circle", "●");
+
+    companion object {
+        fun fromString(value: String): DashboardShape {
+            return entries.find { it.name.equals(value, ignoreCase = true) } ?: HEXAGON
+        }
+    }
+}
+
 data class HoneycombAppearanceConfig(
     val defaultColorHex: Long = 0xFF10B981, // Emerald Green
     val borderColorType: String = "DEFAULT", // "DEFAULT", "PRIMARY", "MUTED", "ACCENT"
@@ -155,7 +167,8 @@ data class HoneycombAppearanceConfig(
     val hexagonSizeDp: Int = 74,
     val spacingDp: Int = 6,
     val iconSizeSp: Int = 26,
-    val isAnimationEnabled: Boolean = true
+    val isAnimationEnabled: Boolean = true,
+    val shape: DashboardShape = DashboardShape.HEXAGON
 )
 
 object HoneycombColorPresets {

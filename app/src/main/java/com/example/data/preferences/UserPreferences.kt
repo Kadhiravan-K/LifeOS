@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.domain.model.DashboardShape
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -41,6 +42,7 @@ class UserPreferences(private val context: Context) {
         val KEY_HONEYCOMB_SPACING = intPreferencesKey("honeycomb_spacing")
         val KEY_HONEYCOMB_ICON_SIZE = intPreferencesKey("honeycomb_icon_size")
         val KEY_HONEYCOMB_ANIMATION = booleanPreferencesKey("honeycomb_animation")
+        val KEY_DASHBOARD_SHAPE = stringPreferencesKey("dashboard_shape")
 
         // Phase 3A Color Picker Preferences
         val KEY_COLOR_ORDERING_MODE = stringPreferencesKey("color_ordering_mode")
@@ -293,6 +295,15 @@ class UserPreferences(private val context: Context) {
         preferences[KEY_HONEYCOMB_ANIMATION] ?: true
     }
 
+    val dashboardShape: Flow<DashboardShape> = context.dataStore.data.map { preferences ->
+        val raw = preferences[KEY_DASHBOARD_SHAPE] ?: "HEXAGON"
+        DashboardShape.fromString(raw)
+    }
+
+    suspend fun setDashboardShape(shape: DashboardShape) {
+        context.dataStore.edit { it[KEY_DASHBOARD_SHAPE] = shape.name }
+    }
+
     suspend fun setHoneycombDefaultColor(hex: Long) {
         context.dataStore.edit { it[KEY_HONEYCOMB_DEFAULT_COLOR] = hex.toString() }
     }
@@ -330,6 +341,7 @@ class UserPreferences(private val context: Context) {
             it[KEY_HONEYCOMB_SPACING] = 6
             it[KEY_HONEYCOMB_ICON_SIZE] = 26
             it[KEY_HONEYCOMB_ANIMATION] = true
+            it[KEY_DASHBOARD_SHAPE] = DashboardShape.HEXAGON.name
         }
     }
 
