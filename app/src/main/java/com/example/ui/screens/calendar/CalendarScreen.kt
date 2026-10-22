@@ -93,6 +93,7 @@ fun CalendarScreen(
     var taskToReschedule by remember { mutableStateOf<TaskItem?>(null) }
     var historyTask by remember { mutableStateOf<TaskItem?>(null) }
     var showDatePickerDialog by remember { mutableStateOf(false) }
+    var isMonthExpanded by remember { mutableStateOf(true) }
 
     val todayStr = DateUtils.todayString()
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
@@ -153,9 +154,6 @@ fun CalendarScreen(
                     IconButton(onClick = { viewModel.selectCalendarDate(todayStr) }) {
                         Icon(imageVector = Icons.Default.Today, contentDescription = "Jump to Today")
                     }
-                    IconButton(onClick = { showDatePickerDialog = true }) {
-                        Icon(imageVector = Icons.Default.DateRange, contentDescription = "Pick Date")
-                    }
                     IconButton(
                         onClick = {
                             when (uiState.viewMode) {
@@ -210,45 +208,61 @@ fun CalendarScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Conflict Warning Banner
+            // Conflict Warning Banner (Compact & Expandable)
             if (uiState.conflictsOnSelectedDate.isNotEmpty()) {
+                var isAlertsExpanded by remember { mutableStateOf(false) }
                 Card(
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 10.dp)
+                        .padding(bottom = 8.dp)
+                        .clickable { isAlertsExpanded = !isAlertsExpanded }
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.WarningAmber,
-                                contentDescription = "Conflict",
-                                tint = Color(0xFFD97706),
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.WarningAmber,
+                                    contentDescription = "Conflict",
+                                    tint = Color(0xFFD97706),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Schedule Alert (${uiState.conflictsOnSelectedDate.size})",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF92400E)
+                                )
+                            }
                             Text(
-                                text = "Schedule Alert (${uiState.conflictsOnSelectedDate.size})",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF92400E)
+                                text = if (isAlertsExpanded) "Collapse ▲" else "View ▼",
+                                fontSize = 11.sp,
+                                color = Color(0xFF92400E),
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
-                        uiState.conflictsOnSelectedDate.take(2).forEach { conflict ->
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = conflict.message,
-                                fontSize = 11.sp,
-                                color = Color(0xFF78350F)
-                            )
-                            if (conflict.suggestedTime != null) {
+                        if (isAlertsExpanded) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            uiState.conflictsOnSelectedDate.forEach { conflict ->
                                 Text(
-                                    text = "💡 Suggested slot: ${conflict.suggestedTime}",
+                                    text = "• ${conflict.message}",
                                     fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF1E3A8A)
+                                    color = Color(0xFF78350F)
                                 )
+                                if (conflict.suggestedTime != null) {
+                                    Text(
+                                        text = "   💡 Suggested slot: ${conflict.suggestedTime}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF1E3A8A)
+                                    )
+                                }
                             }
                         }
                     }
@@ -317,14 +331,40 @@ fun CalendarScreen(
                 }
                 else -> {
                     // "MONTH"
-                    MonthGridView(
-                        monthDates = uiState.monthGridDates,
-                        selectedDate = uiState.selectedDateIso,
-                        today = todayStr,
-                        monthIndex = uiState.currentMonthZeroIndexed,
-                        onSelectDate = { viewModel.selectCalendarDate(it) }
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    if (isMonthExpanded) {
+                        MonthGridView(
+                            monthDates = uiState.monthGridDates,
+                            selectedDate = uiState.selectedDateIso,
+                            today = todayStr,
+                            monthIndex = uiState.currentMonthZeroIndexed,
+                            onSelectDate = { viewModel.selectCalendarDate(it) }
+                        )
+                    } else {
+                        WeekStripView(
+                            weekDates = uiState.weekDates,
+                            selectedDate = uiState.selectedDateIso,
+                            today = todayStr,
+                            onSelectDate = { viewModel.selectCalendarDate(it) }
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isMonthExpanded = !isMonthExpanded }
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isMonthExpanded) "Collapse to Week ▲" else "Expand Month ▼",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
                     TaskListSection(
                         tasks = uiState.tasksOnSelectedDate,
                         selectedDateIso = uiState.selectedDateIso,
