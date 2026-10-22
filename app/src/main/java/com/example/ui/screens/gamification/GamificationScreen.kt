@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -77,6 +78,7 @@ fun GamificationScreen(
     val rewards by viewModel.activeRewards.collectAsStateWithLifecycle()
     val habitStreaks by viewModel.habitStreaks.collectAsStateWithLifecycle()
     val taskStreaks by viewModel.taskStreaks.collectAsStateWithLifecycle()
+    val isPremiumActive by viewModel.isPremiumActive.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var selectedTab by remember { mutableIntStateOf(0) } // 0 = Achievements, 1 = Rewards Shop
@@ -87,12 +89,18 @@ fun GamificationScreen(
         floatingActionButton = {
             if (selectedTab == 1) {
                 FloatingActionButton(
-                    onClick = { showAddRewardDialog = true },
+                    onClick = {
+                        if (!isPremiumActive) {
+                            Toast.makeText(context, "LifeOS Premium required for Rewards Shop", Toast.LENGTH_SHORT).show()
+                        } else {
+                            showAddRewardDialog = true
+                        }
+                    },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.testTag("fab_add_reward")
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Reward")
+                    Icon(if (isPremiumActive) Icons.Default.Add else Icons.Default.Lock, contentDescription = "Add Reward")
                 }
             }
         },
@@ -129,6 +137,58 @@ fun GamificationScreen(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+
+            // Premium-only Gamification Banner
+            if (!isPremiumActive) {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                        .testTag("gamification_premium_banner")
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Premium Exclusive",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "⭐ LifeOS Premium Feature",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    text = "Hunter Ranks, XP tracking, streaks, and Reward Shop are premium perks. All core productivity tools (tasks, habits, challenges, calendar) remain 100% free.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            Button(
+                                onClick = { viewModel.toggleSimulatedPremium(true) },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Text("Unlock Premium", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
 
             // Profile Card (Hunter Rank & Coins)
             Card(

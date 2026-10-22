@@ -71,6 +71,7 @@ object DataExportImportManager {
                 put("reminderMinutesBefore", t.reminderMinutesBefore)
                 put("isArchived", t.isArchived)
                 put("isPaused", t.isPaused)
+                put("isQuickReminder", t.isQuickReminder)
                 put("projectId", t.projectId ?: JSONObject.NULL)
                 put("createdAt", t.createdAt)
             }
@@ -142,6 +143,7 @@ object DataExportImportManager {
                 put("type", sc.type)
                 put("targetId", sc.targetId)
                 put("title", sc.title)
+                put("customTileName", sc.customTileName ?: JSONObject.NULL)
                 put("emoji", sc.emoji)
                 put("customColorHex", sc.customColorHex ?: JSONObject.NULL)
                 put("orderIndex", sc.orderIndex)
@@ -175,6 +177,7 @@ object DataExportImportManager {
     }
 
     suspend fun importData(database: AppDatabase, jsonStr: String): Boolean = withContext(Dispatchers.IO) {
+        if (jsonStr.isBlank() || jsonStr.length > 50_000_000) return@withContext false
         try {
             val root = JSONObject(jsonStr)
 
@@ -215,6 +218,7 @@ object DataExportImportManager {
                         reminderMinutesBefore = obj.optInt("reminderMinutesBefore", 0),
                         isArchived = obj.optBoolean("isArchived", false),
                         isPaused = obj.optBoolean("isPaused", false),
+                        isQuickReminder = obj.optBoolean("isQuickReminder", false),
                         projectId = if (obj.isNull("projectId")) null else obj.optLong("projectId"),
                         createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                     )
@@ -292,6 +296,30 @@ object DataExportImportManager {
                         hunterRank = profObj.optString("hunterRank", "E")
                     )
                 )
+            }
+
+            // Import Honeycomb Shortcuts
+            val scArr = root.optJSONArray("honeycomb_shortcuts")
+            if (scArr != null) {
+                database.honeycombShortcutDao().clearAllShortcuts()
+                for (i in 0 until scArr.length()) {
+                    val obj = scArr.getJSONObject(i)
+                    val sc = HoneycombShortcutEntity(
+                        id = obj.optLong("id", 0L),
+                        type = obj.getString("type"),
+                        targetId = obj.getString("targetId"),
+                        title = obj.getString("title"),
+                        customTileName = if (obj.isNull("customTileName")) null else obj.optString("customTileName"),
+                        emoji = obj.optString("emoji", "✅"),
+                        customColorHex = if (obj.isNull("customColorHex")) null else obj.optLong("customColorHex"),
+                        orderIndex = obj.optInt("orderIndex", 0),
+                        coordQ = obj.optInt("coordQ", 0),
+                        coordR = obj.optInt("coordR", 0),
+                        isPinned = obj.optBoolean("isPinned", false),
+                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                    )
+                    database.honeycombShortcutDao().insertShortcut(sc)
+                }
             }
 
             true

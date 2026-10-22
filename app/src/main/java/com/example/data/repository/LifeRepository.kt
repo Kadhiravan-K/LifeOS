@@ -64,10 +64,12 @@ import com.example.domain.gamification.GamificationEngine
 import com.example.domain.gamification.StreakResult
 import com.example.domain.templates.LifeTemplate
 import com.example.domain.templates.TemplateImportSummary
+import com.example.ui.theme.engine.PremiumEntitlementRepository
 
 class LifeRepository(
     private val database: AppDatabase,
-    private val preferences: UserPreferences
+    private val preferences: UserPreferences,
+    private val entitlementRepo: PremiumEntitlementRepository? = null
 ) {
     private val taskDao = database.taskDao()
     private val habitDao = database.habitDao()
@@ -163,6 +165,7 @@ class LifeRepository(
     suspend fun deleteTask(taskId: Long) {
         labelDao.clearLabelsForTask(taskId)
         taskReminderDao.deleteRemindersForTask(taskId)
+        honeycombShortcutDao.deleteShortcutByTarget("TASK", taskId.toString())
         taskDao.deleteTaskById(taskId)
     }
 
@@ -296,11 +299,17 @@ class LifeRepository(
         )
         taskDao.updateTask(updatedEntity)
 
-        // Gamification: Deterministic anti-farming XP reward or revocation
+        // Gamification: Deterministic anti-farming XP reward or revocation with daily diminishing returns
         val eventKey = GamificationEngine.createEventKey("TASK_COMPLETE", taskId.toString(), dateIso)
         if (isNowCompleted) {
-            val (xp, coins) = GamificationEngine.getTaskXpReward(TaskPriority.fromString(entity.priority))
-            awardXpAndCoins(eventKey, xp, coins, "Completed task: ${entity.title}")
+            val dailyCount = gamificationDao.getDailyRewardedTaskCount(dateIso)
+            val (xp, coins) = GamificationEngine.calculateTaskXpWithDiminishingReturns(
+                dailyCount,
+                TaskPriority.fromString(entity.priority)
+            )
+            if (xp > 0 || coins > 0) {
+                awardXpAndCoins(eventKey, xp, coins, "Completed task: ${entity.title}")
+            }
             val scheduledToday = getTasksForDateFlow(dateIso).first()
             if (scheduledToday.isNotEmpty() && scheduledToday.all { it.isCompletedForDate }) {
                 checkAndUnlockAchievement("CLEAN_SLATE")
@@ -803,6 +812,7 @@ class LifeRepository(
             reminderMinutesBefore = reminderMinutesBefore,
             isArchived = isArchived,
             isPaused = isPaused,
+            isQuickReminder = isQuickReminder,
             projectId = projectId,
             projectName = project?.name,
             projectColorId = project?.colorId,
@@ -849,6 +859,7 @@ class LifeRepository(
             reminderMinutesBefore = reminderMinutesBefore,
             isArchived = isArchived,
             isPaused = isPaused,
+            isQuickReminder = isQuickReminder,
             projectId = projectId,
             createdAt = createdAt
         )
@@ -1275,6 +1286,9 @@ class LifeRepository(
                 expiresAt = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000)
             )
         )
+        labelDao.clearLabelsForTask(task.id)
+        taskReminderDao.deleteRemindersForTask(task.id)
+        honeycombShortcutDao.deleteShortcutByTarget("TASK", task.id.toString())
         taskDao.deleteTaskById(task.id)
     }
 
@@ -1522,6 +1536,9 @@ class LifeRepository(
     }
 
     suspend fun awardXpAndCoins(eventKey: String, xp: Int, coins: Int, description: String): Boolean {
+        if (entitlementRepo != null && !entitlementRepo.isPremiumActive.first()) {
+            return false
+        }
         val existing = gamificationDao.getXpEvent(eventKey)
         if (existing != null) return false
 
@@ -1911,12 +1928,71 @@ class LifeRepository(
         createdAt = createdAt
     )
 
+    suspend fun updateShortcutCustomTileName(id: Long, customTileName: String?) {
+        honeycombShortcutDao.updateCustomTileName(id, customTileName?.trim()?.ifBlank { null })
+    }
+
+    suspend fun ensureTaskQuickReminderShortcut(task: TaskItem): Boolean {
+        val existing = honeycombShortcutDao.getAllShortcutsList()
+        val match = existing.firstOrNull { it.type == "TASK" && it.targetId == task.id.toString() }
+        if (task.isQuickReminder) {
+            if (match != null) {
+                if (match.title != task.title || (task.emoji.isNotBlank() && match.emoji != task.emoji)) {
+                    honeycombShortcutDao.updateShortcut(
+                        match.copy(
+                            title = task.title,
+                            emoji = if (task.emoji.isNotBlank()) task.emoji else match.emoji
+                        )
+                    )
+                }
+                return true
+            }
+            if (existing.size >= 19) {
+                return false
+            }
+            val occupied = existing.map { Pair(it.coordQ, it.coordR) }.toSet()
+            var targetQ = 0
+            var targetR = 0
+            var found = false
+            for (r in 0 until 50) {
+                val rowLen = if (r % 2 == 0) 3 else 2
+                for (q in 0 until rowLen) {
+                    if (!occupied.contains(Pair(q, r))) {
+                        targetQ = q
+                        targetR = r
+                        found = true
+                        break
+                    }
+                }
+                if (found) break
+            }
+            honeycombShortcutDao.insertShortcut(
+                HoneycombShortcutEntity(
+                    type = "TASK",
+                    targetId = task.id.toString(),
+                    title = task.title,
+                    emoji = if (task.emoji.isNotBlank()) task.emoji else "⚡",
+                    orderIndex = existing.size,
+                    coordQ = targetQ,
+                    coordR = targetR
+                )
+            )
+            return true
+        } else {
+            if (match != null) {
+                honeycombShortcutDao.deleteShortcutById(match.id)
+            }
+            return true
+        }
+    }
+
     private fun HoneycombShortcutEntity.toDomainModel(): HoneycombShortcut {
         return HoneycombShortcut(
             id = id,
             type = ShortcutType.fromString(type),
             targetId = targetId,
             title = title,
+            customTileName = customTileName,
             emoji = emoji,
             customColorHex = customColorHex,
             orderIndex = orderIndex,
@@ -1932,6 +2008,7 @@ class LifeRepository(
             type = type.name,
             targetId = targetId,
             title = title,
+            customTileName = customTileName,
             emoji = emoji,
             customColorHex = customColorHex,
             orderIndex = orderIndex,

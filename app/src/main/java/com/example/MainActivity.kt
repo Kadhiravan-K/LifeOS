@@ -36,7 +36,8 @@ class MainActivity : ComponentActivity() {
         // Initialize local persistence & repository
         val database = AppDatabase.getInstance(applicationContext)
         val preferences = UserPreferences(applicationContext)
-        val repository = LifeRepository(database, preferences)
+        val entitlementRepo = com.example.ui.theme.engine.LocalPremiumEntitlementRepository(applicationContext)
+        val repository = LifeRepository(database, preferences, entitlementRepo)
 
         val viewModelFactory = LifeViewModelFactory(application, repository, preferences)
         val viewModel = ViewModelProvider(this, viewModelFactory)[LifeViewModel::class.java]

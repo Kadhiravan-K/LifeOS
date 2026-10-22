@@ -26,11 +26,21 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        val receivedAction = intent.action ?: return
+
+        // Security hardening: For internal LifeOS actions, reject any intent targeted from other packages
+        if (receivedAction != Intent.ACTION_BOOT_COMPLETED) {
+            val pkg = intent.`package` ?: intent.component?.packageName
+            if (pkg != null && pkg != context.packageName) {
+                return
+            }
+        }
+
         val database = AppDatabase.getInstance(context.applicationContext)
         val preferences = UserPreferences(context.applicationContext)
         val repository = LifeRepository(database, preferences)
 
-        when (intent.action) {
+        when (receivedAction) {
             Intent.ACTION_BOOT_COMPLETED -> {
                 // Device restart: reschedule reminders
                 NotificationHelper.scheduleDailyReminder(context, 8, 0)

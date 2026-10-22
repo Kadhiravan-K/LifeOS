@@ -1243,6 +1243,7 @@ class LifeViewModel(
                 task.id
             }
             val fullTask = task.copy(id = savedId)
+            repository.ensureTaskQuickReminderShortcut(fullTask)
             if (fullTask.isReminderEnabled) {
                 val qStart = DateUtils.timeToMinutes(quietHoursStartFlow.value).coerceAtLeast(1260)
                 val qEnd = DateUtils.timeToMinutes(quietHoursEndFlow.value).coerceAtLeast(330)
@@ -1658,6 +1659,12 @@ class LifeViewModel(
         viewModelScope.launch {
             val item = resolvedHoneycombShortcuts.value.find { it.id == shortcutId } ?: return@launch
             repository.updateHoneycombShortcut(item.copy(customColorHex = newColorHex))
+        }
+    }
+
+    fun updateShortcutCustomTileName(shortcutId: Long, customTileName: String?) {
+        viewModelScope.launch {
+            repository.updateShortcutCustomTileName(shortcutId, customTileName)
         }
     }
 

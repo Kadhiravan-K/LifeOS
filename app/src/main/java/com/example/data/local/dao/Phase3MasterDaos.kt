@@ -109,6 +109,9 @@ interface GamificationDao {
     @Query("DELETE FROM xp_events WHERE eventKey = :eventKey")
     suspend fun deleteXpEvent(eventKey: String): Int
 
+    @Query("SELECT COUNT(*) FROM xp_events WHERE eventKey LIKE 'TASK_COMPLETE:%:' || :dateIso")
+    suspend fun getDailyRewardedTaskCount(dateIso: String): Int
+
     @Query("SELECT * FROM xp_events ORDER BY timestamp DESC LIMIT 50")
     fun getRecentXpEvents(): Flow<List<XpEventEntity>>
 

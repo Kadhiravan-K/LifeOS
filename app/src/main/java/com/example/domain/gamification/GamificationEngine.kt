@@ -54,6 +54,24 @@ object GamificationEngine {
     }
 
     /**
+     * Fair Gamification: Daily diminishing returns on task XP.
+     * Prevents XP-farming while keeping genuine productivity rewarding.
+     * Tier 1 (1–10 completed tasks/day): 10 XP normal, 20 XP high/urgent (2 coins normal, 5 coins high)
+     * Tier 2 (11–20 completed tasks/day): 5 XP normal, 10 XP high/urgent (1 coin normal, 2 coins high)
+     * Tier 3 (21–30 completed tasks/day): 2 XP normal, 4 XP high/urgent (1 coin normal, 1 coin high)
+     * Tier 4 (31+ completed tasks/day): 0 XP, 0 coins (Daily cap reached to prevent bot/rapid spam)
+     */
+    fun calculateTaskXpWithDiminishingReturns(dailyCount: Int, priority: TaskPriority): Pair<Int, Int> {
+        val isHigh = priority == TaskPriority.HIGH || priority == TaskPriority.URGENT
+        return when {
+            dailyCount < 10 -> if (isHigh) Pair(20, 5) else Pair(10, 2)
+            dailyCount < 20 -> if (isHigh) Pair(10, 2) else Pair(5, 1)
+            dailyCount < 30 -> if (isHigh) Pair(4, 1) else Pair(2, 1)
+            else -> Pair(0, 0)
+        }
+    }
+
+    /**
      * Cumulative XP required to reach the start of level [level].
      * Level 1 starts at 0 XP.
      * Formula: sum_{i=1}^{L-1} (i * 100) = 50 * (L - 1) * L
