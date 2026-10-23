@@ -74,12 +74,22 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            val isLegalConsentComplete by viewModel.isLegalConsentComplete.collectAsStateWithLifecycle()
+
             com.example.ui.theme.engine.LifeOSThemeProvider(
                 theme = activeThemeDef,
                 isLightMode = !isDark
             ) {
                 com.example.ui.theme.engine.ThemedAtmosphereBackground {
-                    MainScreen(viewModel = viewModel)
+                    if (!isLegalConsentComplete) {
+                        com.example.ui.screens.legal.LegalConsentScreen(
+                            onAcceptConsent = { termsVer, privacyVer ->
+                                viewModel.recordLegalConsent(termsVer, privacyVer)
+                            }
+                        )
+                    } else {
+                        MainScreen(viewModel = viewModel)
+                    }
                 }
             }
         }

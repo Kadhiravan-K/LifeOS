@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Hexagon
@@ -38,6 +40,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
@@ -83,13 +86,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.domain.legal.LegalDocuments
 import com.example.domain.model.HoneycombColorPresets
 import com.example.domain.templates.TemplateCatalog
 import com.example.ui.components.BackupRestoreDialog
 import com.example.ui.components.ColorPickerDialog
 import com.example.ui.components.TrashBinBottomSheet
+import com.example.ui.screens.legal.LegalDocumentViewerDialog
 import com.example.ui.screens.templates.TemplateBrowserDialog
 import com.example.ui.viewmodel.LifeViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun SettingsScreen(
@@ -125,6 +133,7 @@ fun SettingsScreen(
     var showTemplateBrowserDialog by remember { mutableStateOf(false) }
     var showResetGamificationDialog by remember { mutableStateOf(false) }
     var showClearTemplatesDialog by remember { mutableStateOf(false) }
+    var viewingLegalDoc by remember { mutableStateOf<String?>(null) } // "TERMS", "PRIVACY", or null
 
     var tempWakeUp by remember { mutableStateOf(wakeUpTime) }
     var tempBedTime by remember { mutableStateOf(bedTime) }
@@ -164,6 +173,10 @@ fun SettingsScreen(
     val p1AlarmEnabled by viewModel.p1AlarmEnabled.collectAsStateWithLifecycle()
     val p1SnoozeMinutes by viewModel.p1SnoozeMinutes.collectAsStateWithLifecycle()
     val p1MaxSnoozeCount by viewModel.p1MaxSnoozeCount.collectAsStateWithLifecycle()
+
+    val acceptedTermsVersion by viewModel.acceptedTermsVersion.collectAsStateWithLifecycle()
+    val acceptedPrivacyVersion by viewModel.acceptedPrivacyVersion.collectAsStateWithLifecycle()
+    val termsAcceptedTimestamp by viewModel.termsAcceptedTimestamp.collectAsStateWithLifecycle()
 
     fun isSectionVisible(vararg keywords: String): Boolean {
         if (searchQuery.isBlank()) return true
@@ -1218,6 +1231,160 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
         }
+
+        // Section 9: Legal & Privacy (Requirement #22)
+        if (isSectionVisible("legal", "privacy", "terms", "conditions", "policy", "consent", "agreement")) {
+            SectionHeader(icon = Icons.Default.Security, title = "9. Legal & Privacy")
+
+            val acceptanceDateFormatted = remember(termsAcceptedTimestamp) {
+                termsAcceptedTimestamp?.let {
+                    try {
+                        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(it))
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+            }
+
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Legal Documents & Agreements",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "LifeOS is fully offline-first. Review your active agreements and privacy guarantees below.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Status pill
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (acceptanceDateFormatted != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (acceptanceDateFormatted != null) Icons.Default.CheckCircle else Icons.Default.Info,
+                                contentDescription = null,
+                                tint = if (acceptanceDateFormatted != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = if (acceptanceDateFormatted != null) {
+                                        "Accepted on $acceptanceDateFormatted"
+                                    } else {
+                                        "Status: Active Version Accepted"
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Terms v${acceptedTermsVersion ?: LegalDocuments.CURRENT_TERMS_VERSION} • Privacy v${acceptedPrivacyVersion ?: LegalDocuments.CURRENT_PRIVACY_VERSION}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Terms Viewer Trigger
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { viewingLegalDoc = "TERMS" }
+                            .padding(vertical = 10.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Description,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "View Terms & Conditions",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Version ${LegalDocuments.CURRENT_TERMS_VERSION} • Tap to read",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ArrowForward,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+
+                    // Privacy Viewer Trigger
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { viewingLegalDoc = "PRIVACY" }
+                            .padding(vertical = 10.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Policy,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "View Privacy Policy",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Version ${LegalDocuments.CURRENT_PRIVACY_VERSION} • Tap to read",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ArrowForward,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
     }
 
     // --- DIALOGS ---
@@ -1428,6 +1595,25 @@ fun SettingsScreen(
         BackupRestoreDialog(
             viewModel = viewModel,
             onDismiss = { showBackupRestoreDialog = false }
+        )
+    }
+
+    if (viewingLegalDoc != null) {
+        val docTitle = if (viewingLegalDoc == "TERMS") {
+            LegalDocuments.TERMS_OF_SERVICE_TITLE
+        } else {
+            LegalDocuments.PRIVACY_POLICY_TITLE
+        }
+        val docContent = if (viewingLegalDoc == "TERMS") {
+            LegalDocuments.TERMS_OF_SERVICE_CONTENT
+        } else {
+            LegalDocuments.PRIVACY_POLICY_CONTENT
+        }
+
+        LegalDocumentViewerDialog(
+            title = docTitle,
+            content = docContent,
+            onDismiss = { viewingLegalDoc = null }
         )
     }
 }

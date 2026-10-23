@@ -4,8 +4,11 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.domain.legal.LegalConsentManager
+import com.example.domain.legal.LegalDocuments
 import com.example.domain.model.DashboardShape
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -84,8 +87,32 @@ class UserPreferences(private val context: Context) {
         val KEY_P1_ALARM_ENABLED = booleanPreferencesKey("notif_p1_alarm_enabled")
         val KEY_P1_SNOOZE_MINUTES = intPreferencesKey("notif_p1_snooze_minutes")
         val KEY_P1_MAX_SNOOZE_COUNT = intPreferencesKey("notif_p1_max_snooze_count")
+
+        // Requirement #22: Legal Consent Preferences
+        val KEY_ACCEPTED_TERMS_VERSION = stringPreferencesKey("accepted_terms_version")
+        val KEY_ACCEPTED_PRIVACY_VERSION = stringPreferencesKey("accepted_privacy_version")
+        val KEY_TERMS_ACCEPTED_TIMESTAMP = longPreferencesKey("terms_accepted_timestamp")
     }
 
+    // Legal Consent Flows
+    val acceptedTermsVersion: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[KEY_ACCEPTED_TERMS_VERSION]
+    }
+
+    val acceptedPrivacyVersion: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[KEY_ACCEPTED_PRIVACY_VERSION]
+    }
+
+    val termsAcceptedTimestamp: Flow<Long?> = context.dataStore.data.map { preferences ->
+        preferences[KEY_TERMS_ACCEPTED_TIMESTAMP]
+    }
+
+    val isLegalConsentComplete: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        LegalConsentManager.isConsentComplete(
+            acceptedTermsVersion = preferences[KEY_ACCEPTED_TERMS_VERSION],
+            acceptedPrivacyVersion = preferences[KEY_ACCEPTED_PRIVACY_VERSION]
+        )
+    }
 
     val userName: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[KEY_USER_NAME] ?: "Master"
@@ -490,6 +517,18 @@ class UserPreferences(private val context: Context) {
     suspend fun resetCustomColorOrder() {
         context.dataStore.edit {
             it.remove(KEY_COLOR_CUSTOM_ORDER)
+        }
+    }
+
+    suspend fun recordLegalConsent(
+        termsVersion: String = LegalDocuments.CURRENT_TERMS_VERSION,
+        privacyVersion: String = LegalDocuments.CURRENT_PRIVACY_VERSION,
+        timestamp: Long = System.currentTimeMillis()
+    ) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_ACCEPTED_TERMS_VERSION] = termsVersion
+            preferences[KEY_ACCEPTED_PRIVACY_VERSION] = privacyVersion
+            preferences[KEY_TERMS_ACCEPTED_TIMESTAMP] = timestamp
         }
     }
 

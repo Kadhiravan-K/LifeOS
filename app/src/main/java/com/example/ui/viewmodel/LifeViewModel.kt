@@ -52,6 +52,7 @@ import com.example.domain.medication.MedicationDoseItem
 import com.example.domain.medication.DoseStatus
 import com.example.data.backup.DataExportImportManager
 import com.example.data.local.AppDatabase
+import com.example.domain.legal.LegalDocuments
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -301,6 +302,31 @@ class LifeViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = "default"
+    )
+
+    // Legal Consent Flows (Requirement #22)
+    val isLegalConsentComplete: StateFlow<Boolean> = preferences.isLegalConsentComplete.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val acceptedTermsVersion: StateFlow<String?> = preferences.acceptedTermsVersion.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
+    val acceptedPrivacyVersion: StateFlow<String?> = preferences.acceptedPrivacyVersion.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
+    val termsAcceptedTimestamp: StateFlow<Long?> = preferences.termsAcceptedTimestamp.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
     )
 
     private val entitlementRepo: PremiumEntitlementRepository = LocalPremiumEntitlementRepository(application)
@@ -1583,6 +1609,15 @@ class LifeViewModel(
 
     fun updateDefaultReminderBehavior(behavior: String) {
         viewModelScope.launch { preferences.setDefaultReminderBehavior(behavior) }
+    }
+
+    fun recordLegalConsent(
+        termsVersion: String = LegalDocuments.CURRENT_TERMS_VERSION,
+        privacyVersion: String = LegalDocuments.CURRENT_PRIVACY_VERSION
+    ) {
+        viewModelScope.launch {
+            preferences.recordLegalConsent(termsVersion, privacyVersion)
+        }
     }
 
     // --- Honeycomb Actions ---
