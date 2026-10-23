@@ -29,6 +29,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         const val ACTION_TASK_REMINDER = "com.example.lifeos.ACTION_TASK_REMINDER"
         const val ACTION_TASK_COMPLETE = "com.example.lifeos.ACTION_TASK_COMPLETE"
         const val ACTION_TASK_SNOOZE = "com.example.lifeos.ACTION_TASK_SNOOZE"
+        const val ACTION_TASK_DISMISS = "com.example.lifeos.ACTION_TASK_DISMISS"
 
         // Medicine Actions
         const val ACTION_MEDICINE_REMINDER = "com.example.lifeos.ACTION_MEDICINE_REMINDER"
@@ -59,7 +60,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                 CoroutineScope(Dispatchers.IO).launch {
                     val todayIso = DateUtils.todayString()
                     val tasks = repository.getTasksForDateFlow(todayIso).first()
-                    tasks.filter { (it.isReminderEnabled || it.reminders.isNotEmpty()) && !it.isCompletedForDate }.forEach { task ->
+                    tasks.filter { (it.isReminderEnabled || it.reminders.isNotEmpty() || it.priority == com.example.domain.model.TaskPriority.P1) && !it.isCompletedForDate }.forEach { task ->
                         NotificationHelper.scheduleAllTaskReminders(context, task, todayIso)
                     }
 
@@ -107,18 +108,23 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                 val emoji = intent.getStringExtra(NotificationHelper.EXTRA_TASK_EMOJI) ?: "✅"
                 val dateIso = intent.getStringExtra(NotificationHelper.EXTRA_DATE_ISO) ?: DateUtils.todayString()
                 val dueTime = intent.getStringExtra("extra_due_time")
+                val isP1 = intent.getBooleanExtra("extra_is_p1", false)
+                val snoozeCount = intent.getIntExtra("extra_snooze_count", 0)
 
                 if (taskId != -1L) {
                     CoroutineScope(Dispatchers.IO).launch {
                         val isTasksNotifEnabled = preferences.notifTasksEnabled.first()
-                        if (isTasksNotifEnabled) {
+                        val isP1AlarmPrefEnabled = preferences.p1AlarmEnabled.first()
+                        if (isTasksNotifEnabled || (isP1 && isP1AlarmPrefEnabled)) {
                             NotificationHelper.showTaskReminderNotification(
                                 context = context,
                                 taskId = taskId,
                                 title = title,
                                 emoji = emoji,
                                 dueTime = dueTime,
-                                dateIso = dateIso
+                                dateIso = dateIso,
+                                isP1 = isP1,
+                                snoozeCount = snoozeCount
                             )
                         }
                     }
@@ -136,7 +142,19 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
 
                     CoroutineScope(Dispatchers.IO).launch {
                         repository.toggleTaskCompletion(taskId, dateIso)
+                        com.example.widgets.QuickRemindersWidgetProvider.notifyDataChanged(context)
                     }
+                }
+            }
+
+            ACTION_TASK_DISMISS -> {
+                val taskId = intent.getLongExtra(NotificationHelper.EXTRA_TASK_ID, -1L)
+                val dateIso = intent.getStringExtra(NotificationHelper.EXTRA_DATE_ISO) ?: DateUtils.todayString()
+
+                if (taskId != -1L) {
+                    val notificationId = (taskId.toInt() * 31) + dateIso.hashCode().and(0x7FFFFFFF) % 10000
+                    val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    nm.cancel(notificationId)
                 }
             }
 
@@ -145,6 +163,9 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                 val title = intent.getStringExtra(NotificationHelper.EXTRA_TASK_TITLE) ?: "Task Reminder"
                 val emoji = intent.getStringExtra(NotificationHelper.EXTRA_TASK_EMOJI) ?: "✅"
                 val dateIso = intent.getStringExtra(NotificationHelper.EXTRA_DATE_ISO) ?: DateUtils.todayString()
+                val isP1 = intent.getBooleanExtra("extra_is_p1", false)
+                val snoozeCount = intent.getIntExtra("extra_snooze_count", 0)
+                val explicitSnoozeMins = intent.getIntExtra("extra_snooze_minutes", -1)
 
                 if (taskId != -1L) {
                     val notificationId = (taskId.toInt() * 31) + dateIso.hashCode().and(0x7FFFFFFF) % 10000
@@ -154,7 +175,17 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
                     if (alarmManager != null) {
                         CoroutineScope(Dispatchers.IO).launch {
-                            val snoozeMins = preferences.defaultSnoozeMinutes.first()
+                            val maxSnooze = if (isP1) preferences.p1MaxSnoozeCount.first() else 5
+                            if (snoozeCount >= maxSnooze) {
+                                return@launch
+                            }
+                            val snoozeMins = if (explicitSnoozeMins > 0) {
+                                explicitSnoozeMins
+                            } else if (isP1) {
+                                preferences.p1SnoozeMinutes.first()
+                            } else {
+                                preferences.defaultSnoozeMinutes.first()
+                            }
                             val snoozeTrigger = System.currentTimeMillis() + (snoozeMins * 60 * 1000L)
                             val snoozeIntent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
                                 action = ACTION_TASK_REMINDER
@@ -162,6 +193,8 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                                 putExtra(NotificationHelper.EXTRA_TASK_TITLE, title)
                                 putExtra(NotificationHelper.EXTRA_TASK_EMOJI, emoji)
                                 putExtra(NotificationHelper.EXTRA_DATE_ISO, dateIso)
+                                putExtra("extra_is_p1", isP1)
+                                putExtra("extra_snooze_count", snoozeCount + 1)
                             }
                             val pending = PendingIntent.getBroadcast(
                                 context,

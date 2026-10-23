@@ -393,7 +393,9 @@ object NotificationHelper {
         title: String,
         emoji: String,
         dueTime: String?,
-        dateIso: String
+        dateIso: String,
+        isP1: Boolean = false,
+        snoozeCount: Int = 0
     ) {
         if (!hasNotificationPermission(context)) return
         createNotificationChannels(context)
@@ -403,6 +405,7 @@ object NotificationHelper {
         // 1. Open App Intent
         val openIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(EXTRA_TASK_ID, taskId)
         }
         val openPendingIntent = PendingIntent.getActivity(
             context,
@@ -424,13 +427,17 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // 3. Snooze Action Intent (15 min snooze)
+        // 3. Snooze Action Intent (10 min snooze for P1, 15 min standard)
+        val snoozeMins = if (isP1) 10 else 15
         val snoozeIntent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
             action = ReminderBroadcastReceiver.ACTION_TASK_SNOOZE
             putExtra(EXTRA_TASK_ID, taskId)
             putExtra(EXTRA_TASK_TITLE, title)
             putExtra(EXTRA_TASK_EMOJI, emoji)
             putExtra(EXTRA_DATE_ISO, dateIso)
+            putExtra("extra_is_p1", isP1)
+            putExtra("extra_snooze_count", snoozeCount)
+            putExtra("extra_snooze_minutes", snoozeMins)
         }
         val snoozePendingIntent = PendingIntent.getBroadcast(
             context,
@@ -439,21 +446,40 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val timeText = if (!dueTime.isNullOrBlank()) "Scheduled for $dueTime" else "Today's priority"
+        // 4. Dismiss Action Intent (Dismisses alarm without completing task)
+        val dismissIntent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
+            action = ReminderBroadcastReceiver.ACTION_TASK_DISMISS
+            putExtra(EXTRA_TASK_ID, taskId)
+            putExtra(EXTRA_DATE_ISO, dateIso)
+        }
+        val dismissPendingIntent = PendingIntent.getBroadcast(
+            context,
+            notificationId + 400000,
+            dismissIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_TASK_REMINDERS)
+        val timeText = if (!dueTime.isNullOrBlank()) "Scheduled for $dueTime" else "Today's priority"
+        val displayTitle = if (isP1) "🚨 P1 ALARM: $emoji $title" else "$emoji $title"
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_TASK_REMINDERS)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
-            .setContentTitle("$emoji $title")
+            .setContentTitle(displayTitle)
             .setContentText(timeText)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(if (isP1) NotificationCompat.PRIORITY_MAX else NotificationCompat.PRIORITY_HIGH)
+            .setCategory(if (isP1) NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
             .setContentIntent(openPendingIntent)
             .setAutoCancel(true)
             .addAction(android.R.drawable.checkbox_on_background, "✅ Complete", completePendingIntent)
-            .addAction(android.R.drawable.ic_menu_recent_history, "⏰ Snooze 15m", snoozePendingIntent)
-            .build()
+            .addAction(android.R.drawable.ic_menu_recent_history, "⏰ Snooze ${snoozeMins}m", snoozePendingIntent)
+
+        if (isP1) {
+            builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "❌ Dismiss", dismissPendingIntent)
+            builder.setFullScreenIntent(openPendingIntent, true)
+        }
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(notificationId, notification)
+        notificationManager.notify(notificationId, builder.build())
     }
 
     fun scheduleTaskAlarm(
@@ -463,7 +489,8 @@ object NotificationHelper {
         quietHoursStartMins: Int = 21 * 60,
         quietHoursEndMins: Int = 5 * 60 + 30
     ) {
-        if (!task.isReminderEnabled || task.dueTime.isNullOrBlank()) return
+        val isP1 = task.priority == com.example.domain.model.TaskPriority.P1
+        if ((!task.isReminderEnabled && !isP1) || task.dueTime.isNullOrBlank()) return
 
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         val taskStartMins = DateUtils.timeToMinutes(task.dueTime)
@@ -497,6 +524,7 @@ object NotificationHelper {
             putExtra(EXTRA_TASK_EMOJI, task.emoji)
             putExtra(EXTRA_DATE_ISO, dateIso)
             putExtra("extra_due_time", task.dueTime)
+            putExtra("extra_is_p1", isP1)
         }
 
         val requestCode = (task.id.toInt() * 31) + dateIso.hashCode().and(0x7FFFFFFF) % 50000
@@ -616,11 +644,12 @@ object NotificationHelper {
         task: TaskItem,
         dateIso: String
     ) {
+        val isP1 = task.priority == com.example.domain.model.TaskPriority.P1
         if (task.reminders.isNotEmpty()) {
             task.reminders.forEach { reminder ->
                 scheduleTaskReminderAlarm(context, task, reminder, dateIso)
             }
-        } else if (task.isReminderEnabled) {
+        } else if (task.isReminderEnabled || isP1) {
             scheduleTaskAlarm(context, task, dateIso)
         }
     }

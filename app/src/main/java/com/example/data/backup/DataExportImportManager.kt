@@ -146,6 +146,8 @@ object DataExportImportManager {
                 put("customTileName", sc.customTileName ?: JSONObject.NULL)
                 put("emoji", sc.emoji)
                 put("customColorHex", sc.customColorHex ?: JSONObject.NULL)
+                put("colorSource", sc.colorSource)
+                put("shape", sc.shape)
                 put("orderIndex", sc.orderIndex)
                 put("coordQ", sc.coordQ)
                 put("coordR", sc.coordR)
@@ -312,6 +314,8 @@ object DataExportImportManager {
                         customTileName = if (obj.isNull("customTileName")) null else obj.optString("customTileName"),
                         emoji = obj.optString("emoji", "✅"),
                         customColorHex = if (obj.isNull("customColorHex")) null else obj.optLong("customColorHex"),
+                        colorSource = obj.optString("colorSource", "PROJECT"),
+                        shape = obj.optString("shape", "HEXAGON"),
                         orderIndex = obj.optInt("orderIndex", 0),
                         coordQ = obj.optInt("coordQ", 0),
                         coordR = obj.optInt("coordR", 0),

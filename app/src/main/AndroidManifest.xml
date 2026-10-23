@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application
         android:allowBackup="true"
@@ -37,12 +38,32 @@
                 <action android:name="com.example.lifeos.ACTION_TASK_REMINDER" />
                 <action android:name="com.example.lifeos.ACTION_TASK_COMPLETE" />
                 <action android:name="com.example.lifeos.ACTION_TASK_SNOOZE" />
+                <action android:name="com.example.lifeos.ACTION_TASK_DISMISS" />
                 <action android:name="com.example.lifeos.ACTION_MEDICINE_REMINDER" />
                 <action android:name="com.example.lifeos.ACTION_MEDICINE_TAKEN" />
                 <action android:name="com.example.lifeos.ACTION_MEDICINE_SNOOZE" />
                 <action android:name="com.example.lifeos.ACTION_MEDICINE_SKIP" />
             </intent-filter>
         </receiver>
+
+        <!-- LifeOS Quick Reminders Home-Screen Widget -->
+        <receiver
+            android:name=".widgets.QuickRemindersWidgetProvider"
+            android:exported="true"
+            android:label="LifeOS Quick Reminders">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.lifeos.ACTION_WIDGET_TOGGLE_TASK" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/lifeos_quick_reminders_widget_info" />
+        </receiver>
+
+        <service
+            android:name=".widgets.QuickRemindersRemoteViewsService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
     </application>
 
 </manifest>

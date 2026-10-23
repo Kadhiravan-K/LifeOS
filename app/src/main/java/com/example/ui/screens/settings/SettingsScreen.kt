@@ -161,6 +161,9 @@ fun SettingsScreen(
     val maxFollowUpCount by viewModel.maxFollowUpCount.collectAsStateWithLifecycle()
     val medicineOverrideQuietHours by viewModel.medicineOverrideQuietHours.collectAsStateWithLifecycle()
     val notificationPrivacyEnabled by viewModel.notificationPrivacyEnabled.collectAsStateWithLifecycle()
+    val p1AlarmEnabled by viewModel.p1AlarmEnabled.collectAsStateWithLifecycle()
+    val p1SnoozeMinutes by viewModel.p1SnoozeMinutes.collectAsStateWithLifecycle()
+    val p1MaxSnoozeCount by viewModel.p1MaxSnoozeCount.collectAsStateWithLifecycle()
 
     fun isSectionVisible(vararg keywords: String): Boolean {
         if (searchQuery.isBlank()) return true
@@ -798,6 +801,54 @@ fun SettingsScreen(
                                     selected = maxFollowUpCount == count,
                                     onClick = { viewModel.setMaxFollowUpCount(count) },
                                     label = { Text("${count}x repeat", fontSize = 11.sp) }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Priority 1 (P1) Smart Alarms Settings
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "🚨 Priority 1 (P1) Smart Alarms", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(text = "Prominent full-screen alarm reminders for critical tasks", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = p1AlarmEnabled,
+                            onCheckedChange = { viewModel.setP1AlarmEnabled(it) }
+                        )
+                    }
+
+                    if (p1AlarmEnabled) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(text = "P1 Snooze Duration:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                            listOf(5, 10, 15, 30).forEach { mins ->
+                                FilterChip(
+                                    selected = p1SnoozeMinutes == mins,
+                                    onClick = { viewModel.setP1SnoozeMinutes(mins) },
+                                    label = { Text("${mins}m", fontSize = 11.sp) }
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(text = "P1 Max Snooze Limit:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                            listOf(1, 2, 3, 5).forEach { count ->
+                                FilterChip(
+                                    selected = p1MaxSnoozeCount == count,
+                                    onClick = { viewModel.setP1MaxSnoozeCount(count) },
+                                    label = { Text("${count}x max", fontSize = 11.sp) }
                                 )
                             }
                         }

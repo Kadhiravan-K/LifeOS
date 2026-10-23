@@ -81,6 +81,9 @@ class UserPreferences(private val context: Context) {
         val KEY_MAX_FOLLOW_UP_COUNT = intPreferencesKey("notif_max_follow_up_count")
         val KEY_MEDICINE_OVERRIDE_QUIET_HOURS = booleanPreferencesKey("notif_medicine_override_quiet_hours")
         val KEY_NOTIFICATION_PRIVACY_ENABLED = booleanPreferencesKey("notif_privacy_enabled")
+        val KEY_P1_ALARM_ENABLED = booleanPreferencesKey("notif_p1_alarm_enabled")
+        val KEY_P1_SNOOZE_MINUTES = intPreferencesKey("notif_p1_snooze_minutes")
+        val KEY_P1_MAX_SNOOZE_COUNT = intPreferencesKey("notif_p1_max_snooze_count")
     }
 
 
@@ -400,6 +403,22 @@ class UserPreferences(private val context: Context) {
     val maxFollowUpCount: Flow<Int> = context.dataStore.data.map { it[KEY_MAX_FOLLOW_UP_COUNT] ?: 2 }
     val medicineOverrideQuietHours: Flow<Boolean> = context.dataStore.data.map { it[KEY_MEDICINE_OVERRIDE_QUIET_HOURS] ?: true }
     val notificationPrivacyEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_NOTIFICATION_PRIVACY_ENABLED] ?: true }
+
+    val p1AlarmEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_P1_ALARM_ENABLED] ?: true }
+    val p1SnoozeMinutes: Flow<Int> = context.dataStore.data.map { it[KEY_P1_SNOOZE_MINUTES] ?: 10 }
+    val p1MaxSnoozeCount: Flow<Int> = context.dataStore.data.map { it[KEY_P1_MAX_SNOOZE_COUNT] ?: 3 }
+
+    suspend fun setP1AlarmEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_P1_ALARM_ENABLED] = enabled }
+    }
+
+    suspend fun setP1SnoozeMinutes(minutes: Int) {
+        context.dataStore.edit { it[KEY_P1_SNOOZE_MINUTES] = minutes }
+    }
+
+    suspend fun setP1MaxSnoozeCount(count: Int) {
+        context.dataStore.edit { it[KEY_P1_MAX_SNOOZE_COUNT] = count }
+    }
 
     suspend fun setNotifCategoryEnabled(category: String, enabled: Boolean) {
         context.dataStore.edit { prefs ->

@@ -58,6 +58,7 @@ import com.example.domain.model.AchievementItem
 import com.example.domain.model.RewardItem
 import com.example.domain.model.DefaultAchievements
 import com.example.domain.model.DefaultRewards
+import com.example.domain.model.TodoistColorPalette
 import com.example.domain.model.HoneycombLayoutTemplate
 import com.example.data.local.entities.PlanEntity
 import com.example.data.local.entities.PlanMilestoneEntity
@@ -1952,19 +1953,29 @@ class LifeRepository(
         honeycombShortcutDao.updateCustomTileName(id, customTileName?.trim()?.ifBlank { null })
     }
 
+    suspend fun updateShortcutShape(id: Long, shape: String) {
+        honeycombShortcutDao.updateShape(id, shape)
+    }
+
+    suspend fun updateShortcutColorSource(id: Long, colorSource: String, customColorHex: Long?) {
+        honeycombShortcutDao.updateColorSource(id, customColorHex, colorSource)
+    }
+
     suspend fun ensureTaskQuickReminderShortcut(task: TaskItem): Boolean {
         val existing = honeycombShortcutDao.getAllShortcutsList()
         val match = existing.firstOrNull { it.type == "TASK" && it.targetId == task.id.toString() }
+        val projectColor = task.projectId?.let { projectDao.getProjectById(it) }?.let { TodoistColorPalette.getColorLong(it.colorId) }
+
         if (task.isQuickReminder) {
             if (match != null) {
-                if (match.title != task.title || (task.emoji.isNotBlank() && match.emoji != task.emoji)) {
-                    honeycombShortcutDao.updateShortcut(
-                        match.copy(
-                            title = task.title,
-                            emoji = if (task.emoji.isNotBlank()) task.emoji else match.emoji
-                        )
+                val newColor = if (match.colorSource == "PROJECT") projectColor else match.customColorHex
+                honeycombShortcutDao.updateShortcut(
+                    match.copy(
+                        title = task.title,
+                        emoji = if (task.emoji.isNotBlank()) task.emoji else match.emoji,
+                        customColorHex = newColor
                     )
-                }
+                )
                 return true
             }
             if (existing.size >= 19) {
@@ -1992,6 +2003,9 @@ class LifeRepository(
                     targetId = task.id.toString(),
                     title = task.title,
                     emoji = if (task.emoji.isNotBlank()) task.emoji else "⚡",
+                    customColorHex = projectColor,
+                    colorSource = if (projectColor != null) "PROJECT" else "THEME_DEFAULT",
+                    shape = "HEXAGON",
                     orderIndex = existing.size,
                     coordQ = targetQ,
                     coordR = targetR
@@ -2015,6 +2029,8 @@ class LifeRepository(
             customTileName = customTileName,
             emoji = emoji,
             customColorHex = customColorHex,
+            colorSource = colorSource,
+            shape = shape,
             orderIndex = orderIndex,
             coordQ = coordQ,
             coordR = coordR,
@@ -2031,6 +2047,8 @@ class LifeRepository(
             customTileName = customTileName,
             emoji = emoji,
             customColorHex = customColorHex,
+            colorSource = colorSource,
+            shape = shape,
             orderIndex = orderIndex,
             coordQ = coordQ,
             coordR = coordR,

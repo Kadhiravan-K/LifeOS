@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">LifeOS</string>
+    <string name="widget_qr_description">LifeOS Quick Reminders cockpit with interactive tiles and instant progress tracking.</string>
 </resources>

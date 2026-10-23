@@ -367,6 +367,14 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
     }
 }
 
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `honeycomb_shortcuts` ADD COLUMN `colorSource` TEXT NOT NULL DEFAULT 'PROJECT'")
+        db.execSQL("ALTER TABLE `honeycomb_shortcuts` ADD COLUMN `shape` TEXT NOT NULL DEFAULT 'HEXAGON'")
+        db.execSQL("UPDATE `honeycomb_shortcuts` SET `colorSource` = 'CUSTOM' WHERE `customColorHex` IS NOT NULL")
+    }
+}
+
 @Database(
     entities = [
         TaskEntity::class,
@@ -390,7 +398,7 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
         com.example.data.local.entities.MedicationEntity::class,
         com.example.data.local.entities.MedicationDoseEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -418,7 +426,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "lifeos_database.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                     .build()
                 INSTANCE = instance
                 instance

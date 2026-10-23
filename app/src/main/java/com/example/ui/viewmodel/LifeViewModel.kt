@@ -411,6 +411,29 @@ class LifeViewModel(
     fun setCompletionVibrationEnabled(enabled: Boolean) = viewModelScope.launch { preferences.setCompletionVibrationEnabled(enabled) }
     fun setCompletionAnimationEnabled(enabled: Boolean) = viewModelScope.launch { preferences.setCompletionAnimationEnabled(enabled) }
 
+    // --- Priority 1 (P1) Alarm Preferences ---
+    val p1AlarmEnabled: StateFlow<Boolean> = preferences.p1AlarmEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    val p1SnoozeMinutes: StateFlow<Int> = preferences.p1SnoozeMinutes.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 10
+    )
+
+    val p1MaxSnoozeCount: StateFlow<Int> = preferences.p1MaxSnoozeCount.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 3
+    )
+
+    fun setP1AlarmEnabled(enabled: Boolean) = viewModelScope.launch { preferences.setP1AlarmEnabled(enabled) }
+    fun setP1SnoozeMinutes(minutes: Int) = viewModelScope.launch { preferences.setP1SnoozeMinutes(minutes) }
+    fun setP1MaxSnoozeCount(count: Int) = viewModelScope.launch { preferences.setP1MaxSnoozeCount(count) }
+
     // --- Honeycomb Appearance & Edit State ---
     private val _isHoneycombEditMode = MutableStateFlow(false)
     val isHoneycombEditMode: StateFlow<Boolean> = _isHoneycombEditMode.asStateFlow()
@@ -455,12 +478,9 @@ class LifeViewModel(
     )
 
     val resolvedHoneycombShortcuts: StateFlow<List<HoneycombShortcut>> = combine(
-        rawHoneycombShortcuts,
-        todayTasks,
-        allTasks,
-        habits,
-        challengeState
-    ) { rawList, todayTaskList, allTaskList, habitList, challenge ->
+        combine(rawHoneycombShortcuts, todayTasks, allTasks) { raw, today, all -> Triple(raw, today, all) },
+        combine(habits, challengeState, allProjects) { h, c, p -> Triple(h, c, p) }
+    ) { (rawList, todayTaskList, allTaskList), (habitList, challenge, projectList) ->
         val baseList = if (rawList.isEmpty()) DefaultHoneycombShortcuts.list else rawList
 
         // Ensure no overlapping coordinates in the displayed grid
@@ -516,10 +536,14 @@ class LifeViewModel(
                         matchedTask.isOneTimeCompleted ||
                         matchedTask.completedDates.contains(todayIso)
                     )
+                    val matchedProject = matchedTask?.projectId?.let { pId -> projectList.find { it.id == pId } }
+                    val resolvedProjectColor = matchedProject?.let { com.example.domain.model.TodoistColorPalette.getColorLong(it.colorId) }
+
                     shortcut.copy(
                         isCompletedToday = isDone,
                         subtitle = matchedTask?.dueTime ?: matchedTask?.category ?: "",
-                        isBinary = true
+                        isBinary = true,
+                        projectColorHex = resolvedProjectColor
                     )
                 }
                 ShortcutType.HABIT -> {
@@ -875,6 +899,7 @@ class LifeViewModel(
                     soundType = if (allDone) FeedbackSoundType.ALL_DONE else FeedbackSoundType.TASK
                 )
             }
+            com.example.widgets.QuickRemindersWidgetProvider.notifyDataChanged(getApplication())
         }
     }
 
@@ -1762,14 +1787,30 @@ class LifeViewModel(
 
     fun updateHoneycombShortcutColor(shortcutId: Long, newColorHex: Long?) {
         viewModelScope.launch {
-            val item = resolvedHoneycombShortcuts.value.find { it.id == shortcutId } ?: return@launch
-            repository.updateHoneycombShortcut(item.copy(customColorHex = newColorHex))
+            val source = if (newColorHex != null) "CUSTOM" else "THEME_DEFAULT"
+            repository.updateShortcutColorSource(shortcutId, source, newColorHex)
+            com.example.widgets.QuickRemindersWidgetProvider.notifyDataChanged(getApplication())
+        }
+    }
+
+    fun updateHoneycombShortcutShape(shortcutId: Long, shape: String) {
+        viewModelScope.launch {
+            repository.updateShortcutShape(shortcutId, shape)
+            com.example.widgets.QuickRemindersWidgetProvider.notifyDataChanged(getApplication())
+        }
+    }
+
+    fun updateHoneycombShortcutColorSource(shortcutId: Long, colorSource: String, customColorHex: Long?) {
+        viewModelScope.launch {
+            repository.updateShortcutColorSource(shortcutId, colorSource, customColorHex)
+            com.example.widgets.QuickRemindersWidgetProvider.notifyDataChanged(getApplication())
         }
     }
 
     fun updateShortcutCustomTileName(shortcutId: Long, customTileName: String?) {
         viewModelScope.launch {
             repository.updateShortcutCustomTileName(shortcutId, customTileName)
+            com.example.widgets.QuickRemindersWidgetProvider.notifyDataChanged(getApplication())
         }
     }
 

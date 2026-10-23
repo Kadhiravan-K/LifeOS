@@ -623,8 +623,11 @@ fun MedicineReminderSection(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(2, 4, 6, 8, 12, 24).forEach { hours ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                        ) {
+                            listOf(1, 2, 4, 6, 8, 12, 24).forEach { hours ->
                                 FilterChip(
                                     selected = intervalHours == hours,
                                     onClick = { intervalHours = hours },

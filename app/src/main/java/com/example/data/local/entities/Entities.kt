@@ -88,6 +88,8 @@ data class HoneycombShortcutEntity(
     val customTileName: String? = null,
     val emoji: String = "✅",
     val customColorHex: Long? = null,
+    val colorSource: String = "PROJECT", // "PROJECT", "CUSTOM", "THEME_DEFAULT"
+    val shape: String = "HEXAGON", // "HEXAGON", "CIRCLE", "SQUARE"
     val orderIndex: Int = 0,
     val coordQ: Int = 0,
     val coordR: Int = 0,

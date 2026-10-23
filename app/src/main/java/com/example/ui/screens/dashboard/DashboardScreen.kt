@@ -931,6 +931,12 @@ fun DashboardScreen(
             },
             onRenameTile = { newName ->
                 viewModel.updateShortcutCustomTileName(sc.id, newName)
+            },
+            onChangeShape = { newShape ->
+                viewModel.updateHoneycombShortcutShape(sc.id, newShape)
+            },
+            onChangeColorSource = { source, customColor ->
+                viewModel.updateHoneycombShortcutColorSource(sc.id, source, customColor)
             }
         )
     }

@@ -14,6 +14,30 @@ enum class ShortcutType {
     }
 }
 
+enum class QrTileShape(val displayName: String, val icon: String) {
+    HEXAGON("Hexagon", "⬡"),
+    CIRCLE("Circle", "○"),
+    SQUARE("Square", "□");
+
+    companion object {
+        fun fromString(value: String?): QrTileShape {
+            return entries.find { it.name.equals(value, ignoreCase = true) } ?: HEXAGON
+        }
+    }
+}
+
+enum class QrColorSource(val displayName: String) {
+    PROJECT("Inherit Project Color"),
+    CUSTOM("Custom Color"),
+    THEME_DEFAULT("Theme Default");
+
+    companion object {
+        fun fromString(value: String?): QrColorSource {
+            return entries.find { it.name.equals(value, ignoreCase = true) } ?: PROJECT
+        }
+    }
+}
+
 data class HoneycombShortcut(
     val id: Long = 0,
     val type: ShortcutType,
@@ -22,6 +46,8 @@ data class HoneycombShortcut(
     val customTileName: String? = null,
     val emoji: String,
     val customColorHex: Long? = null,
+    val colorSource: String = "PROJECT", // "PROJECT", "CUSTOM", "THEME_DEFAULT"
+    val shape: String = "HEXAGON", // "HEXAGON", "CIRCLE", "SQUARE"
     val orderIndex: Int = 0,
     val coordQ: Int = 0,
     val coordR: Int = 0,
@@ -29,9 +55,21 @@ data class HoneycombShortcut(
     val isCompletedToday: Boolean = false,
     val subtitle: String = "",
     val progressFraction: Float = 0f,
-    val isBinary: Boolean = true
+    val isBinary: Boolean = true,
+    val linkedProjectId: Long? = null,
+    val projectColorHex: Long? = null
 ) {
     val displayTitle: String get() = if (!customTileName.isNullOrBlank()) customTileName else title
+
+    val effectiveColorHex: Long?
+        get() = when (colorSource) {
+            "CUSTOM" -> customColorHex
+            "PROJECT" -> projectColorHex ?: customColorHex
+            "THEME_DEFAULT" -> null
+            else -> customColorHex ?: projectColorHex
+        }
+
+    val tileShape: QrTileShape get() = QrTileShape.fromString(shape)
 }
 
 enum class HoneycombLayoutTemplate(val displayName: String, val icon: String) {

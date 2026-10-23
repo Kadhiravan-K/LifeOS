@@ -58,7 +58,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
@@ -493,8 +495,8 @@ fun HoneycombCell(
     val strokeWidthPx = with(density) { appearance.borderWidthDp.dp.toPx() }
     val cornerRadiusPx = with(density) { (appearance.borderWidthDp * 2.5f).dp.toPx() }
 
-    // Color resolution
-    val resolvedCompletionColor = Color(shortcut.customColorHex ?: appearance.defaultColorHex)
+    // Color resolution: Precedence: Custom > Project > Theme Default
+    val resolvedCompletionColor = Color(shortcut.effectiveColorHex ?: appearance.defaultColorHex)
     val incompleteBgColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
 
     val borderColor = when {
@@ -547,25 +549,52 @@ fun HoneycombCell(
             ),
         contentAlignment = Alignment.Center
     ) {
-        // Hexagonal Canvas drawing
+        // Shape Canvas drawing: HEXAGON, CIRCLE, or SQUARE
         Canvas(modifier = Modifier.size(width = widthDp, height = sizeDp)) {
             val cx = size.width / 2f
             val cy = size.height / 2f
             val r = (size.height / 2f) - (strokeWidthPx / 2f)
 
-            val hexPath = createRoundedHexagonPath(
-                cx = cx,
-                cy = cy,
-                radius = r,
-                cornerRadius = cornerRadiusPx
-            )
+            val isCircle = shortcut.shape.equals("CIRCLE", ignoreCase = true)
+            val isSquare = shortcut.shape.equals("SQUARE", ignoreCase = true)
+
+            val hexPath = if (!isCircle && !isSquare) {
+                createRoundedHexagonPath(
+                    cx = cx,
+                    cy = cy,
+                    radius = r,
+                    cornerRadius = cornerRadiusPx
+                )
+            } else null
 
             // 1. Draw Background Fill
-            drawPath(
-                path = hexPath,
-                color = animatedBgColor,
-                style = Fill
-            )
+            when {
+                isCircle -> {
+                    drawCircle(
+                        color = animatedBgColor,
+                        radius = r,
+                        center = Offset(cx, cy),
+                        style = Fill
+                    )
+                }
+                isSquare -> {
+                    val halfW = r * 0.85f
+                    drawRoundRect(
+                        color = animatedBgColor,
+                        topLeft = Offset(cx - halfW, cy - halfW),
+                        size = Size(halfW * 2f, halfW * 2f),
+                        cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx),
+                        style = Fill
+                    )
+                }
+                else -> {
+                    drawPath(
+                        path = hexPath!!,
+                        color = animatedBgColor,
+                        style = Fill
+                    )
+                }
+            }
 
             // Theme-specific decorative engravings
             when (activeTheme.honeycombEngraving) {
@@ -605,11 +634,36 @@ fun HoneycombCell(
             }
 
             // 2. Draw Thick Rounded Border
-            drawPath(
-                path = hexPath,
-                color = if (isHighlightedTarget) activeTheme.colors.accent else if (isEditMode) activeTheme.colors.primary else borderColor,
-                style = Stroke(width = if (isHighlightedTarget || isDragged) strokeWidthPx * 1.5f else strokeWidthPx)
-            )
+            val borderDrawColor = if (isHighlightedTarget) activeTheme.colors.accent else if (isEditMode) activeTheme.colors.primary else borderColor
+            val borderStrokeWidth = if (isHighlightedTarget || isDragged) strokeWidthPx * 1.5f else strokeWidthPx
+
+            when {
+                isCircle -> {
+                    drawCircle(
+                        color = borderDrawColor,
+                        radius = r,
+                        center = Offset(cx, cy),
+                        style = Stroke(width = borderStrokeWidth)
+                    )
+                }
+                isSquare -> {
+                    val halfW = r * 0.85f
+                    drawRoundRect(
+                        color = borderDrawColor,
+                        topLeft = Offset(cx - halfW, cy - halfW),
+                        size = Size(halfW * 2f, halfW * 2f),
+                        cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx),
+                        style = Stroke(width = borderStrokeWidth)
+                    )
+                }
+                else -> {
+                    drawPath(
+                        path = hexPath!!,
+                        color = borderDrawColor,
+                        style = Stroke(width = borderStrokeWidth)
+                    )
+                }
+            }
         }
 
         // Center Content: Emoji Icon & Title indicator

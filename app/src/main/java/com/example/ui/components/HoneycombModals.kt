@@ -84,11 +84,14 @@ fun HoneycombContextMenuDialog(
     onChangeEmoji: (String) -> Unit,
     onChangeColor: (Long?) -> Unit,
     onRemoveFromDashboard: () -> Unit,
-    onRenameTile: (String?) -> Unit = {}
+    onRenameTile: (String?) -> Unit = {},
+    onChangeShape: (String) -> Unit = {},
+    onChangeColorSource: (colorSource: String, customColor: Long?) -> Unit = { _, _ -> }
 ) {
     var showColorPicker by remember { mutableStateOf(false) }
     var showEmojiPicker by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    var showShapePicker by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -159,7 +162,21 @@ fun HoneycombContextMenuDialog(
                     Text("Change Icon / Emoji (${shortcut.emoji})")
                 }
 
-                // Action 4: Change Hexagon Color
+                // Action 4: Change Shape
+                OutlinedButton(
+                    onClick = { showShapePicker = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    val shapeSymbol = when (shortcut.shape.uppercase()) {
+                        "CIRCLE" -> "●"
+                        "SQUARE" -> "■"
+                        else -> "⬡"
+                    }
+                    Text("$shapeSymbol Change Tile Shape (${shortcut.shape.lowercase().replaceFirstChar { it.uppercase() }})")
+                }
+
+                // Action 5: Change Color
                 OutlinedButton(
                     onClick = { showColorPicker = true },
                     modifier = Modifier.fillMaxWidth(),
@@ -171,10 +188,15 @@ fun HoneycombContextMenuDialog(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Change Hexagon Color")
+                    val colorLabel = when (shortcut.colorSource) {
+                        "CUSTOM" -> "Color (Custom)"
+                        "PROJECT" -> "Color (Project)"
+                        else -> "Color (Theme Default)"
+                    }
+                    Text("Change $colorLabel")
                 }
 
-                // Action 5: Enter Edit Layout Mode
+                // Action 6: Enter Edit Layout Mode
                 OutlinedButton(
                     onClick = {
                         onEnterEditMode()
@@ -192,7 +214,7 @@ fun HoneycombContextMenuDialog(
                     Text("Enter Layout Edit Mode")
                 }
 
-                // Action 5: Remove from Dashboard
+                // Action 7: Remove from Dashboard
                 Button(
                     onClick = {
                         onRemoveFromDashboard()
@@ -227,12 +249,31 @@ fun HoneycombContextMenuDialog(
         }
     )
 
+    if (showShapePicker) {
+        ShapePickerDialog(
+            currentShape = shortcut.shape,
+            onDismiss = { showShapePicker = false },
+            onSelectShape = { newShape ->
+                onChangeShape(newShape)
+                showShapePicker = false
+                onDismiss()
+            }
+        )
+    }
+
     if (showColorPicker) {
         ColorPickerDialog(
             currentColor = shortcut.customColorHex,
+            currentColorSource = shortcut.colorSource,
+            projectColor = shortcut.projectColorHex,
             onDismiss = { showColorPicker = false },
             onSelectColor = { color ->
                 onChangeColor(color)
+                showColorPicker = false
+                onDismiss()
+            },
+            onSelectColorSource = { source, customColor ->
+                onChangeColorSource(source, customColor)
                 showColorPicker = false
                 onDismiss()
             }
@@ -310,25 +351,85 @@ fun HoneycombContextMenuDialog(
 /**
  * Color picker dialog with presets and custom hex option.
  */
+/**
+ * Color picker dialog with project color inheritance, presets, and theme default.
+ */
 @Composable
 fun ColorPickerDialog(
     currentColor: Long?,
+    currentColorSource: String = "PROJECT",
+    projectColor: Long? = null,
     onDismiss: () -> Unit,
-    onSelectColor: (Long?) -> Unit
+    onSelectColor: (Long?) -> Unit,
+    onSelectColorSource: ((source: String, customColor: Long?) -> Unit)? = null
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Select Hexagon Color", fontWeight = FontWeight.Bold) },
+        title = { Text("Select Tile Color", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Preset Colors:", style = MaterialTheme.typography.bodySmall)
+                // Option 1: Inherit Project Color (if available)
+                if (projectColor != null) {
+                    val isProjectSelected = currentColorSource == "PROJECT"
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (onSelectColorSource != null) {
+                                    onSelectColorSource("PROJECT", currentColor)
+                                } else {
+                                    onSelectColor(projectColor)
+                                }
+                            },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isProjectSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(projectColor))
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Inherit Project Color",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (isProjectSelected) FontWeight.Bold else FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Dynamic sync with parent project",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (isProjectSelected) {
+                                Spacer(modifier = Modifier.weight(1f))
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Text("Custom Preset Colors:", style = MaterialTheme.typography.bodySmall)
 
                 Row(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     HoneycombColorPresets.list.forEach { (name, hex) ->
-                        val isSelected = currentColor == hex
+                        val isSelected = (currentColorSource == "CUSTOM" || projectColor == null) && currentColor == hex
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -340,7 +441,13 @@ fun ColorPickerDialog(
                                     color = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.Transparent,
                                     shape = CircleShape
                                 )
-                                .clickable { onSelectColor(hex) }
+                                .clickable {
+                                    if (onSelectColorSource != null) {
+                                        onSelectColorSource("CUSTOM", hex)
+                                    } else {
+                                        onSelectColor(hex)
+                                    }
+                                }
                         ) {
                             if (isSelected) {
                                 Icon(
@@ -357,10 +464,81 @@ fun ColorPickerDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 OutlinedButton(
-                    onClick = { onSelectColor(null) },
+                    onClick = {
+                        if (onSelectColorSource != null) {
+                            onSelectColorSource("THEME_DEFAULT", null)
+                        } else {
+                            onSelectColor(null)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Use Default Theme Color")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+/**
+ * Shape picker dialog for selecting Hexagon, Circle, or Square QR tile shape.
+ */
+@Composable
+fun ShapePickerDialog(
+    currentShape: String,
+    onDismiss: () -> Unit,
+    onSelectShape: (String) -> Unit
+) {
+    val shapes = listOf(
+        Triple("HEXAGON", "Hexagon (Default)", "⬡"),
+        Triple("CIRCLE", "Circle", "●"),
+        Triple("SQUARE", "Square", "■")
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Choose QR Tile Shape", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                shapes.forEach { (shapeKey, name, symbol) ->
+                    val isSelected = currentShape.equals(shapeKey, ignoreCase = true)
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onSelectShape(shapeKey)
+                            },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = symbol, fontSize = 24.sp)
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(
+                                text = name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (isSelected) {
+                                Spacer(modifier = Modifier.weight(1f))
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
                 }
             }
         },
