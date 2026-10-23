@@ -375,6 +375,186 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
     }
 }
 
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // --- Smart Tracker Tables ---
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `trackers` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `title` TEXT NOT NULL,
+                `emoji` TEXT NOT NULL DEFAULT '📦',
+                `description` TEXT NOT NULL DEFAULT '',
+                `projectId` INTEGER DEFAULT NULL,
+                `labelIdsJson` TEXT NOT NULL DEFAULT '[]',
+                `customColorHex` INTEGER DEFAULT NULL,
+                `trackDuration` INTEGER NOT NULL DEFAULT 1,
+                `trackDistance` INTEGER NOT NULL DEFAULT 0,
+                `trackQuantity` INTEGER NOT NULL DEFAULT 0,
+                `distanceUnit` TEXT NOT NULL DEFAULT 'KILOMETERS',
+                `quantityUnit` TEXT NOT NULL DEFAULT 'PIECES',
+                `customQuantityUnitName` TEXT NOT NULL DEFAULT '',
+                `inventoryPolicy` TEXT NOT NULL DEFAULT 'CONSUMABLE',
+                `currentStock` REAL NOT NULL DEFAULT 0.0,
+                `emptyStock` REAL NOT NULL DEFAULT 0.0,
+                `isReminderEnabled` INTEGER NOT NULL DEFAULT 0,
+                `reminderDaysInterval` INTEGER NOT NULL DEFAULT 30,
+                `isArchived` INTEGER NOT NULL DEFAULT 0,
+                `createdAt` INTEGER NOT NULL DEFAULT 0,
+                `updatedAt` INTEGER NOT NULL DEFAULT 0
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_trackers_projectId` ON `trackers` (`projectId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_trackers_isArchived` ON `trackers` (`isArchived`)")
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `tracker_cycles` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `trackerId` INTEGER NOT NULL,
+                `cycleName` TEXT NOT NULL DEFAULT '',
+                `purchaseId` INTEGER DEFAULT NULL,
+                `purchaseCost` REAL NOT NULL DEFAULT 0.0,
+                `startDateIso` TEXT NOT NULL,
+                `finishDateIso` TEXT DEFAULT NULL,
+                `status` TEXT NOT NULL DEFAULT 'ACTIVE',
+                `isPaused` INTEGER NOT NULL DEFAULT 0,
+                `startOdometer` REAL NOT NULL DEFAULT 0.0,
+                `currentOdometer` REAL NOT NULL DEFAULT 0.0,
+                `finishOdometer` REAL DEFAULT NULL,
+                `initialQuantity` REAL NOT NULL DEFAULT 0.0,
+                `remainingQuantity` REAL NOT NULL DEFAULT 0.0,
+                `notes` TEXT NOT NULL DEFAULT '',
+                `createdAt` INTEGER NOT NULL DEFAULT 0,
+                `updatedAt` INTEGER NOT NULL DEFAULT 0
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tracker_cycles_trackerId` ON `tracker_cycles` (`trackerId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tracker_cycles_status` ON `tracker_cycles` (`status`)")
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `tracker_usage_entries` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `cycleId` INTEGER NOT NULL,
+                `dateIso` TEXT NOT NULL,
+                `odometerReading` REAL DEFAULT NULL,
+                `quantityDeducted` REAL DEFAULT NULL,
+                `manualRemainingQuantity` REAL DEFAULT NULL,
+                `notes` TEXT NOT NULL DEFAULT '',
+                `timestamp` INTEGER NOT NULL DEFAULT 0
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tracker_usage_entries_cycleId` ON `tracker_usage_entries` (`cycleId`)")
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `tracker_purchases` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `trackerId` INTEGER NOT NULL,
+                `purchaseDateIso` TEXT NOT NULL,
+                `quantity` REAL NOT NULL DEFAULT 0.0,
+                `unitPrice` REAL NOT NULL DEFAULT 0.0,
+                `totalCost` REAL NOT NULL DEFAULT 0.0,
+                `notes` TEXT NOT NULL DEFAULT '',
+                `createdAt` INTEGER NOT NULL DEFAULT 0
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tracker_purchases_trackerId` ON `tracker_purchases` (`trackerId`)")
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `tracker_inventory_adjustments` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `trackerId` INTEGER NOT NULL,
+                `dateIso` TEXT NOT NULL,
+                `deltaQuantity` REAL NOT NULL DEFAULT 0.0,
+                `isRefillExchange` INTEGER NOT NULL DEFAULT 0,
+                `reason` TEXT NOT NULL DEFAULT '',
+                `timestamp` INTEGER NOT NULL DEFAULT 0
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tracker_inventory_adjustments_trackerId` ON `tracker_inventory_adjustments` (`trackerId`)")
+
+        // --- Subscription Tables ---
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `subscriptions` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `title` TEXT NOT NULL,
+                `emoji` TEXT NOT NULL DEFAULT '💳',
+                `description` TEXT NOT NULL DEFAULT '',
+                `projectId` INTEGER DEFAULT NULL,
+                `labelIdsJson` TEXT NOT NULL DEFAULT '[]',
+                `customColorHex` INTEGER DEFAULT NULL,
+                `amount` REAL NOT NULL DEFAULT 0.0,
+                `currency` TEXT NOT NULL DEFAULT '₹',
+                `frequency` TEXT NOT NULL DEFAULT 'MONTHLY',
+                `customIntervalCount` INTEGER NOT NULL DEFAULT 1,
+                `customIntervalUnit` TEXT NOT NULL DEFAULT 'MONTHS',
+                `anchorDateIso` TEXT NOT NULL,
+                `anchorDayOfMonth` INTEGER NOT NULL DEFAULT 1,
+                `nextRenewalDateIso` TEXT NOT NULL,
+                `missingDatePolicy` TEXT NOT NULL DEFAULT 'LAST_VALID_DAY',
+                `autoRenew` INTEGER NOT NULL DEFAULT 1,
+                `paymentMethod` TEXT NOT NULL DEFAULT '',
+                `isTrial` INTEGER NOT NULL DEFAULT 0,
+                `trialStartDateIso` TEXT DEFAULT NULL,
+                `trialEndDateIso` TEXT DEFAULT NULL,
+                `status` TEXT NOT NULL DEFAULT 'ACTIVE',
+                `cancellationDateIso` TEXT DEFAULT NULL,
+                `cancellationReason` TEXT NOT NULL DEFAULT '',
+                `reminderDaysBefore` INTEGER NOT NULL DEFAULT 3,
+                `overdueReminderEnabled` INTEGER NOT NULL DEFAULT 1,
+                `notes` TEXT NOT NULL DEFAULT '',
+                `createdAt` INTEGER NOT NULL DEFAULT 0,
+                `updatedAt` INTEGER NOT NULL DEFAULT 0
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_subscriptions_projectId` ON `subscriptions` (`projectId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_subscriptions_status` ON `subscriptions` (`status`)")
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `subscription_bills` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `subscriptionId` INTEGER NOT NULL,
+                `dueDateIso` TEXT NOT NULL,
+                `expectedAmount` REAL NOT NULL DEFAULT 0.0,
+                `currency` TEXT NOT NULL DEFAULT '₹',
+                `status` TEXT NOT NULL DEFAULT 'UNPAID',
+                `notes` TEXT NOT NULL DEFAULT '',
+                `createdAt` INTEGER NOT NULL DEFAULT 0
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_subscription_bills_subscriptionId` ON `subscription_bills` (`subscriptionId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_subscription_bills_dueDateIso` ON `subscription_bills` (`dueDateIso`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_subscription_bills_status` ON `subscription_bills` (`status`)")
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `subscription_payments` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `billId` INTEGER NOT NULL,
+                `subscriptionId` INTEGER NOT NULL,
+                `amountPaid` REAL NOT NULL DEFAULT 0.0,
+                `paymentDateIso` TEXT NOT NULL,
+                `paymentMethod` TEXT NOT NULL DEFAULT '',
+                `transactionRef` TEXT NOT NULL DEFAULT '',
+                `notes` TEXT NOT NULL DEFAULT '',
+                `timestamp` INTEGER NOT NULL DEFAULT 0
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_subscription_payments_billId` ON `subscription_payments` (`billId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_subscription_payments_subscriptionId` ON `subscription_payments` (`subscriptionId`)")
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `subscription_price_history` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `subscriptionId` INTEGER NOT NULL,
+                `oldAmount` REAL NOT NULL DEFAULT 0.0,
+                `newAmount` REAL NOT NULL DEFAULT 0.0,
+                `effectiveDateIso` TEXT NOT NULL,
+                `reason` TEXT NOT NULL DEFAULT '',
+                `createdAt` INTEGER NOT NULL DEFAULT 0
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_subscription_price_history_subscriptionId` ON `subscription_price_history` (`subscriptionId`)")
+    }
+}
+
 @Database(
     entities = [
         TaskEntity::class,
@@ -396,9 +576,18 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
         com.example.data.local.entities.RewardItemEntity::class,
         com.example.data.local.entities.RewardRedemptionEntity::class,
         com.example.data.local.entities.MedicationEntity::class,
-        com.example.data.local.entities.MedicationDoseEntity::class
+        com.example.data.local.entities.MedicationDoseEntity::class,
+        com.example.data.local.entities.TrackerEntity::class,
+        com.example.data.local.entities.UsageCycleEntity::class,
+        com.example.data.local.entities.UsageEntryEntity::class,
+        com.example.data.local.entities.TrackerPurchaseEntity::class,
+        com.example.data.local.entities.InventoryAdjustmentEntity::class,
+        com.example.data.local.entities.SubscriptionEntity::class,
+        com.example.data.local.entities.BillingOccurrenceEntity::class,
+        com.example.data.local.entities.SubscriptionPaymentEntity::class,
+        com.example.data.local.entities.PriceHistoryEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -414,6 +603,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun planDao(): com.example.data.local.dao.PlanDao
     abstract fun gamificationDao(): com.example.data.local.dao.GamificationDao
     abstract fun medicationDao(): com.example.data.local.dao.MedicationDao
+    abstract fun trackerDao(): com.example.data.local.dao.TrackerDao
+    abstract fun subscriptionDao(): com.example.data.local.dao.SubscriptionDao
 
     companion object {
         @Volatile
@@ -426,7 +617,17 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "lifeos_database.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                    .addMigrations(
+                        MIGRATION_1_2,
+                        MIGRATION_2_3,
+                        MIGRATION_3_4,
+                        MIGRATION_4_5,
+                        MIGRATION_5_6,
+                        MIGRATION_6_7,
+                        MIGRATION_7_8,
+                        MIGRATION_8_9,
+                        MIGRATION_9_10
+                    )
                     .build()
                 INSTANCE = instance
                 instance

@@ -60,10 +60,46 @@
                 android:resource="@xml/lifeos_quick_reminders_widget_info" />
         </receiver>
 
+        <!-- LifeOS Smart Trackers Home-Screen Widget -->
+        <receiver
+            android:name=".widgets.TrackerWidgetProvider"
+            android:exported="true"
+            android:label="LifeOS Smart Trackers">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/lifeos_tracker_widget_info" />
+        </receiver>
+
+        <!-- LifeOS Subscriptions Home-Screen Widget -->
+        <receiver
+            android:name=".widgets.SubscriptionWidgetProvider"
+            android:exported="true"
+            android:label="LifeOS Subscriptions">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/lifeos_subscription_widget_info" />
+        </receiver>
+
         <service
             android:name=".widgets.QuickRemindersRemoteViewsService"
             android:exported="false"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>

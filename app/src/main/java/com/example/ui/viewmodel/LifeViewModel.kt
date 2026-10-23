@@ -50,9 +50,24 @@ import com.example.domain.templates.TemplateImportSummary
 import com.example.domain.medication.MedicationItem
 import com.example.domain.medication.MedicationDoseItem
 import com.example.domain.medication.DoseStatus
+import com.example.domain.tracker.TrackerItem
+import com.example.domain.tracker.UsageCycleItem
+import com.example.domain.tracker.UsageEntryItem
+import com.example.domain.tracker.TrackerPurchaseItem
+import com.example.domain.tracker.InventoryAdjustmentItem
+import com.example.domain.tracker.CycleStatus
+import com.example.domain.tracker.InventoryPolicy
+import com.example.domain.subscription.SubscriptionItem
+import com.example.domain.subscription.BillingOccurrenceItem
+import com.example.domain.subscription.SubscriptionPaymentItem
+import com.example.domain.subscription.PriceHistoryItem
+import com.example.domain.subscription.SubscriptionStatus
+import com.example.domain.subscription.BillStatus
+import com.example.domain.subscription.SubscriptionScheduleEngine
 import com.example.data.backup.DataExportImportManager
 import com.example.data.local.AppDatabase
 import com.example.domain.legal.LegalDocuments
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -327,6 +342,38 @@ class LifeViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = null
+    )
+
+    // --- Smart Tracker Flows ---
+    val allTrackers: StateFlow<List<TrackerItem>> = repository.allTrackersFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val activeTrackers: StateFlow<List<TrackerItem>> = repository.activeTrackersFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    // --- Subscription Flows ---
+    val allSubscriptions: StateFlow<List<SubscriptionItem>> = repository.allSubscriptionsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val activeSubscriptions: StateFlow<List<SubscriptionItem>> = repository.activeSubscriptionsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val allBills: StateFlow<List<BillingOccurrenceItem>> = repository.allBillsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
     )
 
     private val entitlementRepo: PremiumEntitlementRepository = LocalPremiumEntitlementRepository(application)
@@ -2083,6 +2130,214 @@ class LifeViewModel(
 
     suspend fun importDataJson(jsonStr: String): Boolean {
         return DataExportImportManager.importData(AppDatabase.getInstance(getApplication()), jsonStr)
+    }
+
+    // ==========================================
+    // --- SMART TRACKER VIEWMODEL ACTIONS ---
+    // ==========================================
+
+    fun saveTracker(tracker: TrackerItem, onComplete: ((Long) -> Unit)? = null) {
+        viewModelScope.launch {
+            val id = if (tracker.id == 0L) {
+                repository.insertTracker(tracker)
+            } else {
+                repository.updateTracker(tracker)
+                tracker.id
+            }
+            onComplete?.invoke(id)
+        }
+    }
+
+    fun setTrackerArchived(trackerId: Long, isArchived: Boolean) {
+        viewModelScope.launch {
+            repository.setTrackerArchived(trackerId, isArchived)
+        }
+    }
+
+    fun deleteTracker(trackerId: Long) {
+        viewModelScope.launch {
+            repository.deleteTracker(trackerId)
+        }
+    }
+
+    fun getCyclesForTracker(trackerId: Long): Flow<List<UsageCycleItem>> {
+        return repository.getCyclesForTrackerFlow(trackerId)
+    }
+
+    fun saveCycle(cycle: UsageCycleItem, onComplete: ((Long) -> Unit)? = null) {
+        viewModelScope.launch {
+            val id = if (cycle.id == 0L) {
+                repository.insertCycle(cycle)
+            } else {
+                repository.updateCycle(cycle)
+                cycle.id
+            }
+            onComplete?.invoke(id)
+        }
+    }
+
+    fun finishCycle(
+        cycle: UsageCycleItem,
+        finishDateIso: String,
+        finishOdometer: Double?,
+        finalRemainingQuantity: Double?,
+        notes: String = ""
+    ) {
+        viewModelScope.launch {
+            val updated = cycle.copy(
+                status = CycleStatus.FINISHED,
+                finishDateIso = finishDateIso,
+                finishOdometer = finishOdometer ?: cycle.currentOdometer,
+                remainingQuantity = finalRemainingQuantity ?: cycle.remainingQuantity,
+                notes = if (notes.isNotBlank()) "${cycle.notes}\n$notes".trim() else cycle.notes,
+                updatedAt = System.currentTimeMillis()
+            )
+            repository.updateCycle(updated)
+        }
+    }
+
+    fun pauseResumeCycle(cycle: UsageCycleItem, isPaused: Boolean) {
+        viewModelScope.launch {
+            val updated = cycle.copy(
+                status = if (isPaused) CycleStatus.PAUSED else CycleStatus.ACTIVE,
+                isPaused = isPaused,
+                updatedAt = System.currentTimeMillis()
+            )
+            repository.updateCycle(updated)
+        }
+    }
+
+    fun logUsageEntry(entry: UsageEntryItem, cycle: UsageCycleItem) {
+        viewModelScope.launch {
+            repository.insertUsageEntry(entry)
+            var newOdometer = cycle.currentOdometer
+            if (entry.odometerReading != null && entry.odometerReading > newOdometer) {
+                newOdometer = entry.odometerReading
+            }
+            var newRemaining = cycle.remainingQuantity
+            if (entry.manualRemainingQuantity != null) {
+                newRemaining = entry.manualRemainingQuantity
+            } else if (entry.quantityDeducted != null) {
+                newRemaining = (newRemaining - entry.quantityDeducted).coerceAtLeast(0.0)
+            }
+            repository.updateCycle(
+                cycle.copy(
+                    currentOdometer = newOdometer,
+                    remainingQuantity = newRemaining,
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    fun getPurchasesForTracker(trackerId: Long): Flow<List<TrackerPurchaseItem>> {
+        return repository.getPurchasesForTrackerFlow(trackerId)
+    }
+
+    fun recordPurchase(purchase: TrackerPurchaseItem) {
+        viewModelScope.launch {
+            repository.insertPurchase(purchase)
+        }
+    }
+
+    fun getAdjustmentsForTracker(trackerId: Long): Flow<List<InventoryAdjustmentItem>> {
+        return repository.getAdjustmentsForTrackerFlow(trackerId)
+    }
+
+    fun recordStockAdjustment(adjustment: InventoryAdjustmentItem) {
+        viewModelScope.launch {
+            repository.insertAdjustment(adjustment)
+        }
+    }
+
+    // ==========================================
+    // --- SUBSCRIPTION VIEWMODEL ACTIONS ---
+    // ==========================================
+
+    fun saveSubscription(subscription: SubscriptionItem, onComplete: ((Long) -> Unit)? = null) {
+        viewModelScope.launch {
+            val id = if (subscription.id == 0L) {
+                repository.insertSubscription(subscription)
+            } else {
+                repository.updateSubscription(subscription)
+                subscription.id
+            }
+            onComplete?.invoke(id)
+        }
+    }
+
+    fun setSubscriptionStatus(subscriptionId: Long, status: SubscriptionStatus) {
+        viewModelScope.launch {
+            repository.setSubscriptionStatus(subscriptionId, status)
+        }
+    }
+
+    fun deleteSubscription(subscriptionId: Long) {
+        viewModelScope.launch {
+            repository.deleteSubscription(subscriptionId)
+        }
+    }
+
+    fun getBillsForSubscription(subscriptionId: Long): Flow<List<BillingOccurrenceItem>> {
+        return repository.getBillsForSubscriptionFlow(subscriptionId)
+    }
+
+    fun getPaymentsForBill(billId: Long): Flow<List<SubscriptionPaymentItem>> {
+        return repository.getPaymentsForBillFlow(billId)
+    }
+
+    fun getPaymentsForSubscription(subscriptionId: Long): Flow<List<SubscriptionPaymentItem>> {
+        return repository.getPaymentsForSubscriptionFlow(subscriptionId)
+    }
+
+    fun recordBillPayment(
+        billId: Long,
+        subscriptionId: Long,
+        amountPaid: Double,
+        paymentDateIso: String,
+        paymentMethod: String = "",
+        transactionRef: String = "",
+        notes: String = ""
+    ) {
+        viewModelScope.launch {
+            val payment = SubscriptionPaymentItem(
+                billId = billId,
+                subscriptionId = subscriptionId,
+                amountPaid = amountPaid,
+                paymentDateIso = paymentDateIso,
+                paymentMethod = paymentMethod,
+                transactionRef = transactionRef,
+                notes = notes
+            )
+            repository.recordBillPayment(payment, todayIso)
+        }
+    }
+
+    fun updateBillStatus(bill: BillingOccurrenceItem, status: BillStatus) {
+        viewModelScope.launch {
+            repository.updateBill(bill.copy(status = status))
+        }
+    }
+
+    fun updateBillAmount(bill: BillingOccurrenceItem, newExpectedAmount: Double) {
+        viewModelScope.launch {
+            repository.updateBill(bill.copy(expectedAmount = newExpectedAmount))
+        }
+    }
+
+    fun updateSubscriptionPrice(
+        subscriptionId: Long,
+        newPrice: Double,
+        effectiveDateIso: String,
+        reason: String
+    ) {
+        viewModelScope.launch {
+            repository.updateSubscriptionPrice(subscriptionId, newPrice, effectiveDateIso, reason)
+        }
+    }
+
+    fun getPriceHistory(subscriptionId: Long): Flow<List<PriceHistoryItem>> {
+        return repository.getPriceHistoryFlow(subscriptionId)
     }
 }
 
