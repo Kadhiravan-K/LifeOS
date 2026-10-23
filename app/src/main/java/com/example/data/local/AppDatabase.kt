@@ -303,6 +303,70 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
     }
 }
 
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `medications` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `taskId` INTEGER NOT NULL,
+                `name` TEXT NOT NULL,
+                `form` TEXT NOT NULL,
+                `dosageAmount` TEXT NOT NULL,
+                `dosageUnit` TEXT NOT NULL,
+                `strength` TEXT NOT NULL DEFAULT '',
+                `instructions` TEXT NOT NULL DEFAULT '',
+                `scheduleType` TEXT NOT NULL,
+                `mealPeriodsJson` TEXT NOT NULL DEFAULT '[]',
+                `fixedTimesJson` TEXT NOT NULL DEFAULT '[]',
+                `intervalHours` INTEGER NOT NULL DEFAULT 4,
+                `intervalModel` TEXT NOT NULL DEFAULT 'FIXED_SCHEDULE',
+                `intervalAnchorTime` TEXT NOT NULL DEFAULT '08:00',
+                `allowOvernight` INTEGER NOT NULL DEFAULT 0,
+                `selectedDaysOfWeek` TEXT NOT NULL DEFAULT '',
+                `startDateIso` TEXT NOT NULL,
+                `endDateIso` TEXT DEFAULT NULL,
+                `courseDurationDays` INTEGER DEFAULT NULL,
+                `isAsNeeded` INTEGER NOT NULL DEFAULT 0,
+                `isPaused` INTEGER NOT NULL DEFAULT 0,
+                `reminderSound` TEXT NOT NULL DEFAULT 'CHIME',
+                `alertStyle` TEXT NOT NULL DEFAULT 'STANDARD',
+                `snoozeMinutes` INTEGER NOT NULL DEFAULT 10,
+                `followUpEnabled` INTEGER NOT NULL DEFAULT 1,
+                `followUpIntervalMinutes` INTEGER NOT NULL DEFAULT 15,
+                `maxFollowUps` INTEGER NOT NULL DEFAULT 2,
+                `privacySafeNotification` INTEGER NOT NULL DEFAULT 1,
+                `createdAt` INTEGER NOT NULL DEFAULT 0
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_medications_taskId` ON `medications` (`taskId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_medications_isPaused` ON `medications` (`isPaused`)")
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `medication_doses` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `medicationId` INTEGER NOT NULL,
+                `taskId` INTEGER NOT NULL,
+                `medicationName` TEXT NOT NULL,
+                `medicationForm` TEXT NOT NULL,
+                `dosage` TEXT NOT NULL,
+                `instructions` TEXT NOT NULL DEFAULT '',
+                `scheduledDateIso` TEXT NOT NULL,
+                `scheduledTime` TEXT NOT NULL,
+                `status` TEXT NOT NULL DEFAULT 'SCHEDULED',
+                `actionTimestamp` INTEGER DEFAULT NULL,
+                `snoozeCount` INTEGER NOT NULL DEFAULT 0,
+                `followUpCount` INTEGER NOT NULL DEFAULT 0,
+                `notes` TEXT NOT NULL DEFAULT ''
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_medication_doses_medicationId` ON `medication_doses` (`medicationId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_medication_doses_taskId` ON `medication_doses` (`taskId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_medication_doses_scheduledDateIso` ON `medication_doses` (`scheduledDateIso`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_medication_doses_status` ON `medication_doses` (`status`)")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_medication_doses_medicationId_scheduledDateIso_scheduledTime` ON `medication_doses` (`medicationId`, `scheduledDateIso`, `scheduledTime`)")
+    }
+}
+
 @Database(
     entities = [
         TaskEntity::class,
@@ -322,9 +386,11 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
         com.example.data.local.entities.XpEventEntity::class,
         com.example.data.local.entities.AchievementEntity::class,
         com.example.data.local.entities.RewardItemEntity::class,
-        com.example.data.local.entities.RewardRedemptionEntity::class
+        com.example.data.local.entities.RewardRedemptionEntity::class,
+        com.example.data.local.entities.MedicationEntity::class,
+        com.example.data.local.entities.MedicationDoseEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -339,6 +405,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun trashDao(): com.example.data.local.dao.TrashDao
     abstract fun planDao(): com.example.data.local.dao.PlanDao
     abstract fun gamificationDao(): com.example.data.local.dao.GamificationDao
+    abstract fun medicationDao(): com.example.data.local.dao.MedicationDao
 
     companion object {
         @Volatile
@@ -351,7 +418,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "lifeos_database.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .build()
                 INSTANCE = instance
                 instance

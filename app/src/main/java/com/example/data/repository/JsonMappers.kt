@@ -160,4 +160,42 @@ object JsonMappers {
         }
         return root.toString()
     }
+
+    fun parseMealPeriods(jsonStr: String?): List<com.example.domain.medication.MealPeriodConfig> {
+        if (jsonStr.isNullOrBlank()) return emptyList()
+        return try {
+            val jsonArray = JSONArray(jsonStr)
+            val list = mutableListOf<com.example.domain.medication.MealPeriodConfig>()
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                list.add(
+                    com.example.domain.medication.MealPeriodConfig(
+                        period = com.example.domain.medication.MealPeriod.valueOf(obj.optString("period", "MORNING")),
+                        scheduledTime = obj.optString("scheduledTime", "08:00"),
+                        foodRelation = com.example.domain.medication.FoodRelationship.valueOf(obj.optString("foodRelation", "NO_FOOD")),
+                        offsetMinutes = obj.optInt("offsetMinutes", 0),
+                        isEnabled = obj.optBoolean("isEnabled", true)
+                    )
+                )
+            }
+            list
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun serializeMealPeriods(list: List<com.example.domain.medication.MealPeriodConfig>): String {
+        val jsonArray = JSONArray()
+        for (item in list) {
+            val obj = JSONObject()
+            obj.put("period", item.period.name)
+            obj.put("scheduledTime", item.scheduledTime)
+            obj.put("foodRelation", item.foodRelation.name)
+            obj.put("offsetMinutes", item.offsetMinutes)
+            obj.put("isEnabled", item.isEnabled)
+            jsonArray.put(obj)
+        }
+        return jsonArray.toString()
+    }
 }
+

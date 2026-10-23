@@ -112,6 +112,7 @@ fun TaskAdvancedEditorSheet(
     onSaveCustomOrder: (List<String>) -> Unit = {},
     onResetCustomOrder: () -> Unit = {},
     onSaveTask: (TaskItem) -> Unit,
+    onSaveTaskWithMedication: ((TaskItem, com.example.domain.medication.MedicationItem?) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val today = DateUtils.todayString()
@@ -125,6 +126,8 @@ fun TaskAdvancedEditorSheet(
     var selectedProjectId by remember { mutableStateOf<Long?>(task?.projectId) }
     var selectedLabelIds by remember { mutableStateOf<Set<Long>>(task?.labels?.map { it.id }?.toSet() ?: emptySet()) }
     var isQuickReminder by remember { mutableStateOf(task?.isQuickReminder ?: false) }
+    var isMedicineEnabled by remember { mutableStateOf(false) }
+    var medicationDraft by remember { mutableStateOf<com.example.domain.medication.MedicationItem?>(null) }
 
     // 2. Schedule Date & Time
     var dueDateIso by remember { mutableStateOf(task?.dueDateIso ?: today) }
@@ -315,7 +318,11 @@ fun TaskAdvancedEditorSheet(
                                 isQuickReminder = isQuickReminder,
                                 reminders = remindersList
                             )
-                            onSaveTask(updatedTask)
+                            if (onSaveTaskWithMedication != null) {
+                                onSaveTaskWithMedication(updatedTask, if (isMedicineEnabled) medicationDraft else null)
+                            } else {
+                                onSaveTask(updatedTask)
+                            }
                             onDismiss()
                         }
                     },
@@ -1228,6 +1235,19 @@ fun TaskAdvancedEditorSheet(
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Medicine Reminder Section
+            MedicineReminderSection(
+                isMedicineEnabled = isMedicineEnabled,
+                onMedicineEnabledChange = { isMedicineEnabled = it },
+                taskTitle = title,
+                initialMedication = null,
+                onMedicationDraftChanged = { medicationDraft = it }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 

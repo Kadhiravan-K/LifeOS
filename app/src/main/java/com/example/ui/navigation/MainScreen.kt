@@ -35,6 +35,7 @@ import com.example.ui.screens.challenge.ChallengeScreen
 import com.example.ui.screens.dashboard.DashboardScreen
 import com.example.ui.screens.gamification.GamificationScreen
 import com.example.ui.screens.habits.HabitsScreen
+import com.example.ui.screens.medication.MedicationScreen
 import com.example.ui.screens.planning.PlanningScreen
 import com.example.ui.screens.settings.SettingsScreen
 import com.example.ui.screens.tasks.TasksScreen
@@ -257,6 +258,15 @@ fun MainScreen(
                             )
                         }
 
+                        NavigationItem.MEDICATION -> {
+                            BackHandler { currentItem = NavigationItem.HOME }
+                            MedicationScreen(
+                                viewModel = viewModel,
+                                onNavigateBack = { currentItem = NavigationItem.HOME },
+                                onAddNewMedication = { currentItem = NavigationItem.TASKS }
+                            )
+                        }
+
                         NavigationItem.SETTINGS -> {
                             SettingsScreen(
                                 viewModel = viewModel,
@@ -274,7 +284,8 @@ fun MainScreen(
                                 defaultDuration = defaultDuration,
                                 onNavigateToThemeGallery = { showThemeGallery = true },
                                 onNavigateToPlanning = { currentItem = NavigationItem.PLANNING },
-                                onNavigateToGamification = { currentItem = NavigationItem.GAMIFICATION }
+                                onNavigateToGamification = { currentItem = NavigationItem.GAMIFICATION },
+                                onNavigateToMedication = { currentItem = NavigationItem.MEDICATION }
                             )
                         }
                     }

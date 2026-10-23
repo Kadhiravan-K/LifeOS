@@ -7,6 +7,20 @@ import com.example.data.local.entities.HoneycombShortcutEntity
 import com.example.data.local.entities.TaskEntity
 import com.example.data.local.entities.WaterLogEntity
 import com.example.data.preferences.UserPreferences
+import com.example.data.local.entities.MedicationDoseEntity
+import com.example.data.local.entities.MedicationEntity
+import com.example.domain.medication.AlertStyle
+import com.example.domain.medication.DoseStatus
+import com.example.domain.medication.FoodRelationship
+import com.example.domain.medication.IntervalModel
+import com.example.domain.medication.MealPeriod
+import com.example.domain.medication.MealPeriodConfig
+import com.example.domain.medication.MedicationDoseItem
+import com.example.domain.medication.MedicationForm
+import com.example.domain.medication.MedicationItem
+import com.example.domain.medication.MedicationScheduleConfig
+import com.example.domain.medication.MedicationScheduleEngine
+import com.example.domain.medication.MedicineScheduleType
 import com.example.domain.model.ChallengeDailyLog
 import com.example.domain.model.ChallengePreset
 import com.example.domain.model.ChallengeRule
@@ -166,6 +180,8 @@ class LifeRepository(
         labelDao.clearLabelsForTask(taskId)
         taskReminderDao.deleteRemindersForTask(taskId)
         honeycombShortcutDao.deleteShortcutByTarget("TASK", taskId.toString())
+        database.medicationDao().deleteMedicationByTaskId(taskId)
+        database.medicationDao().deleteDosesByTaskId(taskId)
         taskDao.deleteTaskById(taskId)
     }
 
@@ -300,24 +316,28 @@ class LifeRepository(
         taskDao.updateTask(updatedEntity)
 
         // Gamification: Deterministic anti-farming XP reward or revocation with daily diminishing returns
-        val eventKey = GamificationEngine.createEventKey("TASK_COMPLETE", taskId.toString(), dateIso)
-        if (isNowCompleted) {
-            val dailyCount = gamificationDao.getDailyRewardedTaskCount(dateIso)
-            val (xp, coins) = GamificationEngine.calculateTaskXpWithDiminishingReturns(
-                dailyCount,
-                TaskPriority.fromString(entity.priority)
-            )
-            if (xp > 0 || coins > 0) {
-                awardXpAndCoins(eventKey, xp, coins, "Completed task: ${entity.title}")
+        // Medication tasks are strictly excluded from gamification rewards
+        val isMedicationTask = database.medicationDao().getMedicationByTaskId(taskId) != null
+        if (!isMedicationTask) {
+            val eventKey = GamificationEngine.createEventKey("TASK_COMPLETE", taskId.toString(), dateIso)
+            if (isNowCompleted) {
+                val dailyCount = gamificationDao.getDailyRewardedTaskCount(dateIso)
+                val (xp, coins) = GamificationEngine.calculateTaskXpWithDiminishingReturns(
+                    dailyCount,
+                    TaskPriority.fromString(entity.priority)
+                )
+                if (xp > 0 || coins > 0) {
+                    awardXpAndCoins(eventKey, xp, coins, "Completed task: ${entity.title}")
+                }
+                val scheduledToday = getTasksForDateFlow(dateIso).first()
+                if (scheduledToday.isNotEmpty() && scheduledToday.all { it.isCompletedForDate }) {
+                    checkAndUnlockAchievement("CLEAN_SLATE")
+                }
+            } else {
+                revokeXpAndCoins(eventKey)
             }
-            val scheduledToday = getTasksForDateFlow(dateIso).first()
-            if (scheduledToday.isNotEmpty() && scheduledToday.all { it.isCompletedForDate }) {
-                checkAndUnlockAchievement("CLEAN_SLATE")
-            }
-        } else {
-            revokeXpAndCoins(eventKey)
+            evaluateAchievements()
         }
-        evaluateAchievements()
 
         return isNowCompleted
     }
@@ -2015,6 +2035,247 @@ class LifeRepository(
             coordQ = coordQ,
             coordR = coordR,
             isPinned = isPinned
+        )
+    }
+
+    // ==========================================
+    // MEDICATION OPERATIONS
+    // ==========================================
+
+    fun getAllMedicationsFlow(): Flow<List<MedicationItem>> {
+        return database.medicationDao().getAllMedicationsFlow().map { list ->
+            list.map { it.toDomain() }
+        }
+    }
+
+    fun getMedicationForTaskFlow(taskId: Long): Flow<MedicationItem?> {
+        return database.medicationDao().getMedicationByTaskIdFlow(taskId).map { it?.toDomain() }
+    }
+
+    suspend fun getMedicationForTask(taskId: Long): MedicationItem? {
+        return database.medicationDao().getMedicationByTaskId(taskId)?.toDomain()
+    }
+
+    fun getMedicationDosesForDateFlow(dateIso: String): Flow<List<MedicationDoseItem>> {
+        return database.medicationDao().getDosesForDateFlow(dateIso).map { list ->
+            list.map { it.toDomain() }
+        }
+    }
+
+    suspend fun saveMedicationForTask(taskId: Long, medication: MedicationItem): Long {
+        val entity = medication.toEntity(taskId)
+        val medId = database.medicationDao().insertMedication(entity)
+        val savedMed = entity.copy(id = medId).toDomain()
+
+        // Generate doses for next 14 days or course length
+        generateAndInsertDoses(savedMed)
+        return medId
+    }
+
+    suspend fun generateAndInsertDoses(medication: MedicationItem, daysAhead: Int = 14) {
+        if (medication.scheduleConfig.isAsNeeded || medication.isPaused) return
+
+        val startDate = if (medication.scheduleConfig.startDateIso.isNotBlank()) {
+            medication.scheduleConfig.startDateIso
+        } else {
+            DateUtils.todayString()
+        }
+
+        val limitDays = medication.scheduleConfig.courseDurationDays?.coerceAtMost(daysAhead) ?: daysAhead
+        val doseEntities = mutableListOf<MedicationDoseEntity>()
+
+        for (offset in 0 until limitDays) {
+            val date = DateUtils.addDays(startDate, offset)
+            val times = MedicationScheduleEngine.calculateDailyDoseTimes(medication.scheduleConfig, date)
+            for (time in times) {
+                doseEntities.add(
+                    MedicationDoseEntity(
+                        medicationId = medication.id,
+                        taskId = medication.taskId,
+                        medicationName = medication.name,
+                        medicationForm = medication.form.name,
+                        dosage = "${medication.dosageAmount} ${medication.dosageUnit}".trim(),
+                        instructions = medication.instructions,
+                        scheduledDateIso = date,
+                        scheduledTime = time,
+                        status = "SCHEDULED"
+                    )
+                )
+            }
+        }
+
+        if (doseEntities.isNotEmpty()) {
+            database.medicationDao().insertDoses(doseEntities)
+        }
+    }
+
+    suspend fun recordDoseStatus(doseId: Long, status: DoseStatus, notes: String = "") {
+        database.medicationDao().updateDoseStatus(
+            id = doseId,
+            status = status.name,
+            timestamp = System.currentTimeMillis(),
+            notes = notes
+        )
+        val dose = database.medicationDao().getDoseById(doseId) ?: return
+
+        // If TAKEN and schedule is AFTER_CONFIRMED_DOSE, schedule next occurrence
+        if (status == DoseStatus.TAKEN) {
+            val med = database.medicationDao().getMedicationById(dose.medicationId)?.toDomain()
+            if (med != null && med.scheduleConfig.scheduleType == MedicineScheduleType.INTERVAL &&
+                med.scheduleConfig.intervalModel == IntervalModel.AFTER_CONFIRMED_DOSE) {
+                val nextMins = DateUtils.timeToMinutes(DateUtils.currentTimeString()) + (med.scheduleConfig.intervalHours * 60)
+                val nextDate = if (nextMins >= 24 * 60) DateUtils.addDays(dose.scheduledDateIso, 1) else dose.scheduledDateIso
+                val nextTime = DateUtils.minutesToTime(nextMins % (24 * 60))
+
+                database.medicationDao().insertDose(
+                    MedicationDoseEntity(
+                        medicationId = med.id,
+                        taskId = med.taskId,
+                        medicationName = med.name,
+                        medicationForm = med.form.name,
+                        dosage = "${med.dosageAmount} ${med.dosageUnit}".trim(),
+                        instructions = med.instructions,
+                        scheduledDateIso = nextDate,
+                        scheduledTime = nextTime,
+                        status = "SCHEDULED"
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun pauseMedication(medicationId: Long) {
+        val med = database.medicationDao().getMedicationById(medicationId) ?: return
+        database.medicationDao().updateMedication(med.copy(isPaused = true))
+        database.medicationDao().deleteFutureScheduledDoses(medicationId, DateUtils.todayString())
+    }
+
+    suspend fun resumeMedication(medicationId: Long) {
+        val med = database.medicationDao().getMedicationById(medicationId) ?: return
+        val updated = med.copy(isPaused = false)
+        database.medicationDao().updateMedication(updated)
+        generateAndInsertDoses(updated.toDomain())
+    }
+
+    suspend fun logAsNeededDose(medicationId: Long, notes: String = "") {
+        val med = database.medicationDao().getMedicationById(medicationId)?.toDomain() ?: return
+        val today = DateUtils.todayString()
+        val now = DateUtils.currentTimeString()
+        val doseEntity = MedicationDoseEntity(
+            medicationId = med.id,
+            taskId = med.taskId,
+            medicationName = med.name,
+            medicationForm = med.form.name,
+            dosage = "${med.dosageAmount} ${med.dosageUnit}".trim(),
+            instructions = med.instructions,
+            scheduledDateIso = today,
+            scheduledTime = now,
+            status = DoseStatus.TAKEN.name,
+            actionTimestamp = System.currentTimeMillis(),
+            notes = if (notes.isNotBlank()) notes else "As-needed (PRN) dose recorded"
+        )
+        database.medicationDao().insertDose(doseEntity)
+    }
+
+    suspend fun markTaskCompletedForDate(taskId: Long, dateIso: String) {
+        val entity = taskDao.getTaskById(taskId) ?: return
+        val currentCompleted = JsonMappers.parseStringList(entity.completedDatesJson).toMutableSet()
+        currentCompleted.add(dateIso)
+        val updated = entity.copy(
+            isOneTimeCompleted = entity.recurrenceType == "NONE",
+            completedDatesJson = JsonMappers.serializeStringList(currentCompleted)
+        )
+        taskDao.updateTask(updated)
+    }
+
+    // --- Mappers ---
+
+    private fun MedicationEntity.toDomain(): MedicationItem {
+        return MedicationItem(
+            id = id,
+            taskId = taskId,
+            name = name,
+            form = MedicationForm.fromString(form),
+            dosageAmount = dosageAmount,
+            dosageUnit = dosageUnit,
+            strength = strength,
+            instructions = instructions,
+            scheduleConfig = MedicationScheduleConfig(
+                scheduleType = try { MedicineScheduleType.valueOf(scheduleType) } catch (e: Exception) { MedicineScheduleType.FIXED_TIMES },
+                mealPeriods = JsonMappers.parseMealPeriods(mealPeriodsJson),
+                fixedTimes = JsonMappers.parseStringList(fixedTimesJson),
+                intervalHours = intervalHours,
+                intervalModel = try { IntervalModel.valueOf(intervalModel) } catch (e: Exception) { IntervalModel.FIXED_SCHEDULE },
+                intervalAnchorTime = intervalAnchorTime,
+                allowOvernight = allowOvernight,
+                selectedDaysOfWeek = JsonMappers.parseStringList(selectedDaysOfWeek),
+                startDateIso = startDateIso,
+                endDateIso = endDateIso,
+                courseDurationDays = courseDurationDays,
+                isAsNeeded = isAsNeeded
+            ),
+            isPaused = isPaused,
+            reminderSound = reminderSound,
+            alertStyle = try { AlertStyle.valueOf(alertStyle) } catch (e: Exception) { AlertStyle.STANDARD },
+            snoozeMinutes = snoozeMinutes,
+            followUpEnabled = followUpEnabled,
+            followUpIntervalMinutes = followUpIntervalMinutes,
+            maxFollowUps = maxFollowUps,
+            privacySafeNotification = privacySafeNotification,
+            createdAt = createdAt
+        )
+    }
+
+    private fun MedicationItem.toEntity(taskId: Long): MedicationEntity {
+        return MedicationEntity(
+            id = id,
+            taskId = taskId,
+            name = name,
+            form = form.name,
+            dosageAmount = dosageAmount,
+            dosageUnit = dosageUnit,
+            strength = strength,
+            instructions = instructions,
+            scheduleType = scheduleConfig.scheduleType.name,
+            mealPeriodsJson = JsonMappers.serializeMealPeriods(scheduleConfig.mealPeriods),
+            fixedTimesJson = JsonMappers.serializeStringList(scheduleConfig.fixedTimes),
+            intervalHours = scheduleConfig.intervalHours,
+            intervalModel = scheduleConfig.intervalModel.name,
+            intervalAnchorTime = scheduleConfig.intervalAnchorTime,
+            allowOvernight = scheduleConfig.allowOvernight,
+            selectedDaysOfWeek = JsonMappers.serializeStringList(scheduleConfig.selectedDaysOfWeek),
+            startDateIso = scheduleConfig.startDateIso,
+            endDateIso = scheduleConfig.endDateIso,
+            courseDurationDays = scheduleConfig.courseDurationDays,
+            isAsNeeded = scheduleConfig.isAsNeeded,
+            isPaused = isPaused,
+            reminderSound = reminderSound,
+            alertStyle = alertStyle.name,
+            snoozeMinutes = snoozeMinutes,
+            followUpEnabled = followUpEnabled,
+            followUpIntervalMinutes = followUpIntervalMinutes,
+            maxFollowUps = maxFollowUps,
+            privacySafeNotification = privacySafeNotification,
+            createdAt = createdAt
+        )
+    }
+
+    private fun MedicationDoseEntity.toDomain(): MedicationDoseItem {
+        return MedicationDoseItem(
+            id = id,
+            medicationId = medicationId,
+            taskId = taskId,
+            medicationName = medicationName,
+            medicationForm = MedicationForm.fromString(medicationForm),
+            dosage = dosage,
+            instructions = instructions,
+            scheduledDateIso = scheduledDateIso,
+            scheduledTime = scheduledTime,
+            status = try { DoseStatus.valueOf(status) } catch (e: Exception) { DoseStatus.SCHEDULED },
+            actionTimestamp = actionTimestamp,
+            snoozeCount = snoozeCount,
+            followUpCount = followUpCount,
+            notes = notes
         )
     }
 }

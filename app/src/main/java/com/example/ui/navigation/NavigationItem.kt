@@ -74,6 +74,12 @@ enum class NavigationItem(
         label = "Analytics",
         selectedIcon = Icons.Filled.Dashboard,
         unselectedIcon = Icons.Outlined.Dashboard
+    ),
+    MEDICATION(
+        route = "medication",
+        label = "Medicine",
+        selectedIcon = Icons.Filled.CheckCircle,
+        unselectedIcon = Icons.Outlined.CheckCircle
     );
 
     companion object {

@@ -18,6 +18,10 @@ object DateUtils {
         return isoFormat.format(Date())
     }
 
+    fun currentTimeString(): String {
+        return minutesToTime(getCurrentMinuteOfDay())
+    }
+
     fun todayEpochDay(): Long {
         return System.currentTimeMillis() / (1000L * 60 * 60 * 24)
     }

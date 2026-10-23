@@ -91,6 +91,7 @@ fun TaskQuickAddSheet(
     onSaveCustomOrder: (List<String>) -> Unit = {},
     onResetCustomOrder: () -> Unit = {},
     onSaveTask: (TaskItem) -> Unit,
+    onSaveTaskWithMedication: ((TaskItem, com.example.domain.medication.MedicationItem?) -> Unit)? = null,
     onExpandToAdvanced: (TaskItem) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -104,6 +105,8 @@ fun TaskQuickAddSheet(
     var selectedLabelIds by remember { mutableStateOf<Set<Long>>(initialTask?.labels?.map { it.id }?.toSet() ?: emptySet()) }
     var isReminderEnabled by remember { mutableStateOf(initialTask?.isReminderEnabled ?: false) }
     var isQuickReminder by remember { mutableStateOf(initialTask?.isQuickReminder ?: false) }
+    var isMedicineEnabled by remember { mutableStateOf(false) }
+    var medicationDraft by remember { mutableStateOf<com.example.domain.medication.MedicationItem?>(null) }
 
     var showDatePicker by remember { mutableStateOf(false) }
     var showEmojiDialog by remember { mutableStateOf(false) }
@@ -508,6 +511,17 @@ fun TaskQuickAddSheet(
                 }
             }
 
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Medicine Reminder Section (Toggle & Progressive Disclosure)
+            MedicineReminderSection(
+                isMedicineEnabled = isMedicineEnabled,
+                onMedicineEnabledChange = { isMedicineEnabled = it },
+                taskTitle = title,
+                initialMedication = null,
+                onMedicationDraftChanged = { medicationDraft = it }
+            )
+
             Spacer(modifier = Modifier.height(18.dp))
 
             // Action Row: Save button
@@ -518,7 +532,12 @@ fun TaskQuickAddSheet(
                 Button(
                     onClick = {
                         if (title.isNotBlank()) {
-                            onSaveTask(currentTaskDraft())
+                            val draft = currentTaskDraft()
+                            if (onSaveTaskWithMedication != null) {
+                                onSaveTaskWithMedication(draft, if (isMedicineEnabled) medicationDraft else null)
+                            } else {
+                                onSaveTask(draft)
+                            }
                             onDismiss()
                         }
                     },

@@ -37,6 +37,10 @@
                 <action android:name="com.example.lifeos.ACTION_TASK_REMINDER" />
                 <action android:name="com.example.lifeos.ACTION_TASK_COMPLETE" />
                 <action android:name="com.example.lifeos.ACTION_TASK_SNOOZE" />
+                <action android:name="com.example.lifeos.ACTION_MEDICINE_REMINDER" />
+                <action android:name="com.example.lifeos.ACTION_MEDICINE_TAKEN" />
+                <action android:name="com.example.lifeos.ACTION_MEDICINE_SNOOZE" />
+                <action android:name="com.example.lifeos.ACTION_MEDICINE_SKIP" />
             </intent-filter>
         </receiver>
     </application>

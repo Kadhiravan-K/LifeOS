@@ -45,6 +45,13 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.Medication
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.app.NotificationManagerCompat
+import android.content.Intent
+import android.provider.Settings
+import com.example.notifications.NotificationHelper
+import com.example.ui.feedback.FeedbackSoundType
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -102,8 +109,10 @@ fun SettingsScreen(
     onNavigateToThemeGallery: () -> Unit = {},
     onNavigateToPlanning: () -> Unit = {},
     onNavigateToGamification: () -> Unit = {},
+    onNavigateToMedication: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
 
     var showEditNameDialog by remember { mutableStateOf(false) }
@@ -132,6 +141,26 @@ fun SettingsScreen(
     val installedTemplates by viewModel.installedTemplateIds.collectAsStateWithLifecycle()
     val defaultReminderBehavior by viewModel.defaultReminderBehavior.collectAsStateWithLifecycle()
     val activeThemeDef by viewModel.activeThemeDefinition.collectAsStateWithLifecycle()
+
+    // Smart Alerts & Notifications flows
+    val notifMedicine by viewModel.notifMedicineEnabled.collectAsStateWithLifecycle()
+    val notifTasks by viewModel.notifTasksEnabled.collectAsStateWithLifecycle()
+    val notifHabits by viewModel.notifHabitsEnabled.collectAsStateWithLifecycle()
+    val notifHydration by viewModel.notifHydrationEnabled.collectAsStateWithLifecycle()
+    val notifCalendar by viewModel.notifCalendarEnabled.collectAsStateWithLifecycle()
+    val notifQr by viewModel.notifQrEnabled.collectAsStateWithLifecycle()
+    val notifChallenges by viewModel.notifChallengesEnabled.collectAsStateWithLifecycle()
+    val notifGamification by viewModel.notifGamificationEnabled.collectAsStateWithLifecycle()
+    val notifDailySummary by viewModel.notifDailySummaryEnabled.collectAsStateWithLifecycle()
+
+    val defaultAlertStyle by viewModel.defaultAlertStyle.collectAsStateWithLifecycle()
+    val notificationSoundChoice by viewModel.notificationSoundChoice.collectAsStateWithLifecycle()
+    val notificationVibration by viewModel.notificationVibrationEnabled.collectAsStateWithLifecycle()
+    val defaultSnoozeMinutes by viewModel.defaultSnoozeMinutes.collectAsStateWithLifecycle()
+    val followUpEnabled by viewModel.followUpEnabled.collectAsStateWithLifecycle()
+    val maxFollowUpCount by viewModel.maxFollowUpCount.collectAsStateWithLifecycle()
+    val medicineOverrideQuietHours by viewModel.medicineOverrideQuietHours.collectAsStateWithLifecycle()
+    val notificationPrivacyEnabled by viewModel.notificationPrivacyEnabled.collectAsStateWithLifecycle()
 
     fun isSectionVisible(vararg keywords: String): Boolean {
         if (searchQuery.isBlank()) return true
@@ -497,10 +526,10 @@ fun SettingsScreen(
         }
 
         // ==========================================
-        // SECTION 3: NOTIFICATIONS & SLEEP
+        // SECTION 3: NOTIFICATIONS, MEDICINE & SLEEP
         // ==========================================
-        if (isSectionVisible("notification", "sleep", "quiet", "water", "hydration", "wake", "bedtime", "alert", "reminder")) {
-            SectionHeader(icon = Icons.Default.Notifications, title = "3. Notifications & Sleep")
+        if (isSectionVisible("notification", "sleep", "quiet", "water", "hydration", "wake", "bedtime", "alert", "reminder", "medicine", "sound", "vibration", "snooze")) {
+            SectionHeader(icon = Icons.Default.Notifications, title = "3. Smart Alerts & Notifications")
 
             Card(
                 shape = RoundedCornerShape(16.dp),
@@ -519,13 +548,259 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(text = "Master Notifications", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                                Text(text = "Local device scheduled alarms & reminders", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(text = "Local offline scheduled alarms & reminders", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                         Switch(
                             checked = notificationsEnabled,
                             onCheckedChange = { viewModel.toggleNotifications(it) }
                         )
+                    }
+
+                    val systemNotifsAllowed = remember { NotificationManagerCompat.from(context).areNotificationsEnabled() }
+                    if (!systemNotifsAllowed) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp).fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "System notifications are disabled in Android Settings.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(onClick = {
+                                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                    }
+                                    context.startActivity(intent)
+                                }) {
+                                    Text("Fix", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Dedicated Medicine Reminders Card Shortcut & Privacy Options
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Medication, contentDescription = "Medicine", tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(text = "Medicine Reminders", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(text = "Manage schedules, doses & adherence", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        OutlinedButton(
+                            onClick = onNavigateToMedication,
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Open", fontSize = 12.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "Allow Medicine in Quiet Hours", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            Text(text = "Critical medicine alarms ring even during quiet hours", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = medicineOverrideQuietHours,
+                            onCheckedChange = { viewModel.setMedicineOverrideQuietHours(it) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "Discreet Lock-Screen Privacy", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            Text(text = "Hide medication name & dosage on lock screen", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = notificationPrivacyEnabled,
+                            onCheckedChange = { viewModel.setNotificationPrivacyEnabled(it) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 9 Channel Categories
+                    Text(text = "Notification Channels", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    val categories = listOf(
+                        Triple("MEDICINE", "Medicine Reminders", notifMedicine),
+                        Triple("TASKS", "Task Due Alarms", notifTasks),
+                        Triple("HABITS", "Habit Reminders", notifHabits),
+                        Triple("HYDRATION", "Hydration Intervals", notifHydration),
+                        Triple("CALENDAR", "Calendar Event Alerts", notifCalendar),
+                        Triple("QR", "Quick Reminders", notifQr),
+                        Triple("CHALLENGES", "75-Day Challenge", notifChallenges),
+                        Triple("GAMIFICATION", "Hunter Ranks & Level-Ups", notifGamification),
+                        Triple("DAILY_SUMMARY", "Morning/Evening Summaries", notifDailySummary)
+                    )
+
+                    categories.forEach { (catId, title, isEnabled) ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                        ) {
+                            Text(text = title, style = MaterialTheme.typography.bodySmall)
+                            Switch(
+                                checked = isEnabled,
+                                onCheckedChange = { viewModel.setNotifCategoryEnabled(catId, it) }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Default Alert Style Selector
+                    Text(text = "Default Alert Style", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        listOf(
+                            "STANDARD" to "Standard (Chime + Banner)",
+                            "ALARM" to "Alarm (Full Screen)",
+                            "SILENT" to "Silent Tray"
+                        ).forEach { (style, label) ->
+                            FilterChip(
+                                selected = defaultAlertStyle == style,
+                                onClick = { viewModel.setDefaultAlertStyle(style) },
+                                label = { Text(label, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Notification Sound & Preview
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(text = "Notification Sound", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        TextButton(
+                            onClick = {
+                                val soundType = when (notificationSoundChoice) {
+                                    "BELL" -> FeedbackSoundType.TASK
+                                    "DROP" -> FeedbackSoundType.WATER
+                                    "RADAR" -> FeedbackSoundType.LEVEL_UP
+                                    "GENTLE" -> FeedbackSoundType.HABIT
+                                    else -> FeedbackSoundType.MILESTONE
+                                }
+                                viewModel.playSoundPreview(soundType)
+                            }
+                        ) {
+                            Icon(Icons.Default.VolumeUp, contentDescription = "Preview", modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Preview", fontSize = 11.sp)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                        NotificationHelper.NOTIFICATION_SOUNDS.forEach { sound ->
+                            FilterChip(
+                                selected = notificationSoundChoice == sound,
+                                onClick = { viewModel.setNotificationSound(sound) },
+                                label = { Text(sound, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Vibration & Snooze Duration
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "Alert Vibration", style = MaterialTheme.typography.bodyMedium)
+                            Text(text = "Haptic pulse with notification alerts", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = notificationVibration,
+                            onCheckedChange = { viewModel.setNotificationVibrationEnabled(it) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(text = "Default Snooze Duration", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                        listOf(5, 10, 15, 20, 30).forEach { mins ->
+                            FilterChip(
+                                selected = defaultSnoozeMinutes == mins,
+                                onClick = { viewModel.setDefaultSnoozeMinutes(mins) },
+                                label = { Text("${mins}m", fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Persistent Follow-Up Reminders
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "Persistent Follow-Up Reminders", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            Text(text = "Re-alerts up to $maxFollowUpCount times if unconfirmed", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = followUpEnabled,
+                            onCheckedChange = { viewModel.setFollowUpEnabled(it) }
+                        )
+                    }
+
+                    if (followUpEnabled) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                            listOf(1, 2, 3).forEach { count ->
+                                FilterChip(
+                                    selected = maxFollowUpCount == count,
+                                    onClick = { viewModel.setMaxFollowUpCount(count) },
+                                    label = { Text("${count}x repeat", fontSize = 11.sp) }
+                                )
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))

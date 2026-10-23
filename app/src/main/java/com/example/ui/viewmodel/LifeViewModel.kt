@@ -47,6 +47,9 @@ import com.example.domain.gamification.GamificationEngine
 import com.example.domain.gamification.StreakResult
 import com.example.domain.templates.LifeTemplate
 import com.example.domain.templates.TemplateImportSummary
+import com.example.domain.medication.MedicationItem
+import com.example.domain.medication.MedicationDoseItem
+import com.example.domain.medication.DoseStatus
 import com.example.data.backup.DataExportImportManager
 import com.example.data.local.AppDatabase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,6 +57,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -1234,7 +1238,95 @@ class LifeViewModel(
         }
     }
 
-    fun saveTaskItem(task: TaskItem) {
+    // --- Medication State Flows ---
+    val allMedications: StateFlow<List<MedicationItem>> = repository.getAllMedicationsFlow().stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val todayMedicationDoses: StateFlow<List<MedicationDoseItem>> = repository.getMedicationDosesForDateFlow(todayIso).stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    fun recordDoseStatus(doseId: Long, status: DoseStatus, notes: String = "") {
+        viewModelScope.launch {
+            repository.recordDoseStatus(doseId, status, notes)
+            if (status == DoseStatus.TAKEN || status == DoseStatus.SKIPPED) {
+                NotificationHelper.cancelMedicineDoseAlarm(getApplication(), doseId)
+            }
+        }
+    }
+
+    fun pauseMedication(medicationId: Long) {
+        viewModelScope.launch {
+            repository.pauseMedication(medicationId)
+        }
+    }
+
+    fun resumeMedication(medicationId: Long) {
+        viewModelScope.launch {
+            repository.resumeMedication(medicationId)
+        }
+    }
+
+    fun logAsNeededDose(medicationId: Long, notes: String = "") {
+        viewModelScope.launch {
+            repository.logAsNeededDose(medicationId, notes)
+        }
+    }
+
+    // --- Smart Alerts & Notifications Preferences Flows ---
+    val notifMedicineEnabled: StateFlow<Boolean> = preferences.notifMedicineEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val notifTasksEnabled: StateFlow<Boolean> = preferences.notifTasksEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val notifHabitsEnabled: StateFlow<Boolean> = preferences.notifHabitsEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val notifHydrationEnabled: StateFlow<Boolean> = preferences.notifHydrationEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val notifCalendarEnabled: StateFlow<Boolean> = preferences.notifCalendarEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val notifQrEnabled: StateFlow<Boolean> = preferences.notifQrEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val notifChallengesEnabled: StateFlow<Boolean> = preferences.notifChallengesEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val notifGamificationEnabled: StateFlow<Boolean> = preferences.notifGamificationEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val notifDailySummaryEnabled: StateFlow<Boolean> = preferences.notifDailySummaryEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val defaultAlertStyle: StateFlow<String> = preferences.defaultAlertStyle.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "STANDARD")
+    val notificationSoundChoice: StateFlow<String> = preferences.notificationSound.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "CHIME")
+    val notificationVibrationEnabled: StateFlow<Boolean> = preferences.notificationVibrationEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val defaultSnoozeMinutes: StateFlow<Int> = preferences.defaultSnoozeMinutes.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 10)
+    val followUpEnabled: StateFlow<Boolean> = preferences.followUpEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val maxFollowUpCount: StateFlow<Int> = preferences.maxFollowUpCount.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 2)
+    val medicineOverrideQuietHours: StateFlow<Boolean> = preferences.medicineOverrideQuietHours.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val notificationPrivacyEnabled: StateFlow<Boolean> = preferences.notificationPrivacyEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    fun setNotifCategoryEnabled(category: String, enabled: Boolean) {
+        viewModelScope.launch { preferences.setNotifCategoryEnabled(category, enabled) }
+    }
+    fun setDefaultAlertStyle(style: String) {
+        viewModelScope.launch { preferences.setDefaultAlertStyle(style) }
+    }
+    fun setNotificationSound(sound: String) {
+        viewModelScope.launch { preferences.setNotificationSound(sound) }
+    }
+    fun setNotificationVibrationEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferences.setNotificationVibrationEnabled(enabled) }
+    }
+    fun setDefaultSnoozeMinutes(minutes: Int) {
+        viewModelScope.launch { preferences.setDefaultSnoozeMinutes(minutes) }
+    }
+    fun setFollowUpEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferences.setFollowUpEnabled(enabled) }
+    }
+    fun setMaxFollowUpCount(count: Int) {
+        viewModelScope.launch { preferences.setMaxFollowUpCount(count) }
+    }
+    fun setMedicineOverrideQuietHours(override: Boolean) {
+        viewModelScope.launch { preferences.setMedicineOverrideQuietHours(override) }
+    }
+    fun setNotificationPrivacyEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferences.setNotificationPrivacyEnabled(enabled) }
+    }
+
+    fun saveTaskItem(task: TaskItem, medication: MedicationItem? = null) {
         viewModelScope.launch {
             val savedId = if (task.id == 0L) {
                 repository.insertTask(task)
@@ -1244,7 +1336,20 @@ class LifeViewModel(
             }
             val fullTask = task.copy(id = savedId)
             repository.ensureTaskQuickReminderShortcut(fullTask)
-            if (fullTask.isReminderEnabled) {
+
+            if (medication != null) {
+                repository.saveMedicationForTask(savedId, medication)
+                // Schedule today's doses
+                val doses = repository.getMedicationDosesForDateFlow(DateUtils.todayString()).first().filter { it.medicationId == medication.id || it.taskId == savedId }
+                val overrideQuiet = preferences.medicineOverrideQuietHours.first()
+                doses.filter { it.status == DoseStatus.SCHEDULED }.forEach { dose ->
+                    NotificationHelper.scheduleMedicineDoseAlarm(
+                        context = getApplication(),
+                        dose = dose,
+                        overrideQuietHours = overrideQuiet
+                    )
+                }
+            } else if (fullTask.isReminderEnabled) {
                 val qStart = DateUtils.timeToMinutes(quietHoursStartFlow.value).coerceAtLeast(1260)
                 val qEnd = DateUtils.timeToMinutes(quietHoursEndFlow.value).coerceAtLeast(330)
                 NotificationHelper.scheduleTaskAlarm(

@@ -660,6 +660,11 @@ fun TasksScreen(
                 showQuickAddSheet = false
                 taskToEdit = null
             },
+            onSaveTaskWithMedication = { task, med ->
+                viewModel.saveTaskItem(task, med)
+                showQuickAddSheet = false
+                taskToEdit = null
+            },
             onExpandToAdvanced = { draft ->
                 taskToEdit = draft
                 showQuickAddSheet = false
@@ -693,6 +698,11 @@ fun TasksScreen(
             onResetCustomOrder = { viewModel.resetCustomColorOrder() },
             onSaveTask = { task ->
                 viewModel.saveTaskItem(task)
+                showAdvancedEditorSheet = false
+                taskToEdit = null
+            },
+            onSaveTaskWithMedication = { task, med ->
+                viewModel.saveTaskItem(task, med)
                 showAdvancedEditorSheet = false
                 taskToEdit = null
             },

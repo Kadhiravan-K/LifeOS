@@ -61,7 +61,28 @@ class UserPreferences(private val context: Context) {
         // Gamification Feedback Preferences
         val KEY_GAMIFICATION_SOUND_ENABLED = booleanPreferencesKey("gamification_sound_enabled")
         val KEY_GAMIFICATION_VIBRATION_ENABLED = booleanPreferencesKey("gamification_vibration_enabled")
+
+        // Smart Alerts & Notifications Preferences
+        val KEY_NOTIF_MEDICINE = booleanPreferencesKey("notif_medicine_enabled")
+        val KEY_NOTIF_TASKS = booleanPreferencesKey("notif_tasks_enabled")
+        val KEY_NOTIF_HABITS = booleanPreferencesKey("notif_habits_enabled")
+        val KEY_NOTIF_HYDRATION = booleanPreferencesKey("notif_hydration_enabled")
+        val KEY_NOTIF_CALENDAR = booleanPreferencesKey("notif_calendar_enabled")
+        val KEY_NOTIF_QR = booleanPreferencesKey("notif_qr_enabled")
+        val KEY_NOTIF_CHALLENGES = booleanPreferencesKey("notif_challenges_enabled")
+        val KEY_NOTIF_GAMIFICATION = booleanPreferencesKey("notif_gamification_enabled")
+        val KEY_NOTIF_DAILY_SUMMARY = booleanPreferencesKey("notif_daily_summary_enabled")
+
+        val KEY_DEFAULT_ALERT_STYLE = stringPreferencesKey("notif_default_alert_style")
+        val KEY_NOTIFICATION_SOUND = stringPreferencesKey("notif_sound_choice")
+        val KEY_NOTIFICATION_VIBRATION = booleanPreferencesKey("notif_vibration_enabled")
+        val KEY_DEFAULT_SNOOZE_MINUTES = intPreferencesKey("notif_snooze_minutes")
+        val KEY_FOLLOW_UP_ENABLED = booleanPreferencesKey("notif_follow_up_enabled")
+        val KEY_MAX_FOLLOW_UP_COUNT = intPreferencesKey("notif_max_follow_up_count")
+        val KEY_MEDICINE_OVERRIDE_QUIET_HOURS = booleanPreferencesKey("notif_medicine_override_quiet_hours")
+        val KEY_NOTIFICATION_PRIVACY_ENABLED = booleanPreferencesKey("notif_privacy_enabled")
     }
+
 
     val userName: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[KEY_USER_NAME] ?: "Master"
@@ -358,6 +379,74 @@ class UserPreferences(private val context: Context) {
     val colorCustomOrder: Flow<List<String>> = context.dataStore.data.map { preferences ->
         val raw = preferences[KEY_COLOR_CUSTOM_ORDER] ?: ""
         if (raw.isBlank()) emptyList() else raw.split(",").map { it.trim() }
+    }
+
+    // Smart Alerts & Notifications Flows
+    val notifMedicineEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_NOTIF_MEDICINE] ?: true }
+    val notifTasksEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_NOTIF_TASKS] ?: true }
+    val notifHabitsEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_NOTIF_HABITS] ?: true }
+    val notifHydrationEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_NOTIF_HYDRATION] ?: true }
+    val notifCalendarEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_NOTIF_CALENDAR] ?: true }
+    val notifQrEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_NOTIF_QR] ?: true }
+    val notifChallengesEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_NOTIF_CHALLENGES] ?: true }
+    val notifGamificationEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_NOTIF_GAMIFICATION] ?: true }
+    val notifDailySummaryEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_NOTIF_DAILY_SUMMARY] ?: true }
+
+    val defaultAlertStyle: Flow<String> = context.dataStore.data.map { it[KEY_DEFAULT_ALERT_STYLE] ?: "STANDARD" }
+    val notificationSound: Flow<String> = context.dataStore.data.map { it[KEY_NOTIFICATION_SOUND] ?: "CHIME" }
+    val notificationVibrationEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_NOTIFICATION_VIBRATION] ?: true }
+    val defaultSnoozeMinutes: Flow<Int> = context.dataStore.data.map { it[KEY_DEFAULT_SNOOZE_MINUTES] ?: 10 }
+    val followUpEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_FOLLOW_UP_ENABLED] ?: true }
+    val maxFollowUpCount: Flow<Int> = context.dataStore.data.map { it[KEY_MAX_FOLLOW_UP_COUNT] ?: 2 }
+    val medicineOverrideQuietHours: Flow<Boolean> = context.dataStore.data.map { it[KEY_MEDICINE_OVERRIDE_QUIET_HOURS] ?: true }
+    val notificationPrivacyEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_NOTIFICATION_PRIVACY_ENABLED] ?: true }
+
+    suspend fun setNotifCategoryEnabled(category: String, enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            when (category.uppercase()) {
+                "MEDICINE" -> prefs[KEY_NOTIF_MEDICINE] = enabled
+                "TASKS" -> prefs[KEY_NOTIF_TASKS] = enabled
+                "HABITS" -> prefs[KEY_NOTIF_HABITS] = enabled
+                "HYDRATION" -> prefs[KEY_NOTIF_HYDRATION] = enabled
+                "CALENDAR" -> prefs[KEY_NOTIF_CALENDAR] = enabled
+                "QR" -> prefs[KEY_NOTIF_QR] = enabled
+                "CHALLENGES" -> prefs[KEY_NOTIF_CHALLENGES] = enabled
+                "GAMIFICATION" -> prefs[KEY_NOTIF_GAMIFICATION] = enabled
+                "DAILY_SUMMARY" -> prefs[KEY_NOTIF_DAILY_SUMMARY] = enabled
+            }
+        }
+    }
+
+    suspend fun setDefaultAlertStyle(style: String) {
+        context.dataStore.edit { it[KEY_DEFAULT_ALERT_STYLE] = style }
+    }
+
+    suspend fun setNotificationSound(sound: String) {
+        context.dataStore.edit { it[KEY_NOTIFICATION_SOUND] = sound }
+    }
+
+    suspend fun setNotificationVibrationEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_NOTIFICATION_VIBRATION] = enabled }
+    }
+
+    suspend fun setDefaultSnoozeMinutes(minutes: Int) {
+        context.dataStore.edit { it[KEY_DEFAULT_SNOOZE_MINUTES] = minutes }
+    }
+
+    suspend fun setFollowUpEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_FOLLOW_UP_ENABLED] = enabled }
+    }
+
+    suspend fun setMaxFollowUpCount(count: Int) {
+        context.dataStore.edit { it[KEY_MAX_FOLLOW_UP_COUNT] = count }
+    }
+
+    suspend fun setMedicineOverrideQuietHours(override: Boolean) {
+        context.dataStore.edit { it[KEY_MEDICINE_OVERRIDE_QUIET_HOURS] = override }
+    }
+
+    suspend fun setNotificationPrivacyEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_NOTIFICATION_PRIVACY_ENABLED] = enabled }
     }
 
     suspend fun setColorOrderingMode(mode: String) {
