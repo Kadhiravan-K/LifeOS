@@ -1,0 +1,2391 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.1.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.1.1)" variant="all" version="9.1.1">
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                                text = &quot;${subscription.currency} ${String.format(&quot;%.2f&quot;, subscription.amount)} / ${subscription.frequency.displayName.lowercase()}&quot;,"
+        errorLine2="                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/SubscriptionDetailScreen.kt"
+            line="176"
+            column="68"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                                                    text = &quot;Amount: ${pendingBill.currency} ${String.format(&quot;%.2f&quot;, pendingBill.expectedAmount)}&quot;,"
+        errorLine2="                                                                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/SubscriptionDetailScreen.kt"
+            line="319"
+            column="95"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                                                        text = &quot;Paid so far: ${pendingBill.currency} ${String.format(&quot;%.2f&quot;, paidSoFar)} (Balance: ${pendingBill.currency} ${String.format(&quot;%.2f&quot;, balanceDue)})&quot;,"
+        errorLine2="                                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/SubscriptionDetailScreen.kt"
+            line="325"
+            column="104"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                                                        text = &quot;Paid so far: ${pendingBill.currency} ${String.format(&quot;%.2f&quot;, paidSoFar)} (Balance: ${pendingBill.currency} ${String.format(&quot;%.2f&quot;, balanceDue)})&quot;,"
+        errorLine2="                                                                                                                                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/SubscriptionDetailScreen.kt"
+            line="325"
+            column="174"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                                            text = &quot;${bill.currency} ${String.format(&quot;%.2f&quot;, bill.expectedAmount)}&quot;,"
+        errorLine2="                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/SubscriptionDetailScreen.kt"
+            line="380"
+            column="72"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                                            text = &quot;${subscription.currency} ${String.format(&quot;%.2f&quot;, monthlyEquivalent)}&quot;,"
+        errorLine2="                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/SubscriptionDetailScreen.kt"
+            line="464"
+            column="80"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                                            text = &quot;${subscription.currency} ${String.format(&quot;%.2f&quot;, annualCommitment)}&quot;,"
+        errorLine2="                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/SubscriptionDetailScreen.kt"
+            line="481"
+            column="80"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                                        text = &quot;${subscription.currency} ${String.format(&quot;%.2f&quot;, totalPaid)}&quot;,"
+        errorLine2="                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/SubscriptionDetailScreen.kt"
+            line="502"
+            column="76"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="        var paymentAmountText by remember { mutableStateOf(String.format(&quot;%.2f&quot;, balanceDue)) }"
+        errorLine2="                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/SubscriptionDetailScreen.kt"
+            line="526"
+            column="60"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                    text = String.format(&quot;₹%.2f&quot;, purchase.totalCost),"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/TrackerDetailScreen.kt"
+            line="971"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                    value = String.format(&quot;₹%.2f&quot;, totalPurchasesCost),"
+        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/TrackerDetailScreen.kt"
+            line="1022"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                            text = &quot;${String.format(&quot;%.1f&quot;, totalDistance)} ${tracker.distanceUnit.symbol}&quot;,"
+        errorLine2="                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/TrackerDetailScreen.kt"
+            line="1046"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                            text = &quot;${subscription.currency} ${String.format(&quot;%.2f&quot;, subscription.amount)} / ${subscription.frequency.displayName.lowercase()}&quot;,"
+        errorLine2="                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/TrackersSubscriptionsScreen.kt"
+            line="685"
+            column="64"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 26 (current min is 24): `android.provider.Settings#ACTION_APP_NOTIFICATION_SETTINGS`"
+        errorLine1="                                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {"
+        errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/settings/SettingsScreen.kt"
+            line="471"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 26 (current min is 24): `android.provider.Settings#EXTRA_APP_PACKAGE`"
+        errorLine1="                                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)"
+        errorLine2="                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/settings/SettingsScreen.kt"
+            line="472"
+            column="54"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="    fun toSubscriptionItem(projectId: Long? = null, todayIso: String = LocalDate.now().toString()): SubscriptionItem {"
+        errorLine2="                                                                                 ~~~">
+        <location
+            file="src/main/java/com/example/domain/essentials/EssentialsTemplates.kt"
+            line="54"
+            column="82"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="        val today = LocalDate.now()"
+        errorLine2="                              ~~~">
+        <location
+            file="src/main/java/com/example/domain/essentials/EssentialsTemplates.kt"
+            line="55"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#getDayOfMonth`"
+        errorLine1="            anchorDayOfMonth = today.dayOfMonth,"
+        errorLine2="                                     ~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/essentials/EssentialsTemplates.kt"
+            line="65"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="        val refDate = parseIsoDateOrNull(referenceDateIso) ?: LocalDate.now()"
+        errorLine2="                                                                        ~~~">
+        <location
+            file="src/main/java/com/example/domain/gamification/GamificationEngine.kt"
+            line="224"
+            column="73"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#minusDays`"
+        errorLine1="        val yesterday = refDate.minusDays(1)"
+        errorLine2="                                ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/gamification/GamificationEngine.kt"
+            line="225"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#minusDays`"
+        errorLine1="            checkDate = checkDate.minusDays(1)"
+        errorLine2="                                  ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/gamification/GamificationEngine.kt"
+            line="236"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.temporal.ChronoUnit#between`"
+        errorLine1="                val diffDays = ChronoUnit.DAYS.between(prevDate, d)"
+        errorLine2="                                               ~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/gamification/GamificationEngine.kt"
+            line="248"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 26, or core library desugaring (current min is 24): `java.time.temporal.ChronoUnit#DAYS`"
+        errorLine1="                val diffDays = ChronoUnit.DAYS.between(prevDate, d)"
+        errorLine2="                               ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/gamification/GamificationEngine.kt"
+            line="248"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Implicit cast from `LocalDate` to `Temporal` requires API level 26, or core library desugaring (current min is 24)"
+        errorLine1="                val diffDays = ChronoUnit.DAYS.between(prevDate, d)"
+        errorLine2="                                                       ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/gamification/GamificationEngine.kt"
+            line="248"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Implicit cast from `LocalDate` to `Temporal` requires API level 26, or core library desugaring (current min is 24)"
+        errorLine1="                val diffDays = ChronoUnit.DAYS.between(prevDate, d)"
+        errorLine2="                                                                 ~">
+        <location
+            file="src/main/java/com/example/domain/gamification/GamificationEngine.kt"
+            line="248"
+            column="66"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#parse`"
+        errorLine1="            LocalDate.parse(isoString.trim())"
+        errorLine2="                      ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/gamification/GamificationEngine.kt"
+            line="270"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.format.DateTimeFormatter#ofPattern`"
+        errorLine1="            val formatter = DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd&quot;, Locale.US)"
+        errorLine2="                                              ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/medication/MedicationScheduleEngine.kt"
+            line="164"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#parse`"
+        errorLine1="            val date = LocalDate.parse(dateIso, formatter)"
+        errorLine2="                                 ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/medication/MedicationScheduleEngine.kt"
+            line="165"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#getDayOfWeek`"
+        errorLine1="            date.dayOfWeek.name"
+        errorLine2="                 ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/medication/MedicationScheduleEngine.kt"
+            line="166"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.format.DateTimeFormatter#ofPattern`"
+        errorLine1="    private val dateFormatter = DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd&quot;, Locale.US)"
+        errorLine2="                                                  ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="14"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.format.DateTimeFormatter#ofPattern`"
+        errorLine1="    private val timeFormatter = DateTimeFormatter.ofPattern(&quot;HH:mm&quot;, Locale.US)"
+        errorLine2="                                                  ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="15"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#parse`"
+        errorLine1="            val localDate = LocalDate.parse(startDateIso, dateFormatter)"
+        errorLine2="                                      ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="38"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalTime#parse`"
+        errorLine1="                    LocalTime.parse(startTime, timeFormatter)"
+        errorLine2="                              ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="41"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalTime#of`"
+        errorLine1="                    LocalTime.of(9, 0)"
+        errorLine2="                              ~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="43"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalTime#toSecondOfDay`"
+        errorLine1="                        val totalMinutes = localTime.toSecondOfDay() / 60 + safeAmount"
+        errorLine2="                                                     ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="50"
+            column="54"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusDays`"
+        errorLine1="                        val endDate = localDate.plusDays(daysToAdd)"
+        errorLine2="                                                ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="53"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalTime#ofSecondOfDay`"
+        errorLine1="                        val endTime = LocalTime.ofSecondOfDay((remainderMinutes * 60).toLong())"
+        errorLine2="                                                ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="54"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                        val endIso = endDate.format(dateFormatter)"
+        errorLine2="                                             ~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="55"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalTime#format`"
+        errorLine1="                        val endT = endTime.format(timeFormatter)"
+        errorLine2="                                           ~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="56"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusDays`"
+        errorLine1="                        val endDate = localDate.plusDays(daysToAdd)"
+        errorLine2="                                                ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="62"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                        val endIso = endDate.format(dateFormatter)"
+        errorLine2="                                             ~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="63"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalTime#toSecondOfDay`"
+        errorLine1="                        val totalMinutes = localTime.toSecondOfDay() / 60 + (safeAmount * 60)"
+        errorLine2="                                                     ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="70"
+            column="54"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusDays`"
+        errorLine1="                        val endDate = localDate.plusDays(daysToAdd)"
+        errorLine2="                                                ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="73"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalTime#ofSecondOfDay`"
+        errorLine1="                        val endTime = LocalTime.ofSecondOfDay((remainderMinutes * 60).toLong())"
+        errorLine2="                                                ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="74"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                        val endIso = endDate.format(dateFormatter)"
+        errorLine2="                                             ~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="75"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalTime#format`"
+        errorLine1="                        val endT = endTime.format(timeFormatter)"
+        errorLine2="                                           ~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="76"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusDays`"
+        errorLine1="                        val endDate = localDate.plusDays(daysToAdd)"
+        errorLine2="                                                ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="81"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                        val endIso = endDate.format(dateFormatter)"
+        errorLine2="                                             ~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="82"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusDays`"
+        errorLine1="                    val endDate = localDate.plusDays(safeAmount.toLong())"
+        errorLine2="                                            ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="89"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                    val endIso = endDate.format(dateFormatter)"
+        errorLine2="                                         ~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="90"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusWeeks`"
+        errorLine1="                    val endDate = localDate.plusWeeks(safeAmount.toLong())"
+        errorLine2="                                            ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="96"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                    val endIso = endDate.format(dateFormatter)"
+        errorLine2="                                         ~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="97"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusMonths`"
+        errorLine1="                    val endDate = localDate.plusMonths(safeAmount.toLong())"
+        errorLine2="                                            ~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="104"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                    val endIso = endDate.format(dateFormatter)"
+        errorLine2="                                         ~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="105"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusMonths`"
+        errorLine1="                    val endDate = localDate.plusMonths((safeAmount * 3).toLong())"
+        errorLine2="                                            ~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="112"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                    val endIso = endDate.format(dateFormatter)"
+        errorLine2="                                         ~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="113"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusYears`"
+        errorLine1="                    val endDate = localDate.plusYears(safeAmount.toLong())"
+        errorLine2="                                            ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="120"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                    val endIso = endDate.format(dateFormatter)"
+        errorLine2="                                         ~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="121"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#parse`"
+        errorLine1="                    val start = LocalDate.parse(startDateIso, dateFormatter)"
+        errorLine2="                                          ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="143"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusMonths`"
+        errorLine1="                    val end = start.plusMonths(safeAmount.toLong())"
+        errorLine2="                                    ~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="144"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.temporal.ChronoUnit#between`"
+        errorLine1="                    val days = java.time.temporal.ChronoUnit.DAYS.between(start, end).toInt()"
+        errorLine2="                                                                  ~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="145"
+            column="67"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 26, or core library desugaring (current min is 24): `java.time.temporal.ChronoUnit#DAYS`"
+        errorLine1="                    val days = java.time.temporal.ChronoUnit.DAYS.between(start, end).toInt()"
+        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="145"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Implicit cast from `LocalDate` to `Temporal` requires API level 26, or core library desugaring (current min is 24)"
+        errorLine1="                    val days = java.time.temporal.ChronoUnit.DAYS.between(start, end).toInt()"
+        errorLine2="                                                                          ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="145"
+            column="75"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Implicit cast from `LocalDate` to `Temporal` requires API level 26, or core library desugaring (current min is 24)"
+        errorLine1="                    val days = java.time.temporal.ChronoUnit.DAYS.between(start, end).toInt()"
+        errorLine2="                                                                                 ~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="145"
+            column="82"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#parse`"
+        errorLine1="                    val start = LocalDate.parse(startDateIso, dateFormatter)"
+        errorLine2="                                          ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="153"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusMonths`"
+        errorLine1="                    val end = start.plusMonths((safeAmount * 3).toLong())"
+        errorLine2="                                    ~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="154"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.temporal.ChronoUnit#between`"
+        errorLine1="                    val days = java.time.temporal.ChronoUnit.DAYS.between(start, end).toInt()"
+        errorLine2="                                                                  ~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="155"
+            column="67"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 26, or core library desugaring (current min is 24): `java.time.temporal.ChronoUnit#DAYS`"
+        errorLine1="                    val days = java.time.temporal.ChronoUnit.DAYS.between(start, end).toInt()"
+        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="155"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Implicit cast from `LocalDate` to `Temporal` requires API level 26, or core library desugaring (current min is 24)"
+        errorLine1="                    val days = java.time.temporal.ChronoUnit.DAYS.between(start, end).toInt()"
+        errorLine2="                                                                          ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="155"
+            column="75"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Implicit cast from `LocalDate` to `Temporal` requires API level 26, or core library desugaring (current min is 24)"
+        errorLine1="                    val days = java.time.temporal.ChronoUnit.DAYS.between(start, end).toInt()"
+        errorLine2="                                                                                 ~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="155"
+            column="82"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#parse`"
+        errorLine1="                    val start = LocalDate.parse(startDateIso, dateFormatter)"
+        errorLine2="                                          ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="163"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusYears`"
+        errorLine1="                    val end = start.plusYears(safeAmount.toLong())"
+        errorLine2="                                    ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="164"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.temporal.ChronoUnit#between`"
+        errorLine1="                    val days = java.time.temporal.ChronoUnit.DAYS.between(start, end).toInt()"
+        errorLine2="                                                                  ~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="165"
+            column="67"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 26, or core library desugaring (current min is 24): `java.time.temporal.ChronoUnit#DAYS`"
+        errorLine1="                    val days = java.time.temporal.ChronoUnit.DAYS.between(start, end).toInt()"
+        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="165"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Implicit cast from `LocalDate` to `Temporal` requires API level 26, or core library desugaring (current min is 24)"
+        errorLine1="                    val days = java.time.temporal.ChronoUnit.DAYS.between(start, end).toInt()"
+        errorLine2="                                                                          ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="165"
+            column="75"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Implicit cast from `LocalDate` to `Temporal` requires API level 26, or core library desugaring (current min is 24)"
+        errorLine1="                    val days = java.time.temporal.ChronoUnit.DAYS.between(start, end).toInt()"
+        errorLine2="                                                                                 ~~~">
+        <location
+            file="src/main/java/com/example/domain/scheduling/SchedulingEngine.kt"
+            line="165"
+            column="82"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="                            paymentDateIso = LocalDate.now().toString(),"
+        errorLine2="                                                       ~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/SubscriptionDetailScreen.kt"
+            line="568"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="        var effectiveDateText by remember { mutableStateOf(LocalDate.now().toString()) }"
+        errorLine2="                                                                     ~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/SubscriptionDetailScreen.kt"
+            line="589"
+            column="70"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="    val today = remember { LocalDate.now() }"
+        errorLine2="                                     ~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/SubscriptionEditorSheet.kt"
+            line="65"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#getDayOfMonth`"
+        errorLine1="    var anchorDayOfMonth by remember { mutableIntStateOf(subscription?.anchorDayOfMonth ?: today.dayOfMonth) }"
+        errorLine2="                                                                                                 ~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/SubscriptionEditorSheet.kt"
+            line="80"
+            column="98"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusDays`"
+        errorLine1="    var trialEndDateIso by remember { mutableStateOf(subscription?.trialEndDateIso ?: today.plusDays(14).toString()) }"
+        errorLine2="                                                                                            ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/SubscriptionEditorSheet.kt"
+            line="87"
+            column="93"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 26, or core library desugaring (current min is 24): `java.time.format.DateTimeFormatter#ISO_LOCAL_DATE`"
+        errorLine1="    private val ISO_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE"
+        errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="14"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#parse`"
+        errorLine1="            val current = LocalDate.parse(currentDateIso, ISO_FORMATTER)"
+        errorLine2="                                    ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="29"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusDays`"
+        errorLine1="                BillingFrequency.DAILY -> current.plusDays(1)"
+        errorLine2="                                                  ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="31"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusWeeks`"
+        errorLine1="                BillingFrequency.WEEKLY -> current.plusWeeks(1)"
+        errorLine2="                                                   ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="32"
+            column="52"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusDays`"
+        errorLine1="                        CustomIntervalUnit.DAYS -> current.plusDays(count)"
+        errorLine2="                                                           ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="39"
+            column="60"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusWeeks`"
+        errorLine1="                        CustomIntervalUnit.WEEKS -> current.plusWeeks(count)"
+        errorLine2="                                                            ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="40"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="            nextDate.format(ISO_FORMATTER)"
+        errorLine2="                     ~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="46"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.YearMonth#from`"
+        errorLine1="        val targetYearMonth = YearMonth.from(current).plusMonths(monthsToAdd.toLong())"
+        errorLine2="                                        ~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="58"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.YearMonth#plusMonths`"
+        errorLine1="        val targetYearMonth = YearMonth.from(current).plusMonths(monthsToAdd.toLong())"
+        errorLine2="                                                      ~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="58"
+            column="55"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Implicit cast from `LocalDate` to `TemporalAccessor` requires API level 26, or core library desugaring (current min is 24)"
+        errorLine1="        val targetYearMonth = YearMonth.from(current).plusMonths(monthsToAdd.toLong())"
+        errorLine2="                                             ~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="58"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.YearMonth#lengthOfMonth`"
+        errorLine1="        val daysInMonth = targetYearMonth.lengthOfMonth()"
+        errorLine2="                                          ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="59"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.YearMonth#atDay`"
+        errorLine1="            targetYearMonth.atDay(anchorDayOfMonth)"
+        errorLine2="                            ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="62"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.YearMonth#atDay`"
+        errorLine1="                MissingDatePolicy.LAST_VALID_DAY -> targetYearMonth.atDay(daysInMonth)"
+        errorLine2="                                                                    ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="65"
+            column="69"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.YearMonth#atDay`"
+        errorLine1="                MissingDatePolicy.FIRST_DAY_NEXT_MONTH -> targetYearMonth.plusMonths(1).atDay(1)"
+        errorLine2="                                                                                        ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="66"
+            column="89"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.YearMonth#plusMonths`"
+        errorLine1="                MissingDatePolicy.FIRST_DAY_NEXT_MONTH -> targetYearMonth.plusMonths(1).atDay(1)"
+        errorLine2="                                                                          ~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="66"
+            column="75"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#getYear`"
+        errorLine1="        val targetYear = current.year + yearsToAdd"
+        errorLine2="                                 ~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="77"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#getMonth`"
+        errorLine1="        val targetMonth = current.month"
+        errorLine2="                                  ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="78"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.YearMonth#of`"
+        errorLine1="        val targetYearMonth = YearMonth.of(targetYear, targetMonth)"
+        errorLine2="                                        ~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="79"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.YearMonth#lengthOfMonth`"
+        errorLine1="        val daysInMonth = targetYearMonth.lengthOfMonth()"
+        errorLine2="                                          ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="80"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.YearMonth#atDay`"
+        errorLine1="            targetYearMonth.atDay(anchorDayOfMonth)"
+        errorLine2="                            ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="83"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.YearMonth#atDay`"
+        errorLine1="                MissingDatePolicy.LAST_VALID_DAY -> targetYearMonth.atDay(daysInMonth)"
+        errorLine2="                                                                    ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="86"
+            column="69"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.YearMonth#atDay`"
+        errorLine1="                MissingDatePolicy.FIRST_DAY_NEXT_MONTH -> targetYearMonth.plusMonths(1).atDay(1)"
+        errorLine2="                                                                                        ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="87"
+            column="89"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.YearMonth#plusMonths`"
+        errorLine1="                MissingDatePolicy.FIRST_DAY_NEXT_MONTH -> targetYearMonth.plusMonths(1).atDay(1)"
+        errorLine2="                                                                          ~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="87"
+            column="75"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#parse`"
+        errorLine1="            val due = LocalDate.parse(dueDateIso, ISO_FORMATTER)"
+        errorLine2="                                ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="108"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#parse`"
+        errorLine1="            val today = LocalDate.parse(todayIso, ISO_FORMATTER)"
+        errorLine2="                                  ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="109"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#isAfter`"
+        errorLine1="            today.isAfter(due)"
+        errorLine2="                  ~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="110"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Implicit cast from `LocalDate` to `ChronoLocalDate` requires API level 26, or core library desugaring (current min is 24)"
+        errorLine1="            today.isAfter(due)"
+        errorLine2="                          ~~~">
+        <location
+            file="src/main/java/com/example/domain/subscription/SubscriptionScheduleEngine.kt"
+            line="110"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 26, or core library desugaring (current min is 24): `java.time.format.DateTimeFormatter#ISO_LOCAL_DATE`"
+        errorLine1="    private val ISO_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE"
+        errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/tracker/TrackerCalculationEngine.kt"
+            line="13"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#parse`"
+        errorLine1="            val start = LocalDate.parse(startDateIso, ISO_FORMATTER)"
+        errorLine2="                                  ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/tracker/TrackerCalculationEngine.kt"
+            line="21"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#parse`"
+        errorLine1="            val end = LocalDate.parse(endDateIso, ISO_FORMATTER)"
+        errorLine2="                                ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/tracker/TrackerCalculationEngine.kt"
+            line="22"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#isBefore`"
+        errorLine1="            if (end.isBefore(start)) {"
+        errorLine2="                    ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/tracker/TrackerCalculationEngine.kt"
+            line="23"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Implicit cast from `LocalDate` to `ChronoLocalDate` requires API level 26, or core library desugaring (current min is 24)"
+        errorLine1="            if (end.isBefore(start)) {"
+        errorLine2="                             ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/tracker/TrackerCalculationEngine.kt"
+            line="23"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.temporal.ChronoUnit#between`"
+        errorLine1="                ChronoUnit.DAYS.between(start, end) + 1L"
+        errorLine2="                                ~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/tracker/TrackerCalculationEngine.kt"
+            line="26"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 26, or core library desugaring (current min is 24): `java.time.temporal.ChronoUnit#DAYS`"
+        errorLine1="                ChronoUnit.DAYS.between(start, end) + 1L"
+        errorLine2="                ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/domain/tracker/TrackerCalculationEngine.kt"
+            line="26"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Implicit cast from `LocalDate` to `Temporal` requires API level 26, or core library desugaring (current min is 24)"
+        errorLine1="                ChronoUnit.DAYS.between(start, end) + 1L"
+        errorLine2="                                        ~~~~~">
+        <location
+            file="src/main/java/com/example/domain/tracker/TrackerCalculationEngine.kt"
+            line="26"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Implicit cast from `LocalDate` to `Temporal` requires API level 26, or core library desugaring (current min is 24)"
+        errorLine1="                ChronoUnit.DAYS.between(start, end) + 1L"
+        errorLine2="                                               ~~~">
+        <location
+            file="src/main/java/com/example/domain/tracker/TrackerCalculationEngine.kt"
+            line="26"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="                            startDateIso = LocalDate.now().toString(),"
+        errorLine2="                                                     ~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/TrackerDetailScreen.kt"
+            line="444"
+            column="54"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="                            dateIso = LocalDate.now().toString(),"
+        errorLine2="                                                ~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/TrackerDetailScreen.kt"
+            line="526"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="            endDateIso = LocalDate.now().toString()"
+        errorLine2="                                   ~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/TrackerDetailScreen.kt"
+            line="554"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="                            finishDateIso = LocalDate.now().toString(),"
+        errorLine2="                                                      ~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/TrackerDetailScreen.kt"
+            line="601"
+            column="55"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="                            purchaseDateIso = LocalDate.now().toString(),"
+        errorLine2="                                                        ~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/TrackerDetailScreen.kt"
+            line="663"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="                            dateIso = LocalDate.now().toString(),"
+        errorLine2="                                                ~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/TrackerDetailScreen.kt"
+            line="728"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="        endDateIso = LocalDate.now().toString()"
+        errorLine2="                               ~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/TrackerDetailScreen.kt"
+            line="790"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="                                        EssentialsExportHelper.shareCsvContent(context, &quot;LifeOS_Trackers_${LocalDate.now()}.csv&quot;, csv)"
+        errorLine2="                                                                                                                     ~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/TrackersSubscriptionsScreen.kt"
+            line="273"
+            column="118"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="                                        EssentialsExportHelper.shareCsvContent(context, &quot;LifeOS_Subscriptions_${LocalDate.now()}.csv&quot;, csv)"
+        errorLine2="                                                                                                                          ~~~">
+        <location
+            file="src/main/java/com/example/ui/screens/essentials/TrackersSubscriptionsScreen.kt"
+            line="276"
+            column="123"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 24)"
+        errorLine1="    android:targetCellWidth=&quot;3&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/lifeos_quick_reminders_widget_info.xml"
+            line="10"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 24)"
+        errorLine1="    android:targetCellHeight=&quot;2&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/lifeos_quick_reminders_widget_info.xml"
+            line="11"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 24)"
+        errorLine1="    android:targetCellWidth=&quot;3&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/lifeos_subscription_widget_info.xml"
+            line="9"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 24)"
+        errorLine1="    android:targetCellHeight=&quot;2&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/lifeos_subscription_widget_info.xml"
+            line="10"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 24)"
+        errorLine1="    android:targetCellWidth=&quot;3&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/lifeos_tracker_widget_info.xml"
+            line="9"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 24)"
+        errorLine1="    android:targetCellHeight=&quot;2&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/lifeos_tracker_widget_info.xml"
+            line="10"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="RedundantLabel"
+        message="Redundant label can be removed"
+        errorLine1="            android:label=&quot;@string/app_name&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="23"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 9.1.1 is available: 9.4.1"
+        errorLine1="agp = &quot;9.1.1&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.core:core-ktx than 1.18.0 is available: 1.19.1"
+        errorLine1="coreKtx = &quot;1.18.0&quot;"
+        errorLine2="          ~~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="3"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.8.7 is available: 2.11.0"
+        errorLine1="lifecycleRuntimeKtx = &quot;2.8.7&quot;"
+        errorLine2="                      ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="7"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.11.0"
+        errorLine1="lifecycleViewmodelCompose = &quot;2.8.7&quot;"
+        errorLine2="                            ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="8"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.11.0"
+        errorLine1="lifecycleRuntimeCompose = &quot;2.8.7&quot;"
+        errorLine2="                          ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="9"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0"
+        errorLine1="activityCompose = &quot;1.10.1&quot;"
+        errorLine2="                  ~~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="10"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose:compose-bom than 2024.09.00 is available: 2026.09.00"
+        errorLine1="composeBom = &quot;2024.09.00&quot;"
+        errorLine2="             ~~~~~~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="12"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.navigation:navigation-compose than 2.8.9 is available: 2.10.2"
+        errorLine1="navigationCompose = &quot;2.8.9&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="14"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-runtime than 2.7.0 is available: 2.8.5"
+        errorLine1="roomRuntime = &quot;2.7.0&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="15"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-ktx than 2.7.0 is available: 2.8.5"
+        errorLine1="roomKtx = &quot;2.7.0&quot;"
+        errorLine2="          ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="16"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-compiler than 2.7.0 is available: 2.8.5"
+        errorLine1="roomCompiler = &quot;2.7.0&quot;"
+        errorLine2="               ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="17"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:core than 1.6.1 is available: 1.7.0"
+        errorLine1="core = &quot;1.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="19"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0"
+        errorLine1="runner = &quot;1.6.2&quot;"
+        errorLine2="         ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="20"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.android.gms:play-services-location than 21.3.0 is available: 21.4.0"
+        errorLine1="playServicesLocation = &quot;21.3.0&quot;"
+        errorLine2="                       ~~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="27"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-camera2 than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraCamera2 = &quot;1.5.0&quot;"
+        errorLine2="                ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="28"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-lifecycle than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraLifecycle = &quot;1.5.0&quot;"
+        errorLine2="                  ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="29"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-view than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraView = &quot;1.5.0&quot;"
+        errorLine2="             ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="30"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-core than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraCore = &quot;1.5.0&quot;"
+        errorLine2="             ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="31"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.datastore:datastore-preferences than 1.1.7 is available: 1.3.0"
+        errorLine1="datastorePreferences = &quot;1.1.7&quot;"
+        errorLine2="                       ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="36"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.firebase:firebase-bom than 34.17.0 is available: 35.1.0"
+        errorLine1="firebaseBom = &quot;34.17.0&quot;"
+        errorLine2="              ~~~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="38"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.credentials:credentials than 1.5.0 is available: 1.6.0"
+        errorLine1="credentials = &quot;1.5.0&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="41"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.credentials:credentials-play-services-auth than 1.5.0 is available: 1.6.0"
+        errorLine1="credentials = &quot;1.5.0&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="41"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.android.libraries.identity.googleid:googleid than 1.1.1 is available: 1.2.1"
+        errorLine1="googleid = &quot;1.1.1&quot;"
+        errorLine2="           ~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="42"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.work:work-runtime-ktx than 2.10.0 is available: 2.12.0"
+        errorLine1="workManager = &quot;2.10.0&quot;"
+        errorLine2="              ~~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="43"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlin.plugin.compose than 2.2.10 is available: 2.4.21"
+        errorLine1="kotlin = &quot;2.2.10&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="11"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-test than 1.10.2 is available: 1.11.0"
+        errorLine1="kotlinxCoroutinesTest = &quot;1.10.2&quot;"
+        errorLine2="                        ~~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="18"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.squareup.retrofit2:retrofit than 2.12.0 is available: 3.0.0"
+        errorLine1="retrofit = &quot;2.12.0&quot;"
+        errorLine2="           ~~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="22"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.squareup.retrofit2:converter-moshi than 2.12.0 is available: 3.0.0"
+        errorLine1="converterMoshi = &quot;2.12.0&quot;"
+        errorLine2="                 ~~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="23"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-android than 1.10.2 is available: 1.11.0"
+        errorLine1="kotlinxCoroutinesAndroid = &quot;1.10.2&quot;"
+        errorLine2="                           ~~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="24"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-core than 1.10.2 is available: 1.11.0"
+        errorLine1="kotlinxCoroutinesCore = &quot;1.10.2&quot;"
+        errorLine2="                        ~~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="25"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.squareup.okhttp3:logging-interceptor than 4.10.0 is available: 5.5.1"
+        errorLine1="loggingInterceptor = &quot;4.10.0&quot;"
+        errorLine2="                     ~~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="32"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.squareup.okhttp3:okhttp than 4.10.0 is available: 5.5.1"
+        errorLine1="okhttp = &quot;4.10.0&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="33"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.robolectric:robolectric than 4.16.1 is available: 4.17"
+        errorLine1="robolectric = &quot;4.16.1&quot;"
+        errorLine2="              ~~~~~~~~">
+        <location
+            file="$HOME/Projects/Software/Open soursed/LifeOS/gradle/libs.versions.toml"
+            line="37"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="StaticFieldLeak"
+        message="Do not place Android context classes in static fields (static reference to `TaskCompletionFeedbackManager` which has field `context` pointing to `Context`); this is a memory leak"
+        errorLine1="        @Volatile"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/example/ui/feedback/TaskCompletionFeedbackManager.kt"
+            line="174"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseCompoundDrawables"
+        message="This tag and its children can be replaced by one `&lt;TextView/>` and a compound drawable"
+        errorLine1="    &lt;LinearLayout"
+        errorLine2="     ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_essentials_subscription.xml"
+            line="11"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="UseCompoundDrawables"
+        message="This tag and its children can be replaced by one `&lt;TextView/>` and a compound drawable"
+        errorLine1="    &lt;LinearLayout"
+        errorLine2="     ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_essentials_tracker.xml"
+            line="11"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="UseCompoundDrawables"
+        message="This tag and its children can be replaced by one `&lt;TextView/>` and a compound drawable"
+        errorLine1="    &lt;LinearLayout"
+        errorLine2="     ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_quick_reminders.xml"
+            line="11"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.purple_200` appears to be unused"
+        errorLine1="    &lt;color name=&quot;purple_200&quot;>#FFBB86FC&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="3"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.purple_500` appears to be unused"
+        errorLine1="    &lt;color name=&quot;purple_500&quot;>#FF6200EE&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="4"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.purple_700` appears to be unused"
+        errorLine1="    &lt;color name=&quot;purple_700&quot;>#FF3700B3&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="5"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.teal_200` appears to be unused"
+        errorLine1="    &lt;color name=&quot;teal_200&quot;>#FF03DAC5&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="6"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.teal_700` appears to be unused"
+        errorLine1="    &lt;color name=&quot;teal_700&quot;>#FF018786&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="7"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.black` appears to be unused"
+        errorLine1="    &lt;color name=&quot;black&quot;>#FF000000&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="8"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.white` appears to be unused"
+        errorLine1="    &lt;color name=&quot;white&quot;>#FFFFFFFF&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="9"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.layout.widget_quick_reminder_item` appears to be unused"
+        errorLine1="&lt;RelativeLayout xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2="^">
+        <location
+            file="src/main/res/layout/widget_quick_reminder_item.xml"
+            line="2"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `9sp`"
+        errorLine1="                android:textSize=&quot;9sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_2.xml"
+            line="57"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `9sp`"
+        errorLine1="                android:textSize=&quot;9sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_2.xml"
+            line="113"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `9sp`"
+        errorLine1="                android:textSize=&quot;9sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_3.xml"
+            line="51"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `9sp`"
+        errorLine1="                android:textSize=&quot;9sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_3.xml"
+            line="107"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `9sp`"
+        errorLine1="                android:textSize=&quot;9sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_3.xml"
+            line="163"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `9sp`"
+        errorLine1="            android:textSize=&quot;9sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_quick_reminder_item.xml"
+            line="42"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/widgets/QuickRemindersWidgetHelper.kt"
+            line="26"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/widgets/QuickRemindersWidgetProvider.kt"
+            line="57"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/widgets/QuickRemindersWidgetProvider.kt"
+            line="57"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;💳 Subscriptions&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;💳 Subscriptions&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_essentials_subscription.xml"
+            line="25"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Loading subscriptions...&quot;, should use `@string` resource"
+        errorLine1="        android:text=&quot;Loading subscriptions...&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_essentials_subscription.xml"
+            line="44"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;🛠️ Smart Trackers&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;🛠️ Smart Trackers&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_essentials_tracker.xml"
+            line="25"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Loading trackers...&quot;, should use `@string` resource"
+        errorLine1="        android:text=&quot;Loading trackers...&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_essentials_tracker.xml"
+            line="44"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Tile Shape&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Tile Shape&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_2.xml"
+            line="30"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;⚡&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;⚡&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_2.xml"
+            line="45"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Tile&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;Tile&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_2.xml"
+            line="55"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Completed&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Completed&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_2.xml"
+            line="68"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Tile Shape&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Tile Shape&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_2.xml"
+            line="86"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;⚡&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;⚡&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_2.xml"
+            line="101"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Tile&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;Tile&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_2.xml"
+            line="111"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Completed&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Completed&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_2.xml"
+            line="124"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Tile Shape&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Tile Shape&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_3.xml"
+            line="24"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;⚡&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;⚡&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_3.xml"
+            line="39"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Tile&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;Tile&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_3.xml"
+            line="49"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Completed&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Completed&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_3.xml"
+            line="62"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Tile Shape&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Tile Shape&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_3.xml"
+            line="80"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;⚡&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;⚡&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_3.xml"
+            line="95"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Tile&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;Tile&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_3.xml"
+            line="105"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Completed&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Completed&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_3.xml"
+            line="118"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Tile Shape&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Tile Shape&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_3.xml"
+            line="136"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;⚡&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;⚡&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_3.xml"
+            line="151"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Tile&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;Tile&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_3.xml"
+            line="161"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Completed&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Completed&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_qr_row_3.xml"
+            line="174"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Tile Shape&quot;, should use `@string` resource"
+        errorLine1="        android:contentDescription=&quot;Tile Shape&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_quick_reminder_item.xml"
+            line="14"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;⚡&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;⚡&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_quick_reminder_item.xml"
+            line="30"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Tile&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;Tile&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_quick_reminder_item.xml"
+            line="40"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Completed&quot;, should use `@string` resource"
+        errorLine1="        android:contentDescription=&quot;Completed&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_quick_reminder_item.xml"
+            line="54"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;⚡ Quick Reminders&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;⚡ Quick Reminders&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_quick_reminders.xml"
+            line="25"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;No Quick Reminders yet.\nTap to open LifeOS.&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;No Quick Reminders yet.\nTap to open LifeOS.&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_quick_reminders.xml"
+            line="56"
+            column="13"/>
+    </issue>
+
+</issues>

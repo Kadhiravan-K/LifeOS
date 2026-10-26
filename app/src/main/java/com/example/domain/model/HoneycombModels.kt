@@ -64,9 +64,19 @@ data class HoneycombShortcut(
     val effectiveColorHex: Long?
         get() = when (colorSource) {
             "CUSTOM" -> customColorHex
-            "PROJECT" -> projectColorHex ?: customColorHex
+            "PROJECT" -> projectColorHex ?: customColorHex ?: when (type) {
+                ShortcutType.WATER -> 0xFF3B82F6L
+                ShortcutType.HABIT -> 0xFF10B981L
+                ShortcutType.CHALLENGE_RULE -> 0xFFF59E0BL
+                else -> null
+            }
             "THEME_DEFAULT" -> null
-            else -> customColorHex ?: projectColorHex
+            else -> customColorHex ?: projectColorHex ?: when (type) {
+                ShortcutType.WATER -> 0xFF3B82F6L
+                ShortcutType.HABIT -> 0xFF10B981L
+                ShortcutType.CHALLENGE_RULE -> 0xFFF59E0BL
+                else -> null
+            }
         }
 
     val tileShape: QrTileShape get() = QrTileShape.fromString(shape)

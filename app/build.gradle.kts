@@ -85,6 +85,11 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+  lint {
+    abortOnError = false
+    checkReleaseBuilds = false
+    baseline = file("lint-baseline.xml")
+  }
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true

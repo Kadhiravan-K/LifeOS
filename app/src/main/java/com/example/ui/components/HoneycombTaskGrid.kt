@@ -62,6 +62,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -495,9 +496,25 @@ fun HoneycombCell(
     val strokeWidthPx = with(density) { appearance.borderWidthDp.dp.toPx() }
     val cornerRadiusPx = with(density) { (appearance.borderWidthDp * 2.5f).dp.toPx() }
 
-    // Color resolution: Precedence: Custom > Project > Theme Default
-    val resolvedCompletionColor = Color(shortcut.effectiveColorHex ?: appearance.defaultColorHex)
-    val incompleteBgColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+    // Color resolution precedence: User Custom > Project > Theme Default > Global Setting
+    val themePrimaryHex = activeTheme.colors.primary.toArgb().toLong() and 0xFFFFFFFFL
+    val rawColorHex = when (shortcut.colorSource) {
+        "THEME_DEFAULT" -> themePrimaryHex
+        "CUSTOM" -> shortcut.customColorHex ?: appearance.defaultColorHex
+        "PROJECT" -> shortcut.projectColorHex ?: shortcut.customColorHex ?: shortcut.effectiveColorHex ?: themePrimaryHex
+        else -> shortcut.effectiveColorHex ?: appearance.defaultColorHex
+    }
+    val safeColorHex = if (rawColorHex == 0L || (rawColorHex and 0xFF000000L) == 0L) {
+        if (appearance.defaultColorHex != 0L) appearance.defaultColorHex else 0xFF10B981L
+    } else {
+        rawColorHex
+    }
+    val resolvedCompletionColor = Color(safeColorHex)
+    val incompleteBgColor = if (activeTheme.id != com.example.ui.theme.engine.ThemeId.DEFAULT) {
+        activeTheme.colors.surfaceVariant.copy(alpha = 0.5f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+    }
 
     val borderColor = when {
         isHighlightedTarget -> activeTheme.colors.accent

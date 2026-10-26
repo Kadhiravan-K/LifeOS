@@ -182,11 +182,15 @@ fun MainScreen(
                     }
                 }
 
-                Crossfade(
-                    targetState = currentItem,
-                    label = "screen_transition",
+                MainNavigationTransition(
+                    targetItem = currentItem,
                     modifier = Modifier.fillMaxSize()
-                ) { destination ->
+                ) {
+                    Crossfade(
+                        targetState = currentItem,
+                        label = "screen_transition",
+                        modifier = Modifier.fillMaxSize()
+                    ) { destination ->
                     when (destination) {
                         NavigationItem.HOME -> {
                             DashboardScreen(
@@ -289,6 +293,7 @@ fun MainScreen(
                             )
                         }
                     }
+                }
                 }
             }
         }

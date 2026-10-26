@@ -29,7 +29,7 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
             val thisWidget = ComponentName(context, QuickRemindersWidgetProvider::class.java)
             val appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
             if (appWidgetIds != null && appWidgetIds.isNotEmpty()) {
-                appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.widget_grid_view)
+                appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.widget_list_view)
             }
         }
     }
@@ -51,13 +51,13 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
     ) {
         val views = RemoteViews(context.packageName, R.layout.widget_quick_reminders)
 
-        // Bind RemoteViewsService to GridView
+        // Bind RemoteViewsService to ListView
         val serviceIntent = Intent(context, QuickRemindersRemoteViewsService::class.java).apply {
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
             data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
         }
-        views.setRemoteAdapter(R.id.widget_grid_view, serviceIntent)
-        views.setEmptyView(R.id.widget_grid_view, R.id.widget_empty_view)
+        views.setRemoteAdapter(R.id.widget_list_view, serviceIntent)
+        views.setEmptyView(R.id.widget_list_view, R.id.widget_empty_view)
 
         // PendingIntent template for clicking on QR tiles
         val clickIntent = Intent(context, QuickRemindersWidgetProvider::class.java).apply {
@@ -69,7 +69,7 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
             clickIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         )
-        views.setPendingIntentTemplate(R.id.widget_grid_view, clickPendingIntent)
+        views.setPendingIntentTemplate(R.id.widget_list_view, clickPendingIntent)
 
         // Header click to open app
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
@@ -90,24 +90,60 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action == ACTION_WIDGET_TOGGLE_TASK) {
+            val type = intent.getStringExtra("extra_type") ?: "TASK"
             val taskId = intent.getLongExtra("extra_task_id", -1L)
-            if (taskId != -1L) {
-                val db = AppDatabase.getInstance(context)
-                val prefs = UserPreferences(context)
-                val entitlementRepo = LocalPremiumEntitlementRepository(context)
-                val repository = LifeRepository(db, prefs, entitlementRepo)
-                val todayIso = DateUtils.todayString()
+            val targetId = intent.getStringExtra("extra_target_id") ?: ""
 
-                CoroutineScope(Dispatchers.IO).launch {
-                    repository.toggleTaskCompletion(taskId, todayIso)
-                    notifyDataChanged(context)
+            val db = AppDatabase.getInstance(context)
+            val prefs = UserPreferences(context)
+            val entitlementRepo = LocalPremiumEntitlementRepository(context)
+            val repository = LifeRepository(db, prefs, entitlementRepo)
+            val todayIso = DateUtils.todayString()
+
+            CoroutineScope(Dispatchers.IO).launch {
+                when (type) {
+                    "TASK" -> {
+                        if (taskId != -1L) {
+                            repository.toggleTaskCompletion(taskId, todayIso)
+                            notifyDataChanged(context)
+                        } else {
+                            val openIntent = Intent(context, MainActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                            }
+                            context.startActivity(openIntent)
+                        }
+                    }
+                    "HABIT" -> {
+                        val habitId = targetId.toLongOrNull()
+                        if (habitId != null) {
+                            repository.toggleHabitCompletion(habitId, todayIso)
+                            notifyDataChanged(context)
+                        } else {
+                            val habits = db.habitDao().getAllHabitsList()
+                            val matched = habits.find { it.title.equals(targetId, ignoreCase = true) }
+                            if (matched != null) {
+                                repository.toggleHabitCompletion(matched.id, todayIso)
+                                notifyDataChanged(context)
+                            }
+                        }
+                    }
+                    "WATER" -> {
+                        repository.addWater(250, todayIso)
+                        notifyDataChanged(context)
+                    }
+                    "CHALLENGE_RULE" -> {
+                        if (targetId.isNotBlank()) {
+                            repository.toggleChallengeRule(targetId, todayIso)
+                            notifyDataChanged(context)
+                        }
+                    }
+                    else -> {
+                        val openIntent = Intent(context, MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        }
+                        context.startActivity(openIntent)
+                    }
                 }
-            } else {
-                // Not a task shortcut - launch app
-                val openIntent = Intent(context, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                }
-                context.startActivity(openIntent)
             }
         }
     }

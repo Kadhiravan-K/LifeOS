@@ -105,6 +105,39 @@ fun DashboardScreen(
     var showHydrationDialog by remember { mutableStateOf(false) }
     var showTemplateBrowserDialog by remember { mutableStateOf(false) }
 
+    if (uiState.isLoading) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(24.dp)
+                .testTag("dashboard_loading"),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(activeTheme.shapes.buttonShape)
+                        .background(activeTheme.colors.badgeBackground)
+                        .border(1.dp, activeTheme.colors.outline, activeTheme.shapes.buttonShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = activeTheme.decoration.motifEmoji, fontSize = 28.sp)
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                CircularProgressIndicator(
+                    modifier = Modifier.size(28.dp),
+                    strokeWidth = 3.dp,
+                    color = activeTheme.colors.primary
+                )
+            }
+        }
+        return
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()

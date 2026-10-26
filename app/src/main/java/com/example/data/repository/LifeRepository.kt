@@ -1231,20 +1231,9 @@ class LifeRepository(
 
     suspend fun seedDefaultHoneycombShortcuts() {
         val existing = honeycombShortcutDao.getAllShortcutsList()
-        val hasCompleted = preferences.hasCompletedOnboarding.first()
-        val hasExistingData = taskDao.getAllTasksList().isNotEmpty() || habitDao.getAllHabitsList().isNotEmpty()
-
-        if (existing.isEmpty()) {
-            if (hasCompleted || hasExistingData) {
-                val coords = HoneycombLayoutTemplate.generateCoordinates(HoneycombLayoutTemplate.STANDARD, DefaultHoneycombShortcuts.list.size)
-                val entities = DefaultHoneycombShortcuts.list.mapIndexed { index, item ->
-                    val (q, r) = coords.getOrElse(index) { Pair(index % 3, index / 3) }
-                    item.copy(orderIndex = index, coordQ = q, coordR = r).toEntity()
-                }
-                honeycombShortcutDao.insertShortcuts(entities)
-            }
-            // For fresh install (!hasCompleted && !hasExistingData), leave empty so the honeycomb grid displays empty slots!
-        } else {
+        // Do not auto-install template shortcuts on fresh install or upgrade.
+        // An empty Room database must remain empty across Home and widget.
+        if (existing.isNotEmpty()) {
             // Check for any duplicate / overlapping coordinates and de-overlap them
             val occupied = mutableSetOf<Pair<Int, Int>>()
             var nextR = 0

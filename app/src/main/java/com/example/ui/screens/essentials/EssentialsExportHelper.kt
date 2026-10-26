@@ -19,7 +19,7 @@ import com.example.domain.tracker.TrackerItem
 import com.example.domain.tracker.UsageCycleItem
 import java.io.File
 import java.io.FileOutputStream
-import java.time.LocalDate
+import java.util.Locale
 
 object EssentialsExportHelper {
 
@@ -132,7 +132,7 @@ object EssentialsExportHelper {
         var y = 40f
         canvas.drawText("LifeOS — Smart Trackers Report", 40f, y, titlePaint)
         y += 18f
-        canvas.drawText("Generated on ${LocalDate.now()} • Privacy-First Offline Architecture", 40f, y, subPaint)
+        canvas.drawText("Generated on ${com.example.utils.DateUtils.todayString()} • Privacy-First Offline Architecture", 40f, y, subPaint)
         y += 24f
 
         canvas.drawLine(40f, y, 555f, y, linePaint)
@@ -212,7 +212,7 @@ object EssentialsExportHelper {
         var y = 40f
         canvas.drawText("LifeOS — Subscriptions & Recurring Bills Report", 40f, y, titlePaint)
         y += 18f
-        canvas.drawText("Generated on ${LocalDate.now()} • Privacy-First Offline Architecture", 40f, y, subPaint)
+        canvas.drawText("Generated on ${com.example.utils.DateUtils.todayString()} • Privacy-First Offline Architecture", 40f, y, subPaint)
         y += 24f
 
         canvas.drawLine(40f, y, 555f, y, linePaint)
@@ -228,7 +228,7 @@ object EssentialsExportHelper {
         }
 
         canvas.drawText("ACTIVE SUBSCRIPTIONS (${subscriptions.size})", 40f, y, boldPaint)
-        canvas.drawText("Monthly Commitment: ~${String.format("%.2f", totalMonthly)}", 340f, y, boldPaint)
+        canvas.drawText("Monthly Commitment: ~${String.format(Locale.US, "%.2f", totalMonthly)}", 340f, y, boldPaint)
         y += 18f
 
         subscriptions.take(15).forEach { sub ->
@@ -245,7 +245,7 @@ object EssentialsExportHelper {
         y += 20f
 
         val totalPaid = payments.sumOf { it.amountPaid }
-        canvas.drawText("TOTAL PAID HISTORICAL: ${String.format("%.2f", totalPaid)}", 40f, y, boldPaint)
+        canvas.drawText("TOTAL PAID HISTORICAL: ${String.format(Locale.US, "%.2f", totalPaid)}", 40f, y, boldPaint)
 
         pdfDoc.finishPage(page)
 

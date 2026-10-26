@@ -80,8 +80,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class DashboardUiState(
-    val userName: String = "Master",
-    val greeting: String = "Good morning",
+    val isLoading: Boolean = true,
+    val userName: String = "",
+    val greeting: String = "",
     val todayDateFormatted: String = "",
     val todayDateIso: String = "",
     val overallProgressPercentage: Float = 0f,
@@ -554,7 +555,7 @@ class LifeViewModel(
         combine(rawHoneycombShortcuts, todayTasks, allTasks) { raw, today, all -> Triple(raw, today, all) },
         combine(habits, challengeState, allProjects) { h, c, p -> Triple(h, c, p) }
     ) { (rawList, todayTaskList, allTaskList), (habitList, challenge, projectList) ->
-        val baseList = if (rawList.isEmpty()) DefaultHoneycombShortcuts.list else rawList
+        val baseList = rawList
 
         // Ensure no overlapping coordinates in the displayed grid
         val occupied = mutableSetOf<Pair<Int, Int>>()
@@ -631,7 +632,8 @@ class LifeViewModel(
                     shortcut.copy(
                         isCompletedToday = isDone,
                         subtitle = "${matchedHabit?.currentStreak ?: 0}d streak",
-                        isBinary = true
+                        isBinary = true,
+                        projectColorHex = 0xFF10B981L
                     )
                 }
                 ShortcutType.CHALLENGE_RULE -> {
@@ -647,7 +649,8 @@ class LifeViewModel(
                     shortcut.copy(
                         isCompletedToday = isDone,
                         subtitle = rule?.title ?: "",
-                        isBinary = true
+                        isBinary = true,
+                        projectColorHex = 0xFFF59E0BL
                     )
                 }
                 ShortcutType.WATER -> {
@@ -656,18 +659,22 @@ class LifeViewModel(
                         isCompletedToday = isDone,
                         subtitle = "$waterCurrent / $waterGoal ml",
                         progressFraction = (waterCurrent.toFloat() / waterGoal).coerceIn(0f, 1f),
-                        isBinary = false
+                        isBinary = false,
+                        projectColorHex = 0xFF3B82F6L
                     )
                 }
                 ShortcutType.CUSTOM -> {
-                    shortcut.copy(isBinary = true)
+                    shortcut.copy(
+                        isBinary = true,
+                        projectColorHex = shortcut.customColorHex ?: 0xFF8B5CF6L
+                    )
                 }
             }
         }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = DefaultHoneycombShortcuts.list
+        initialValue = emptyList()
     )
 
     private val userPrefsFlow = combine(userNameFlow, hasInstalledDefaultsFlow, clockFormatFlow, preferences.hasCompletedOnboarding) { name, defaults, clock, onboarding ->
@@ -754,6 +761,7 @@ class LifeViewModel(
         val greetingText = "${DateUtils.getGreeting(currentHour)}, ${prefs.userName}"
 
         DashboardUiState(
+            isLoading = false,
             userName = prefs.userName,
             greeting = greetingText,
             todayDateFormatted = DateUtils.formatDisplayDate(todayIso),
@@ -785,7 +793,7 @@ class LifeViewModel(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = DashboardUiState()
+        initialValue = DashboardUiState(isLoading = true)
     )
 
     val dashboardUiState: StateFlow<DashboardUiState> = combine(
@@ -803,7 +811,7 @@ class LifeViewModel(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = DashboardUiState()
+        initialValue = DashboardUiState(isLoading = true)
     )
 
 
