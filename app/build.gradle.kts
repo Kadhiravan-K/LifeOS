@@ -86,8 +86,8 @@ android {
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
   lint {
-    abortOnError = false
-    checkReleaseBuilds = false
+    abortOnError = true
+    checkReleaseBuilds = true
     baseline = file("lint-baseline.xml")
   }
   dependenciesInfo {

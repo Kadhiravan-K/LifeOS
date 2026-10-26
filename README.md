@@ -5,7 +5,7 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-purple.svg)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-blue.svg)](https://developer.android.com/jetpack/compose)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Offline-success.svg)](PRIVACY.md)
-[![Database](https://img.shields.io/badge/Room%20DB-v6%20SQLite-orange.svg)](app/src/main/java/com/example/data/database/AppDatabase.kt)
+[![Database](https://img.shields.io/badge/Room%20DB-v10%20SQLite-orange.svg)](app/src/main/java/com/example/data/local/AppDatabase.kt)
 
 > **LifeOS** is a privacy-first, fully offline native Android productivity and life operating system developed by **Kadhiravan**. Built with Jetpack Compose Material 3, Room SQLite, and Clean MVVM architecture.
 
@@ -109,7 +109,7 @@ Output APK is located at:
 
 ## 🧪 Unit Testing
 
-LifeOS includes a comprehensive, 100% offline JVM unit test suite covering:
+LifeOS includes a comprehensive, 100% offline JVM unit test suite (104 passing tests across 8 test suites) covering:
 - Recurrence patterns and edge cases (leap years, month-end clamping, skipped occurrences)
 - Schedule conflict detection (sleep windows, overlapping slots, duplicate items)
 - Axial hexagonal geometry calculations and cube-coordinate rounding inverse mapping
