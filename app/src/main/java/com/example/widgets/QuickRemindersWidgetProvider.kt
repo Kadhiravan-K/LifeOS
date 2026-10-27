@@ -7,7 +7,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Bundle
 import android.widget.RemoteViews
+import androidx.core.net.toUri
 import com.example.MainActivity
 import com.example.R
 import com.example.data.local.AppDatabase
@@ -44,6 +46,17 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle?
+    ) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+        updateAppWidget(context, appWidgetManager, appWidgetId)
+        notifyDataChanged(context)
+    }
+
     private fun updateAppWidget(
         context: Context,
         appWidgetManager: AppWidgetManager,
@@ -62,10 +75,11 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
         // PendingIntent template for clicking on QR tiles
         val clickIntent = Intent(context, QuickRemindersWidgetProvider::class.java).apply {
             action = ACTION_WIDGET_TOGGLE_TASK
+            data = "lifeos://widget/qr/click/$appWidgetId".toUri()
         }
         val clickPendingIntent = PendingIntent.getBroadcast(
             context,
-            0,
+            appWidgetId,
             clickIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         )

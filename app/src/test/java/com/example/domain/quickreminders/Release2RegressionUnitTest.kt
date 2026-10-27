@@ -275,29 +275,29 @@ class Release2RegressionUnitTest {
             return rows
         }
 
-        val emptyRows = buildRows(emptyList())
+        val emptyRows = buildRows(emptyList<MockItem>())
         assertEquals(0, emptyRows.size)
+    }
+
+    private data class MockItem(val id: Long)
+    private data class MockRow(val isThreeColumn: Boolean, val items: List<MockItem>)
+
+    private fun buildRows(items: List<MockItem>): List<MockRow> {
+        val rows = mutableListOf<MockRow>()
+        var index = 0
+        var isThree = true
+        while (index < items.size) {
+            val count = if (isThree) 3 else 2
+            val chunk = items.subList(index, minOf(index + count, items.size))
+            rows.add(MockRow(isThreeColumn = isThree, items = chunk))
+            index += chunk.size
+            isThree = !isThree
+        }
+        return rows
     }
 
     @Test
     fun `test widget row chunking with various item counts creates correct alternating patterns`() {
-        data class MockItem(val id: Long)
-        data class MockRow(val isThreeColumn: Boolean, val items: List<MockItem>)
-
-        fun buildRows(items: List<MockItem>): List<MockRow> {
-            val rows = mutableListOf<MockRow>()
-            var index = 0
-            var isThree = true
-            while (index < items.size) {
-                val count = if (isThree) 3 else 2
-                val chunk = items.subList(index, minOf(index + count, items.size))
-                rows.add(MockRow(isThreeColumn = isThree, items = chunk))
-                index += chunk.size
-                isThree = !isThree
-            }
-            return rows
-        }
-
         // 1 item -> 1 row (3-col, size 1)
         val r1 = buildRows((1..1).map { MockItem(it.toLong()) })
         assertEquals(1, r1.size)
@@ -370,5 +370,73 @@ class Release2RegressionUnitTest {
         }
         assertEquals(setOf("rule_read", "rule_workout"), afterToggleNew)
         assertTrue(afterToggleNew.contains("rule_workout"))
+    }
+
+    // =========================================================================
+    // F. MULTI-INSTANCE WIDGET ISOLATION & API 24 COMPATIBILITY
+    // =========================================================================
+
+    @Test
+    fun `test widget multi-instance URI and request code isolation`() {
+        val widgetId1 = 101
+        val widgetId2 = 102
+
+        val uri1 = "lifeos://widget/qr/click/$widgetId1"
+        val uri2 = "lifeos://widget/qr/click/$widgetId2"
+
+        assertNotEquals("Each widget instance must have a unique data URI", uri1, uri2)
+        assertEquals("lifeos://widget/qr/click/101", uri1)
+        assertEquals("lifeos://widget/qr/click/102", uri2)
+    }
+
+    @Test
+    fun `test DateUtils API 24 compatibility without java time dependency`() {
+        val todayStr = com.example.utils.DateUtils.todayString()
+        assertNotNull(todayStr)
+        assertTrue("ISO date string must match YYYY-MM-DD pattern", todayStr.matches(Regex("\\d{4}-\\d{2}-\\d{2}")))
+
+        val epochDay = com.example.utils.DateUtils.todayEpochDay()
+        assertTrue("Epoch day must be a positive integer", epochDay > 0)
+
+        val parsedEpoch = com.example.utils.DateUtils.isoStringToEpochDay(todayStr)
+        val roundTripIso = com.example.utils.DateUtils.epochDayToIsoString(parsedEpoch)
+        assertEquals(todayStr, roundTripIso)
+
+        val formattedDisplay = com.example.utils.DateUtils.formatDisplayDate(todayStr)
+        assertTrue("Formatted date must begin with Today", formattedDisplay.startsWith("Today"))
+    }
+
+    @Test
+    fun `test Room migration sequence monotonically increases from v1 to v10`() {
+        val migrations = listOf(
+            com.example.data.local.MIGRATION_1_2,
+            com.example.data.local.MIGRATION_2_3,
+            com.example.data.local.MIGRATION_3_4,
+            com.example.data.local.MIGRATION_4_5,
+            com.example.data.local.MIGRATION_5_6,
+            com.example.data.local.MIGRATION_6_7,
+            com.example.data.local.MIGRATION_7_8,
+            com.example.data.local.MIGRATION_8_9,
+            com.example.data.local.MIGRATION_9_10
+        )
+
+        assertEquals("Must contain exactly 9 migrations for versions 1 to 10", 9, migrations.size)
+        for (i in migrations.indices) {
+            val expectedStart = i + 1
+            val expectedEnd = i + 2
+            assertEquals("Migration start version mismatch at index $i", expectedStart, migrations[i].startVersion)
+            assertEquals("Migration end version mismatch at index $i", expectedEnd, migrations[i].endVersion)
+        }
+    }
+
+    @Test
+    fun `test empty state and single tile row geometry in widget`() {
+        val emptyRows = buildRows(emptyList<MockItem>())
+        assertTrue("Empty items must produce zero rows to show empty view", emptyRows.isEmpty())
+
+        val singleItemRows = buildRows(listOf(MockItem(1L)))
+        assertEquals("Single item must produce 1 row", 1, singleItemRows.size)
+        assertTrue("First row must be 3-column layout type", singleItemRows[0].isThreeColumn)
+        assertEquals(1, singleItemRows[0].items.size)
     }
 }

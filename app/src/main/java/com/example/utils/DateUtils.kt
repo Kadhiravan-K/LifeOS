@@ -4,6 +4,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Robust date and calendar utilities compatible with all Android API levels.
@@ -22,22 +23,27 @@ object DateUtils {
         return minutesToTime(getCurrentMinuteOfDay())
     }
 
+    private val utcIsoFormat: SimpleDateFormat
+        get() = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+
     fun todayEpochDay(): Long {
-        return System.currentTimeMillis() / (1000L * 60 * 60 * 24)
+        return isoStringToEpochDay(todayString())
     }
 
     fun epochDayToIsoString(epochDay: Long): String {
-        val calendar = Calendar.getInstance()
+        val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         calendar.timeInMillis = epochDay * (1000L * 60 * 60 * 24)
-        return isoFormat.format(calendar.time)
+        return utcIsoFormat.format(calendar.time)
     }
 
     fun isoStringToEpochDay(isoDate: String): Long {
         return try {
-            val date = isoFormat.parse(isoDate) ?: Date()
+            val date = utcIsoFormat.parse(isoDate) ?: Date()
             date.time / (1000L * 60 * 60 * 24)
         } catch (e: Exception) {
-            todayEpochDay()
+            System.currentTimeMillis() / (1000L * 60 * 60 * 24)
         }
     }
 
