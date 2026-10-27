@@ -109,9 +109,9 @@ Result: **111 tests passed, 0 failed, 0 errors, 0 skipped** across 8 test classe
 
 ### Release APK (Unsigned Candidate)
 - **Path:** `app/build/outputs/apk/release/app-release-unsigned.apk`
-- **Size:** 13,272,778 bytes (~12.66 MB)
-- **SHA-256:** `AE2BE81031A77A61414530A04F8DDD1DD6D4C6B53DD98E5640673D31B97C2D0B`
-- **Status:** Built and verified.
+- **Size:** 13,420,350 bytes (~12.80 MB)
+- **SHA-256:** `5211377E6F14EB8FA3FD46349017EB576D0E56443271AEC6647A9ADC3A20D4E3`
+- **Status:** Built and verified with L8 core library desugaring and lintVitalRelease PASS.
 
 ### Security & Signing Gate Audit
 - **Signing Keystores:** Zero private keystores or signing passwords exist in Git.
