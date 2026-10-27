@@ -38,13 +38,14 @@ object RecurrenceEngine {
         }
 
         // 5. If target date is past the optional recurrence end date
-        if (task.recurrenceEndCondition == "ON_DATE" || task.recurrenceEndDateIso != null) {
-            if (task.recurrenceEndDateIso != null && targetDateIso > task.recurrenceEndDateIso) {
+        if (task.recurrenceEndCondition == "ON_DATE" && !task.recurrenceEndDateIso.isNullOrBlank()) {
+            if (targetDateIso > task.recurrenceEndDateIso) {
                 return false
             }
         }
 
-        val daysDiff = DateUtils.daysBetween(task.dueDateIso, targetDateIso)
+        val startIso = if (task.dueDateIso.isNotBlank()) task.dueDateIso else DateUtils.todayString()
+        val daysDiff = DateUtils.daysBetween(startIso, targetDateIso)
         if (daysDiff < 0) {
             // Task has not started yet
             return false
@@ -170,9 +171,10 @@ object RecurrenceEngine {
      */
     private fun countOccurrencesUpTo(task: TaskItem, targetDateIso: String): Int {
         var count = 0
-        val maxDays = minOf(1460, DateUtils.daysBetween(task.dueDateIso, targetDateIso))
+        val startIso = if (task.dueDateIso.isNotBlank()) task.dueDateIso else DateUtils.todayString()
+        val maxDays = minOf(1460, DateUtils.daysBetween(startIso, targetDateIso))
         for (i in 0..maxDays) {
-            val date = DateUtils.addDays(task.dueDateIso, i)
+            val date = DateUtils.addDays(startIso, i)
             if (matchesBasePattern(task, date, i)) {
                 count++
                 if (date == targetDateIso) return count

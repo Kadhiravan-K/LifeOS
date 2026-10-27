@@ -162,3 +162,25 @@ All physical device checks remain **PENDING** until verified on physical Android
 - `./gradlew assembleDebug assembleRelease --no-configuration-cache`: **SUCCESS**
   - `app-debug.apk`: 22,353,674 bytes, SHA-256: `208A5ECB9A5DD8B8DEF61448A571D548A3A86CC51EC9164B0F6A65A5B2AAB8AB`
   - `app-release-unsigned.apk`: 13,649,726 bytes, SHA-256: `87FC8E2FBDD9590A0EB9C339933A79AEEBED7B4E7BA83BADD8AE4E2DF79C23F6`
+
+---
+
+## 7. Mobile Testing Batch 02 — Tasks & Calendar Results
+
+### Defect Resolution Summary
+
+| Issue | Title | Root Cause | Fix Implemented | Automated Tests | Physical Device Status |
+|---|---|---|---|---|---|
+| **TASK-01** | Header Select Not Working | `_isSelectionMode` and `_selectedTaskIds` were accessed via static `.value` snapshots inside `filterParamsFlow` instead of being reactive flow inputs in `combine(...)`. Emitting selection mode changes never triggered emission of `tasksUiState`, leaving the UI frozen until a filter or search field was interacted with. | Reactively combined `_isSelectionMode` and `_selectedTaskIds` into `filterParamsFlow`, immediately propagating selection state updates to `tasksUiState` and `TasksScreen`. Header Select activates selection mode instantly and operates completely independently from Filter. | **PASS** (`Batch02TasksCalendarRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **TASK-02** | Task Checkboxes Stop Responding | Lack of reactive upstream emission from `_selectedTaskIds` in `filterParamsFlow` caused Compose to miss state updates when individual checkboxes were tapped. Tapping checkboxes or scrolling recycled item cards re-read stale StateFlow values. | Updated `filterParamsFlow` to emit immediately on `_selectedTaskIds` mutation; made `toggleTaskSelection` produce immutable set copies; enhanced `selectAllFilteredTasks` to toggle between Select All and Deselect All; ensured `clearSelection` resets cleanly across navigation and bulk operations. | **PASS** (`Batch02TasksCalendarRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **CAL-01** | Missing Recurring Task Dots | `RecurrenceEngine.isTaskScheduledOnDate` improperly enforced `recurrenceEndDateIso` even when `endCondition` was not `"ON_DATE"`, and empty string end dates caused false cutoff. Furthermore, `CalendarScreen` read `tasksUiState.allTasks` rather than observing `allTasks` directly, and `ThreeDayGridView` and `AgendaView` filtered strictly on `dueDateIso == dateIso` instead of evaluating recurrence rules. In addition, date navigation lacked synchronized year/month updates in `selectCalendarDate`. | Fixed `RecurrenceEngine` to enforce recurrence end dates strictly when `endCondition == "ON_DATE"` and non-blank; defaulted blank start dates to `todayString()`; directly bound `CalendarScreen` to `allTasks` StateFlow; integrated full recurrence scheduling and completion evaluation across Month, Week, 3-Day Grid, and Agenda views; synchronized `_calendarYear` and `_calendarMonth` on date jumps and month/week navigation. | **PASS** (`Batch02TasksCalendarRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+
+### Automated Pipeline Verification
+- `./gradlew compileDebugKotlin --no-configuration-cache`: **SUCCESS**
+- `./gradlew testDebugUnitTest --no-configuration-cache`: **SUCCESS** (161/161 tests passed, 0 failures)
+- `./gradlew compileDebugAndroidTestKotlin --no-configuration-cache`: **SUCCESS**
+- `./gradlew lintDebug lintVitalRelease --no-configuration-cache`: **SUCCESS** (0 errors)
+- `./gradlew assembleDebug assembleRelease --no-configuration-cache`: **SUCCESS**
+  - `app-debug.apk`: 22,354,424 bytes, SHA-256: `22638365849A6FF155031F36069A78B84E456D5173010B2FD136F5DC41984D12`
+  - `app-release-unsigned.apk`: 13,649,726 bytes, SHA-256: `1C63C407C016671081DDD23D4BB4F3EFB716B0075F76033243AC834BFA11A79F`
+

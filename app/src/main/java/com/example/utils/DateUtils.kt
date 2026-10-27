@@ -140,9 +140,8 @@ object DateUtils {
 
     fun getYear(isoDate: String): Int {
         return try {
-            val date = isoFormat.parse(isoDate) ?: Date()
-            val cal = Calendar.getInstance().apply { time = date }
-            cal.get(Calendar.YEAR)
+            val parts = isoDate.trim().split("-")
+            if (parts.isNotEmpty()) parts[0].toInt() else 2026
         } catch (e: Exception) {
             2026
         }
@@ -150,9 +149,8 @@ object DateUtils {
 
     fun getMonthZeroIndexed(isoDate: String): Int {
         return try {
-            val date = isoFormat.parse(isoDate) ?: Date()
-            val cal = Calendar.getInstance().apply { time = date }
-            cal.get(Calendar.MONTH)
+            val parts = isoDate.trim().split("-")
+            if (parts.size >= 2) parts[1].toInt() - 1 else 0
         } catch (e: Exception) {
             0
         }
@@ -160,9 +158,8 @@ object DateUtils {
 
     fun getDayOfMonth(isoDate: String): Int {
         return try {
-            val date = isoFormat.parse(isoDate) ?: Date()
-            val cal = Calendar.getInstance().apply { time = date }
-            cal.get(Calendar.DAY_OF_MONTH)
+            val parts = isoDate.trim().split("-")
+            if (parts.size >= 3) parts[2].toInt() else 1
         } catch (e: Exception) {
             1
         }

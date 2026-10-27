@@ -251,8 +251,10 @@ fun TasksScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
+                        val allFilteredSelected = uiState.filteredTasks.isNotEmpty() &&
+                            uiState.filteredTasks.all { uiState.selectedTaskIds.contains(it.id) }
                         TextButton(onClick = { viewModel.selectAllFilteredTasks() }) {
-                            Text("Select All", fontSize = 12.sp)
+                            Text(if (allFilteredSelected) "Deselect All" else "Select All", fontSize = 12.sp)
                         }
                         Row {
                             IconButton(

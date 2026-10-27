@@ -110,13 +110,16 @@ fun CalendarScreen(
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
 
     val tasksUiState by viewModel.tasksUiState.collectAsStateWithLifecycle()
+    val allTasksList by viewModel.allTasks.collectAsStateWithLifecycle()
     val projects = tasksUiState.projects
     val labels = tasksUiState.labels
-    val visibleDates = remember(uiState.monthGridDates, uiState.weekDates) {
-        (uiState.monthGridDates + uiState.weekDates).toSet()
+    val visibleDates = remember(uiState.monthGridDates, uiState.weekDates, uiState.threeDayDates, uiState.selectedDateIso) {
+        (uiState.monthGridDates + uiState.weekDates + uiState.threeDayDates + listOf(uiState.selectedDateIso))
+            .filter { it.isNotBlank() }
+            .toSet()
     }
-    val datesWithTasks = remember(tasksUiState.allTasks, visibleDates) {
-        val activeTasks = tasksUiState.allTasks.filter { !it.isArchived }
+    val datesWithTasks = remember(allTasksList, visibleDates) {
+        val activeTasks = allTasksList.filter { !it.isArchived }
         visibleDates.filter { dateIso ->
             activeTasks.any { task ->
                 RecurrenceEngine.isTaskScheduledOnDate(task, dateIso) &&
@@ -633,7 +636,7 @@ fun ThreeDayGridView(
             .verticalScroll(scrollState)
     ) {
         dates.forEach { dateIso ->
-            val tasksOnDay = tasks.filter { it.dueDateIso == dateIso }
+            val tasksOnDay = tasks.filter { RecurrenceEngine.isTaskScheduledOnDate(it, dateIso) }
             Card(
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -878,11 +881,24 @@ fun AgendaView(
     onTaskClick: (TaskItem) -> Unit,
     onToggleTask: (TaskItem, String) -> Unit
 ) {
-    val sortedTasks = remember(tasks) {
-        tasks.sortedWith(compareBy({ it.dueDateIso }, { it.dueTime ?: "99:99" }))
+    val upcomingDays = remember(today) {
+        (0..14).map { DateUtils.addDays(today, it) }
+    }
+    val agendaEntries = remember(tasks, upcomingDays) {
+        val activeTasks = tasks.filter { !it.isArchived }
+        val entries = mutableListOf<Pair<String, TaskItem>>()
+        upcomingDays.forEach { dateIso ->
+            activeTasks.forEach { task ->
+                if (RecurrenceEngine.isTaskScheduledOnDate(task, dateIso)) {
+                    val isDone = RecurrenceEngine.isCompletedOnDate(task, dateIso)
+                    entries.add(Pair(dateIso, task.copy(isCompletedForDate = isDone)))
+                }
+            }
+        }
+        entries.sortedWith(compareBy({ it.first }, { it.second.dueTime ?: "99:99" }))
     }
 
-    if (sortedTasks.isEmpty()) {
+    if (agendaEntries.isEmpty()) {
         EmptyStateCard(
             emoji = "📅",
             title = "No Upcoming Tasks",
@@ -893,7 +909,7 @@ fun AgendaView(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            val grouped = sortedTasks.groupBy { it.dueDateIso }
+            val grouped = agendaEntries.groupBy { it.first }
             grouped.forEach { (dateIso, itemsOnDate) ->
                 item {
                     val label = when (dateIso) {
@@ -909,7 +925,7 @@ fun AgendaView(
                         modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                     )
                 }
-                items(itemsOnDate, key = { "agenda_${it.id}" }) { task ->
+                items(itemsOnDate, key = { "agenda_${it.first}_${it.second.id}" }) { (_, task) ->
                     TaskCard(
                         task = task,
                         onToggleComplete = { onToggleTask(task, dateIso) },

@@ -1,6 +1,7 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
+import java.util.Locale
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -808,9 +809,10 @@ class LifeViewModel(
 
     private val filterParamsFlow = combine(
         combine(_taskFilter, _taskCategoryFilter, _taskProjectIdFilter) { f, c, p -> Triple(f, c, p) },
-        combine(_taskLabelIdFilter, _taskSearchQuery, _taskSort) { l, q, s -> Triple(l, q, s) }
-    ) { (f, c, p), (l, q, s) ->
-        TaskFilterParams(f, c, p, l, q, s, _isSelectionMode.value, _selectedTaskIds.value)
+        combine(_taskLabelIdFilter, _taskSearchQuery, _taskSort) { l, q, s -> Triple(l, q, s) },
+        combine(_isSelectionMode, _selectedTaskIds) { isSel, selIds -> Pair(isSel, selIds) }
+    ) { (f, c, p), (l, q, s), (isSel, selIds) ->
+        TaskFilterParams(f, c, p, l, q, s, isSel, selIds)
     }
 
     // --- Dashboard UI State ---
@@ -1318,15 +1320,20 @@ class LifeViewModel(
         } else {
             current.add(taskId)
         }
-        _selectedTaskIds.value = current
+        _selectedTaskIds.value = current.toSet()
         if (current.isNotEmpty() && !_isSelectionMode.value) {
             _isSelectionMode.value = true
         }
     }
 
     fun selectAllFilteredTasks() {
-        _selectedTaskIds.value = tasksUiState.value.filteredTasks.map { it.id }.toSet()
-        _isSelectionMode.value = true
+        val currentFilteredIds = tasksUiState.value.filteredTasks.map { it.id }.toSet()
+        if (currentFilteredIds.isNotEmpty() && _selectedTaskIds.value.containsAll(currentFilteredIds)) {
+            _selectedTaskIds.value = emptySet()
+        } else {
+            _selectedTaskIds.value = currentFilteredIds
+            _isSelectionMode.value = true
+        }
     }
 
     fun clearSelection() {
@@ -1358,6 +1365,8 @@ class LifeViewModel(
     // --- Calendar Actions ---
     fun selectCalendarDate(dateIso: String) {
         _calendarSelectedDate.value = dateIso
+        _calendarYear.value = DateUtils.getYear(dateIso)
+        _calendarMonth.value = DateUtils.getMonthZeroIndexed(dateIso)
     }
 
     fun previousCalendarMonth() {
@@ -1369,6 +1378,8 @@ class LifeViewModel(
         }
         _calendarMonth.value = m
         _calendarYear.value = y
+        val currentDay = DateUtils.getDayOfMonth(_calendarSelectedDate.value).coerceAtMost(DateUtils.getDaysInMonth(y, m))
+        _calendarSelectedDate.value = String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, currentDay)
     }
 
     fun nextCalendarMonth() {
@@ -1380,6 +1391,8 @@ class LifeViewModel(
         }
         _calendarMonth.value = m
         _calendarYear.value = y
+        val currentDay = DateUtils.getDayOfMonth(_calendarSelectedDate.value).coerceAtMost(DateUtils.getDaysInMonth(y, m))
+        _calendarSelectedDate.value = String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, currentDay)
     }
 
     fun setCalendarViewMode(mode: String) {
