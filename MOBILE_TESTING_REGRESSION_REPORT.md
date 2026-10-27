@@ -71,7 +71,7 @@ The complete unit test suite was executed via `./gradlew testDebugUnitTest --no-
 - **Release APK (Unsigned Production Candidate):**
   - **Path:** `app/build/outputs/apk/release/app-release-unsigned.apk`
   - **File Size:** 15,018,660 bytes (~14.32 MB)
-  - **SHA-256 Checksum:** `2C4AAC35E8BA121A2814D61F3D868B3C809660D6926D81A1AF5BFD47D9C7AF12`
+  - **SHA-256 Checksum:** `851B138BBCBDB3061DAAC04992D6B1F627C18C1B0F70924234477E1DC3FB7306`
 
 All physical device checks remain **PENDING** until verified on physical Android hardware (API 24 to 36).
 
@@ -213,7 +213,7 @@ All physical device checks remain **PENDING** until verified on physical Android
 - `./gradlew lintDebug lintVitalRelease --no-configuration-cache`: **SUCCESS** (0 errors)
 - `./gradlew assembleDebug assembleRelease --no-configuration-cache`: **SUCCESS**
   - `app-debug.apk`: 23,273,470 bytes, SHA-256: `BA65104A7AA58BC8D5721706C648090BB0F3490A8F9675C719CD1143A526FD49`
-  - `app-release-unsigned.apk`: 15,018,660 bytes, SHA-256: `2C4AAC35E8BA121A2814D61F3D868B3C809660D6926D81A1AF5BFD47D9C7AF12`
+  - `app-release-unsigned.apk`: 15,018,660 bytes, SHA-256: `851B138BBCBDB3061DAAC04992D6B1F627C18C1B0F70924234477E1DC3FB7306`
 
 ---
 
@@ -234,6 +234,6 @@ All physical device checks remain **PENDING** until verified on physical Android
 - `./gradlew lintDebug lintVitalRelease --no-configuration-cache`: **SUCCESS** (0 errors)
 - `./gradlew assembleDebug assembleRelease --no-configuration-cache`: **SUCCESS**
   - `app-debug.apk`: 23,273,470 bytes, SHA-256: `BA65104A7AA58BC8D5721706C648090BB0F3490A8F9675C719CD1143A526FD49`
-  - `app-release-unsigned.apk`: 15,018,660 bytes, SHA-256: `2C4AAC35E8BA121A2814D61F3D868B3C809660D6926D81A1AF5BFD47D9C7AF12`
+  - `app-release-unsigned.apk`: 15,018,660 bytes, SHA-256: `851B138BBCBDB3061DAAC04992D6B1F627C18C1B0F70924234477E1DC3FB7306`
 
 

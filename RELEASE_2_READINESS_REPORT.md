@@ -116,7 +116,7 @@ Result: **172 tests passed, 0 failed, 0 errors, 0 skipped** across 14 test class
 ### Release APK (Unsigned Candidate)
 - **Path:** `app/build/outputs/apk/release/app-release-unsigned.apk`
 - **Size:** 15,018,660 bytes (~14.32 MB)
-- **SHA-256:** `2C4AAC35E8BA121A2814D61F3D868B3C809660D6926D81A1AF5BFD47D9C7AF12`
+- **SHA-256:** `851B138BBCBDB3061DAAC04992D6B1F627C18C1B0F70924234477E1DC3FB7306`
 - **Status:** Built and verified with L8 core library desugaring and lintVitalRelease PASS.
 
 ### Security & Signing Gate Audit
@@ -230,6 +230,6 @@ The following tests are marked **PENDING** awaiting physical Android hardware ve
 | **4. Database & User Data** | Room schema continuity and preservation of existing user data across upgrades. | **PASS** | Schema v10 with migrations 1->2 through 9->10 verified via `RoomMigrationRobolectricUnitTest`. Existing user databases preserved without data wipe. |
 | **5. Widgets & Reminders** | Launcher Quick Reminders widget geometry, tap dispatch, and alarm notifications. | **PASS (Automated)** / **PENDING (Physical)** | Axial hex math, row staggering, and PendingIntent isolation verified via unit tests; physical launcher rendering awaits hardware check. |
 | **6. Versioning & Signing** | Application ID, version codes, and keystore security preserved. | **PASS** | `versionCode = 2`, `versionName = "1.1.0"`, package `com.aistudio.lifeos.vtrqkx`. Private keystores strictly withheld from Git. Release built in unsigned format. |
-| **7. Release Notes & Checksums** | Release notes prepared with verified SHA-256 build checksums. | **PASS** | Debug APK: `BA65104A...` (23.27 MB), Release APK: `2C4AAC35...` (15.02 MB). Comprehensive release notes documented. |
+| **7. Release Notes & Checksums** | Release notes prepared with verified SHA-256 build checksums. | **PASS** | Debug APK: `BA65104A...` (23.27 MB), Release APK: `851B138B...` (15.02 MB). Comprehensive release notes documented. |
 | **OVERALL RECOMMENDATION** | Final approval to merge, tag, and publish LifeOS Version 2. | **NO-GO (HOLD)** | Codebase and automated pipeline are 100% verified. Publication held pending physical device acceptance and explicit user authorization. |
 
