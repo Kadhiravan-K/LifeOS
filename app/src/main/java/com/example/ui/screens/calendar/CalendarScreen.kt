@@ -20,6 +20,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import com.example.ui.components.TaskGridCard
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -101,6 +111,12 @@ fun CalendarScreen(
     val tasksUiState by viewModel.tasksUiState.collectAsStateWithLifecycle()
     val projects = tasksUiState.projects
     val labels = tasksUiState.labels
+    val datesWithTasks = remember(tasksUiState.allTasks) {
+        tasksUiState.allTasks
+            .filter { !it.isCompletedForDate && !it.isOneTimeCompleted && !it.isArchived && it.dueDateIso.isNotBlank() }
+            .map { it.dueDateIso }
+            .toSet()
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -300,6 +316,7 @@ fun CalendarScreen(
                         weekDates = uiState.weekDates,
                         selectedDate = uiState.selectedDateIso,
                         today = todayStr,
+                        datesWithTasks = datesWithTasks,
                         onSelectDate = { viewModel.selectCalendarDate(it) }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -337,6 +354,7 @@ fun CalendarScreen(
                             selectedDate = uiState.selectedDateIso,
                             today = todayStr,
                             monthIndex = uiState.currentMonthZeroIndexed,
+                            datesWithTasks = datesWithTasks,
                             onSelectDate = { viewModel.selectCalendarDate(it) }
                         )
                     } else {
@@ -344,6 +362,7 @@ fun CalendarScreen(
                             weekDates = uiState.weekDates,
                             selectedDate = uiState.selectedDateIso,
                             today = todayStr,
+                            datesWithTasks = datesWithTasks,
                             onSelectDate = { viewModel.selectCalendarDate(it) }
                         )
                     }
@@ -682,6 +701,7 @@ fun WeekStripView(
     weekDates: List<String>,
     selectedDate: String,
     today: String,
+    datesWithTasks: Set<String> = emptySet(),
     onSelectDate: (String) -> Unit
 ) {
     Card(
@@ -734,6 +754,15 @@ fun WeekStripView(
                             fontWeight = FontWeight.ExtraBold,
                             color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                         )
+                        if (datesWithTasks.contains(dateIso)) {
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(4.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary)
+                            )
+                        }
                     }
                 }
             }
@@ -751,6 +780,7 @@ fun MonthGridView(
     selectedDate: String,
     today: String,
     monthIndex: Int,
+    datesWithTasks: Set<String> = emptySet(),
     onSelectDate: (String) -> Unit
 ) {
     Card(
@@ -799,17 +829,31 @@ fun MonthGridView(
                             )
                             .clickable { onSelectDate(dateIso) }
                     ) {
-                        Text(
-                            text = dayNum.toIntOrNull()?.toString() ?: dayNum,
-                            fontSize = 12.sp,
-                            fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
-                            color = when {
-                                isSelected -> MaterialTheme.colorScheme.onPrimary
-                                isToday -> MaterialTheme.colorScheme.onPrimaryContainer
-                                !isCurrentMonth -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-                                else -> MaterialTheme.colorScheme.onSurface
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = dayNum.toIntOrNull()?.toString() ?: dayNum,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
+                                color = when {
+                                    isSelected -> MaterialTheme.colorScheme.onPrimary
+                                    isToday -> MaterialTheme.colorScheme.onPrimaryContainer
+                                    !isCurrentMonth -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                }
+                            )
+                            if (datesWithTasks.contains(dateIso)) {
+                                Spacer(modifier = Modifier.height(1.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(4.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary)
+                                )
                             }
-                        )
+                        }
                     }
                 }
             }

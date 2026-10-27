@@ -168,19 +168,21 @@ fun TaskCard(
     var expandedSubtasks by remember { mutableStateOf(false) }
     var showOptionsMenu by remember { mutableStateOf(false) }
 
+    val isTaskDone = task.isCompletedForDate || task.isOneTimeCompleted
+
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = when {
                 isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-                task.isCompletedForDate -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                isTaskDone -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                 else -> MaterialTheme.colorScheme.surface
             }
         ),
         border = if (isSelected)
             androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
         else null,
-        elevation = CardDefaults.cardElevation(defaultElevation = if (task.isCompletedForDate) 0.dp else 1.5.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isTaskDone) 0.dp else 1.5.dp),
         modifier = modifier
             .fillMaxWidth()
             .testTag("task_card_${task.id}")
@@ -223,9 +225,9 @@ fun TaskCard(
                             text = task.title,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.SemiBold,
-                                textDecoration = if (task.isCompletedForDate) TextDecoration.LineThrough else null
+                                textDecoration = if (isTaskDone) TextDecoration.LineThrough else null
                             ),
-                            color = if (task.isCompletedForDate)
+                            color = if (isTaskDone)
                                 MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                             else
                                 MaterialTheme.colorScheme.onSurface,
@@ -387,7 +389,7 @@ fun TaskCard(
                 if (!isSelectionMode) {
                     val priorityColor = task.priority.composeColor
                     TaskCompletionCircle(
-                        isCompleted = task.isCompletedForDate,
+                        isCompleted = isTaskDone,
                         onToggle = onToggleComplete,
                         activeColor = MaterialTheme.colorScheme.primary,
                         borderColor = priorityColor,
@@ -580,6 +582,157 @@ fun TaskCard(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Compact grid card for 2-column task layout.
+ */
+@Composable
+fun TaskGridCard(
+    task: TaskItem,
+    onToggleComplete: () -> Unit,
+    onEdit: () -> Unit,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onSelectToggle: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    val isTaskDone = task.isCompletedForDate || task.isOneTimeCompleted
+    val priorityColor = task.priority.composeColor
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = when {
+                isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                isTaskDone -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                else -> MaterialTheme.colorScheme.surface
+            }
+        ),
+        border = if (isSelected)
+            androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        else null,
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isTaskDone) 0.dp else 1.5.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("task_grid_card_${task.id}")
+            .clickable {
+                if (isSelectionMode && onSelectToggle != null) {
+                    onSelectToggle()
+                } else {
+                    onEdit()
+                }
+            }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            // Top Row: Emoji / Selection checkbox + Priority + Completion Checkbox
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isSelectionMode && onSelectToggle != null) {
+                        Checkbox(
+                            checked = isSelected,
+                            onCheckedChange = { onSelectToggle() },
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                    } else if (task.emoji.isNotBlank()) {
+                        Text(text = task.emoji, fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                    PriorityBadge(task.priority)
+                }
+
+                if (!isSelectionMode) {
+                    TaskCompletionCircle(
+                        isCompleted = isTaskDone,
+                        onToggle = onToggleComplete,
+                        activeColor = MaterialTheme.colorScheme.primary,
+                        borderColor = priorityColor,
+                        isAnimationEnabled = true,
+                        size = 22.dp,
+                        modifier = Modifier.testTag("task_grid_checkbox_${task.id}")
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Title
+            Text(
+                text = task.title,
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    textDecoration = if (isTaskDone) TextDecoration.LineThrough else null
+                ),
+                color = if (isTaskDone)
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                else
+                    MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            if (task.description.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = task.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 11.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Date / Time / Recurrence / Project Tag
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (task.dueTime != null) {
+                    Text(
+                        text = "⏰ ${task.dueTime}",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else if (task.dueDateIso.isNotBlank()) {
+                    Text(
+                        text = "📅 ${task.dueDateIso.takeLast(5)}",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (task.recurrenceType != RecurrenceType.NONE) {
+                    Text(
+                        text = "🔄",
+                        fontSize = 10.sp
+                    )
+                }
+
+                if (!task.projectName.isNullOrBlank()) {
+                    Text(
+                        text = "📁 ${task.projectName}",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }

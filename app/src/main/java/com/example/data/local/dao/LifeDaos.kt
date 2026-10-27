@@ -125,6 +125,9 @@ interface HoneycombShortcutDao {
     @Query("UPDATE honeycomb_shortcuts SET shape = :shape WHERE id = :id")
     suspend fun updateShape(id: Long, shape: String)
 
+    @Query("UPDATE honeycomb_shortcuts SET shape = :shape")
+    suspend fun updateAllShapes(shape: String)
+
     @Query("UPDATE honeycomb_shortcuts SET customColorHex = :customColorHex, colorSource = :colorSource WHERE id = :id")
     suspend fun updateColorSource(id: Long, customColorHex: Long?, colorSource: String)
 

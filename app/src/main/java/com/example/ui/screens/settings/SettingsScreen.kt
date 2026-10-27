@@ -3,6 +3,15 @@ package com.example.ui.screens.settings
 import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -90,6 +99,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
@@ -204,6 +214,8 @@ fun SettingsScreen(
     val installedTemplates by viewModel.installedTemplateIds.collectAsStateWithLifecycle()
     val defaultReminderBehavior by viewModel.defaultReminderBehavior.collectAsStateWithLifecycle()
     val activeThemeDef by viewModel.activeThemeDefinition.collectAsStateWithLifecycle()
+    val completionSoundType by viewModel.completionSoundTypeFlow.collectAsStateWithLifecycle()
+    val trashRetentionDays by viewModel.trashRetentionDaysFlow.collectAsStateWithLifecycle()
 
     // Smart Alerts & Notifications flows
     val notifMedicine by viewModel.notifMedicineEnabled.collectAsStateWithLifecycle()
@@ -405,6 +417,38 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
+                // QR Shortcut Tile Shapes (Global)
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Quick Reminders (QR) Shape", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text(
+                            text = "Choose the shape applied across all Quick Reminder tiles",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(
+                                com.example.domain.model.DashboardShape.HEXAGON to "⬡ Hexagon",
+                                com.example.domain.model.DashboardShape.CIRCLE to "● Circle",
+                                com.example.domain.model.DashboardShape.SQUARE to "■ Square"
+                            ).forEach { (shape, label) ->
+                                FilterChip(
+                                    selected = appearance.shape == shape,
+                                    onClick = { viewModel.setGlobalQrShape(shape) },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
                 // Honeycomb Visual Styling
                 Card(
                     shape = RoundedCornerShape(16.dp),
@@ -443,10 +487,105 @@ fun SettingsScreen(
         }
 
         SettingsSubpage.NOTIFICATIONS -> {
+            val soundLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.GetContent()
+            ) { uri ->
+                if (uri != null) {
+                    viewModel.importCustomSound(uri)
+                }
+            }
+
             SettingsSubpageScaffold(
                 title = "Notifications & Smart Alerts",
                 onBack = { currentSubpage = SettingsSubpage.HUB }
             ) {
+                // Task Completion Sounds Card
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Task Completion Sound", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text("Audio effect played on completing tasks & habits", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(
+                                checked = completionSound,
+                                onCheckedChange = { viewModel.setCompletionSoundEnabled(it) }
+                            )
+                        }
+
+                        if (completionSound) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("Completion Sound Effect", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            val availableSounds = listOf(
+                                FeedbackSoundType.TASK to "Default Chime",
+                                FeedbackSoundType.BELL to "Tibetan Bell",
+                                FeedbackSoundType.POP to "Crisp Pop",
+                                FeedbackSoundType.RETRO to "8-Bit Retro",
+                                FeedbackSoundType.SUCCESS to "Victory Marimba",
+                                FeedbackSoundType.HARP to "Celestial Harp",
+                                FeedbackSoundType.HABIT to "Habit Bell",
+                                FeedbackSoundType.WATER to "Water Drop",
+                                FeedbackSoundType.MILESTONE to "Milestone",
+                                FeedbackSoundType.LEVEL_UP to "Level Up",
+                                FeedbackSoundType.ALL_DONE to "All Done",
+                                FeedbackSoundType.CUSTOM to "Custom Audio File"
+                            )
+
+                            @OptIn(ExperimentalLayoutApi::class)
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                availableSounds.forEach { (sndType, label) ->
+                                    val isSelected = completionSoundType == sndType
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            viewModel.setCompletionSoundType(sndType)
+                                            viewModel.playPreviewSound(sndType)
+                                        },
+                                        label = { Text(label, fontSize = 12.sp) },
+                                        trailingIcon = {
+                                            IconButton(
+                                                onClick = { viewModel.playPreviewSound(sndType) },
+                                                modifier = Modifier.size(20.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.PlayArrow,
+                                                    contentDescription = "Preview sound",
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+                            OutlinedButton(
+                                onClick = { soundLauncher.launch("audio/*") },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Import Custom Sound (.wav, .mp3, .ogg)")
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
                 // Master Permission Card
                 Card(
                     shape = RoundedCornerShape(16.dp),
@@ -749,6 +888,34 @@ fun SettingsScreen(
                             text = "Restore accidentally deleted tasks or permanently purge old items.",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text("Auto-delete retention period", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(7, 14, 30, 60, 90).forEach { days ->
+                                FilterChip(
+                                    selected = trashRetentionDays == days,
+                                    onClick = { viewModel.setTrashRetentionDays(days) },
+                                    label = { Text(" d") }
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        var customRetentionText by remember { mutableStateOf(trashRetentionDays.toString()) }
+                        OutlinedTextField(
+                            value = customRetentionText,
+                            onValueChange = { input ->
+                                val digits = input.filter { it.isDigit() }.take(3)
+                                customRetentionText = digits
+                                val d = digits.toIntOrNull()
+                                if (d != null && d in 1..365) {
+                                    viewModel.setTrashRetentionDays(d)
+                                }
+                            },
+                            label = { Text("Custom Retention Days (1-365)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         OutlinedButton(onClick = { showTrashBinSheet = true }) {
@@ -1129,6 +1296,72 @@ private fun SettingsHubView(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun SettingsGridNavigationCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    highlighted: Boolean = false
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (highlighted)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .testTag("nav_grid_card_")
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (highlighted) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                        else MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 

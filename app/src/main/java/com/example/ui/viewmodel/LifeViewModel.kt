@@ -481,9 +481,49 @@ class LifeViewModel(
         initialValue = true
     )
 
+    val completionSoundTypeFlow: StateFlow<FeedbackSoundType> = preferences.completionSoundType.map {
+        FeedbackSoundType.fromString(it)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = FeedbackSoundType.TASK
+    )
+
+    val trashRetentionDaysFlow: StateFlow<Int> = preferences.trashRetentionDays.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 30
+    )
+
     fun setCompletionSoundEnabled(enabled: Boolean) = viewModelScope.launch { preferences.setCompletionSoundEnabled(enabled) }
     fun setCompletionVibrationEnabled(enabled: Boolean) = viewModelScope.launch { preferences.setCompletionVibrationEnabled(enabled) }
     fun setCompletionAnimationEnabled(enabled: Boolean) = viewModelScope.launch { preferences.setCompletionAnimationEnabled(enabled) }
+
+    fun setCompletionSoundType(type: FeedbackSoundType) {
+        viewModelScope.launch {
+            preferences.setCompletionSoundType(type.name)
+        }
+    }
+
+    fun playPreviewSound(type: FeedbackSoundType) {
+        com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).playSound(type)
+    }
+
+    fun importCustomSound(uri: android.net.Uri) {
+        viewModelScope.launch {
+            val success = com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).importCustomAudio(uri)
+            if (success) {
+                preferences.setCustomSoundUri(uri.toString())
+                preferences.setCompletionSoundType(FeedbackSoundType.CUSTOM.name)
+            }
+        }
+    }
+
+    fun setTrashRetentionDays(days: Int) {
+        viewModelScope.launch {
+            preferences.setTrashRetentionDays(days.coerceIn(1, 365))
+        }
+    }
 
     // --- Priority 1 (P1) Alarm Preferences ---
     val p1AlarmEnabled: StateFlow<Boolean> = preferences.p1AlarmEnabled.stateIn(
@@ -553,8 +593,9 @@ class LifeViewModel(
 
     val resolvedHoneycombShortcuts: StateFlow<List<HoneycombShortcut>> = combine(
         combine(rawHoneycombShortcuts, todayTasks, allTasks) { raw, today, all -> Triple(raw, today, all) },
-        combine(habits, challengeState, allProjects) { h, c, p -> Triple(h, c, p) }
-    ) { (rawList, todayTaskList, allTaskList), (habitList, challenge, projectList) ->
+        combine(habits, challengeState, allProjects) { h, c, p -> Triple(h, c, p) },
+        combine(todayWaterLog, waterGoalFlow) { w, g -> Pair(w, g) }
+    ) { (rawList, todayTaskList, allTaskList), (habitList, challenge, projectList), (waterLog, waterGoalVal) ->
         val baseList = rawList
 
         // Ensure no overlapping coordinates in the displayed grid
@@ -586,25 +627,26 @@ class LifeViewModel(
             }
         }
 
-        val waterCurrent = todayWaterLog.value.amountMl
-        val waterGoal = waterGoalFlow.value.coerceAtLeast(1000)
+        val waterCurrent = waterLog.amountMl
+        val waterGoal = waterGoalVal.coerceAtLeast(1000)
 
         effectiveList.map { shortcut ->
             when (shortcut.type) {
                 ShortcutType.TASK -> {
-                    val matchedTask = todayTaskList.find {
-                        it.id.toString() == shortcut.targetId ||
-                        it.title.equals(shortcut.targetId, ignoreCase = true) ||
-                        it.title.contains(shortcut.targetId, ignoreCase = true) ||
-                        it.title.equals(shortcut.title, ignoreCase = true) ||
-                        it.title.contains(shortcut.title, ignoreCase = true)
-                    } ?: allTaskList.find {
-                        it.id.toString() == shortcut.targetId ||
-                        it.title.equals(shortcut.targetId, ignoreCase = true) ||
-                        it.title.contains(shortcut.targetId, ignoreCase = true) ||
-                        it.title.equals(shortcut.title, ignoreCase = true) ||
-                        it.title.contains(shortcut.title, ignoreCase = true)
-                    }
+                    val matchedTask = todayTaskList.find { it.id.toString() == shortcut.targetId }
+                        ?: todayTaskList.find { it.title.equals(shortcut.targetId, ignoreCase = true) }
+                        ?: todayTaskList.find { it.title.equals(shortcut.title, ignoreCase = true) }
+                        ?: todayTaskList.find {
+                            val words = it.title.split(Regex("[^A-Za-z0-9]")).filter { w -> w.isNotBlank() }
+                            words.any { w -> w.equals(shortcut.targetId, ignoreCase = true) || w.equals(shortcut.title, ignoreCase = true) }
+                        }
+                        ?: allTaskList.find { it.id.toString() == shortcut.targetId }
+                        ?: allTaskList.find { it.title.equals(shortcut.targetId, ignoreCase = true) }
+                        ?: allTaskList.find { it.title.equals(shortcut.title, ignoreCase = true) }
+                        ?: allTaskList.find {
+                            val words = it.title.split(Regex("[^A-Za-z0-9]")).filter { w -> w.isNotBlank() }
+                            words.any { w -> w.equals(shortcut.targetId, ignoreCase = true) || w.equals(shortcut.title, ignoreCase = true) }
+                        }
                     val isDone = matchedTask != null && (
                         matchedTask.isCompletedForDate ||
                         matchedTask.isOneTimeCompleted ||
@@ -827,8 +869,16 @@ class LifeViewModel(
             params.projectId != null -> fullList.filter { it.projectId == params.projectId && !it.isArchived }
             params.labelId != null -> fullList.filter { it.labels.any { lbl -> lbl.id == params.labelId } && !it.isArchived }
             params.filter == "Inbox" -> fullList.filter { it.projectId == null && !it.isArchived }
-            params.filter == "Today" -> todayList.filter { !it.isArchived }
-            params.filter == "Upcoming" -> fullList.filter { it.dueDateIso > todayIso && !it.isCompletedForDate && !it.isArchived }
+            params.filter == "Today" -> {
+                val overdueIncomplete = fullList.filter {
+                    it.recurrenceType == RecurrenceType.NONE &&
+                    it.dueDateIso < todayIso &&
+                    !it.isOneTimeCompleted &&
+                    !it.isArchived
+                }
+                (todayList.filter { !it.isArchived } + overdueIncomplete).distinctBy { it.id }
+            }
+            params.filter == "Upcoming" -> fullList.filter { it.dueDateIso > todayIso && !it.isCompletedForDate && !it.isOneTimeCompleted && !it.isArchived }
             params.filter == "Completed" -> fullList.filter { (it.isCompletedForDate || it.isOneTimeCompleted) && !it.isArchived }
             params.filter == "Archived" -> fullList.filter { it.isArchived }
             else -> fullList.filter { !it.isArchived }
@@ -847,11 +897,39 @@ class LifeViewModel(
             }
         }
 
-        filtered = when (params.sort) {
-            "Priority" -> filtered.sortedByDescending { it.priority.level }
-            "Due Date" -> filtered.sortedBy { it.dueDateIso }
-            "Title" -> filtered.sortedBy { it.title.lowercase() }
-            else -> filtered
+        filtered = when {
+            params.sort.startsWith("Priority") -> {
+                filtered.sortedWith(
+                    compareBy<TaskItem> { it.isCompletedForDate || it.isOneTimeCompleted }
+                        .thenByDescending { it.priority.level }
+                        .thenBy { if (it.dueDateIso.isBlank()) "9999-99-99" else it.dueDateIso }
+                )
+            }
+            params.sort.startsWith("Due Date") -> {
+                filtered.sortedWith(
+                    compareBy<TaskItem> { it.isCompletedForDate || it.isOneTimeCompleted }
+                        .thenBy { if (it.dueDateIso.isBlank()) "9999-99-99" else it.dueDateIso }
+                        .thenBy { it.dueTime ?: "23:59" }
+                )
+            }
+            params.sort.startsWith("Title") -> {
+                filtered.sortedWith(
+                    compareBy<TaskItem> { it.isCompletedForDate || it.isOneTimeCompleted }
+                        .thenBy { it.title.lowercase() }
+                )
+            }
+            params.sort.startsWith("Created") -> {
+                filtered.sortedWith(
+                    compareBy<TaskItem> { it.isCompletedForDate || it.isOneTimeCompleted }
+                        .thenByDescending { it.createdAt }
+                )
+            }
+            else -> {
+                filtered.sortedWith(
+                    compareBy<TaskItem> { it.isCompletedForDate || it.isOneTimeCompleted }
+                        .thenByDescending { it.priority.level }
+                )
+            }
         }
 
         TasksUiState(
@@ -977,7 +1055,7 @@ class LifeViewModel(
                 com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).triggerCompletionFeedback(
                     soundEnabled = completionSoundEnabled.value,
                     vibrationEnabled = completionVibrationEnabled.value,
-                    soundType = if (allDone) FeedbackSoundType.ALL_DONE else FeedbackSoundType.TASK
+                    soundType = if (allDone) FeedbackSoundType.ALL_DONE else completionSoundTypeFlow.value
                 )
             }
             com.example.widgets.QuickRemindersWidgetProvider.notifyDataChanged(getApplication())
@@ -1688,13 +1766,17 @@ class LifeViewModel(
                     var targetTask = if (taskId != null) {
                         repository.getTaskById(taskId)
                     } else {
-                        allTasks.value.find {
-                            it.id.toString() == shortcut.targetId ||
-                            it.title.equals(shortcut.targetId, ignoreCase = true) ||
-                            it.title.contains(shortcut.targetId, ignoreCase = true) ||
-                            it.title.equals(shortcut.title, ignoreCase = true) ||
-                            it.title.contains(shortcut.title, ignoreCase = true)
-                        }
+                        val all = allTasks.value
+                        all.find { it.id.toString() == shortcut.targetId }
+                            ?: all.find { it.title.equals(shortcut.targetId, ignoreCase = true) }
+                            ?: all.find { it.title.equals(shortcut.title, ignoreCase = true) }
+                            ?: all.find {
+                                val words = it.title.split(Regex("[^A-Za-z0-9]")).filter { w -> w.isNotBlank() }
+                                words.any { w -> w.equals(shortcut.targetId, ignoreCase = true) || w.equals(shortcut.title, ignoreCase = true) }
+                            }
+                    }
+                    if (targetTask != null && shortcut.targetId != targetTask.id.toString()) {
+                        repository.updateHoneycombShortcut(shortcut.copy(targetId = targetTask.id.toString()))
                     }
                     if (targetTask == null) {
                         // Auto-create task for today so the button immediately works and persists!
@@ -1719,13 +1801,17 @@ class LifeViewModel(
                     var targetHabit = if (habitId != null) {
                         repository.getHabitById(habitId)
                     } else {
-                        habits.value.find {
-                            it.id.toString() == shortcut.targetId ||
-                            it.title.equals(shortcut.targetId, ignoreCase = true) ||
-                            it.title.contains(shortcut.targetId, ignoreCase = true) ||
-                            it.title.equals(shortcut.title, ignoreCase = true) ||
-                            it.title.contains(shortcut.title, ignoreCase = true)
-                        }
+                        val allH = habits.value
+                        allH.find { it.id.toString() == shortcut.targetId }
+                            ?: allH.find { it.title.equals(shortcut.targetId, ignoreCase = true) }
+                            ?: allH.find { it.title.equals(shortcut.title, ignoreCase = true) }
+                            ?: allH.find {
+                                val words = it.title.split(Regex("[^A-Za-z0-9]")).filter { w -> w.isNotBlank() }
+                                words.any { w -> w.equals(shortcut.targetId, ignoreCase = true) || w.equals(shortcut.title, ignoreCase = true) }
+                            }
+                    }
+                    if (targetHabit != null && shortcut.targetId != targetHabit.id.toString()) {
+                        repository.updateHoneycombShortcut(shortcut.copy(targetId = targetHabit.id.toString()))
                     }
                     if (targetHabit == null) {
                         val newHabitId = repository.insertHabit(
@@ -1919,6 +2005,13 @@ class LifeViewModel(
     fun setHoneycombSpacing(spacingDp: Int) = viewModelScope.launch { preferences.setHoneycombSpacing(spacingDp) }
     fun setHoneycombIconSize(sizeSp: Int) = viewModelScope.launch { preferences.setHoneycombIconSize(sizeSp) }
     fun setHoneycombAnimationEnabled(enabled: Boolean) = viewModelScope.launch { preferences.setHoneycombAnimationEnabled(enabled) }
+    fun setGlobalQrShape(shape: DashboardShape) {
+        viewModelScope.launch {
+            preferences.setDashboardShape(shape)
+            repository.updateAllShortcutShapes(shape.name)
+        }
+    }
+    fun setHoneycombShape(shape: DashboardShape) = setGlobalQrShape(shape)
     fun resetHoneycombAppearance() = viewModelScope.launch { preferences.resetHoneycombAppearance() }
 
     // --- 75 Hard Customization Actions ---

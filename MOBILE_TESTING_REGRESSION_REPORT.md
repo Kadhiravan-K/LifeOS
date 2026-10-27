@@ -1,6 +1,6 @@
 # LifeOS Release 2 — Mobile Testing Regression Report
 
-**Document Version:** 1.5.0<br>
+**Document Version:** 1.6.0<br>
 **Date:** October 27, 2026<br>
 **Target Release:** Release 2.0 (v1.1.0-reconstruction)<br>
 **Branch:** `recovery/release-2-reconstruction`<br>
@@ -58,8 +58,8 @@ The complete unit test suite was executed via `./gradlew testDebugUnitTest --no-
 
 ### Verified Test Build Artifact
 - **APK Path:** `app/build/outputs/apk/debug/app-debug.apk`
-- **File Size:** 22,205,534 bytes (~21.18 MB)
-- **SHA-256 Checksum:** `9D04DEFCD94585A3B58847917E98D5AA47E728A5C2090D35561AFC3A02A0374D`
+- **File Size:** 22,237,600 bytes (~21.2 MB)
+- **SHA-256 Checksum:** `0CC87CB3D90BD1588C9339DB52F148AE1611B78988013AB8F779AE8B233CCF1C`
 - **Installation Command:** `adb install -r app/build/outputs/apk/debug/app-debug.apk`
 
 All physical device checks remain **PENDING** until verified on physical Android hardware (API 24 to 36).

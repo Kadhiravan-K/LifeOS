@@ -770,14 +770,26 @@ class LifeRepository(
                 recurrenceType = RecurrenceType.DAILY
             ),
             TaskItem(
-                title = "Daily Yoga, Exercise & Meditation",
+                title = "Daily Yoga & Flexibility",
                 emoji = "🧘",
-                description = "Surya Namaskaram, focused core workouts and mindful stillness",
+                description = "Surya Namaskaram, physical postures and dynamic stretching",
                 category = "Habits & Daily Routine",
-                priority = TaskPriority.URGENT,
+                priority = TaskPriority.HIGH,
                 dueDateIso = todayIso,
                 dueTime = "06:30",
-                durationMinutes = 60,
+                durationMinutes = 30,
+                recurrenceType = RecurrenceType.DAILY,
+                isReminderEnabled = true
+            ),
+            TaskItem(
+                title = "Mindful Meditation & Stillness",
+                emoji = "🧘",
+                description = "Mindful breathing, mental clarity and inner focus",
+                category = "Habits & Daily Routine",
+                priority = TaskPriority.HIGH,
+                dueDateIso = todayIso,
+                dueTime = "07:00",
+                durationMinutes = 20,
                 recurrenceType = RecurrenceType.DAILY,
                 isReminderEnabled = true
             ),
@@ -1971,6 +1983,10 @@ class LifeRepository(
 
     suspend fun updateShortcutShape(id: Long, shape: String) {
         honeycombShortcutDao.updateShape(id, shape)
+    }
+
+    suspend fun updateAllShortcutShapes(shape: String) {
+        honeycombShortcutDao.updateAllShapes(shape)
     }
 
     suspend fun updateShortcutColorSource(id: Long, colorSource: String, customColorHex: Long?) {

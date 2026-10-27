@@ -100,80 +100,104 @@ enum class HoneycombLayoutTemplate(val displayName: String, val icon: String) {
             val coords = mutableListOf<Pair<Int, Int>>()
             when (template) {
                 STANDARD -> {
+                    // Staggered honeycomb: 3 items in even rows, 2 items in odd rows
+                    // Compensates for axial shift (X = q + r/2) with q = col - (r / 2)
                     var r = 0
-                    var q = 0
+                    var col = 0
                     for (i in 0 until count) {
-                        coords.add(Pair(q, r))
                         val rowLen = if (r % 2 == 0) 3 else 2
-                        q++
-                        if (q >= rowLen) {
-                            q = 0
+                        val q = col - (r / 2)
+                        coords.add(Pair(q, r))
+                        col++
+                        if (col >= rowLen) {
+                            col = 0
                             r++
                         }
                     }
                 }
                 PYRAMID -> {
-                    // Row 0: 1 item, Row 1: 2 items, Row 2: 3 items, Row 3: 4 items
-                    val rowLengths = listOf(1, 2, 3, 4, 5, 6)
-                    var currRow = 0
+                    // Centered pyramid: row r has (r + 1) items centered symmetrically at physical X = 0
+                    // q = col - r yields physical X = col - r/2 across [-r/2, +r/2]
+                    var r = 0
                     var col = 0
                     for (i in 0 until count) {
-                        coords.add(Pair(col, currRow))
+                        val rowLen = r + 1
+                        val q = col - r
+                        coords.add(Pair(q, r))
                         col++
-                        if (col >= rowLengths.getOrElse(currRow) { 4 }) {
+                        if (col >= rowLen) {
                             col = 0
-                            currRow++
+                            r++
                         }
                     }
                 }
                 DIAMOND -> {
-                    // Row lengths: 1, 2, 3, 2, 1
-                    val rowLengths = listOf(1, 2, 3, 2, 1, 2, 3)
-                    var currRow = 0
+                    // Symmetrical diamond centered at physical X = 0
+                    val diamondRowLens = listOf(1, 2, 3, 4, 3, 2, 1)
+                    var r = 0
                     var col = 0
                     for (i in 0 until count) {
-                        coords.add(Pair(col, currRow))
+                        val rowLen = diamondRowLens[r % diamondRowLens.size]
+                        val q = when (r % 7) {
+                            0 -> 0
+                            1 -> col - 1
+                            2 -> col - 2
+                            3 -> col - 3
+                            4 -> col - 3
+                            5 -> col - 3
+                            else -> -3
+                        }
+                        coords.add(Pair(q, r))
                         col++
-                        if (col >= rowLengths.getOrElse(currRow) { 2 }) {
+                        if (col >= rowLen) {
                             col = 0
-                            currRow++
+                            r++
                         }
                     }
                 }
                 HEART -> {
-                    // Predefined heart layout points
-                    val heartPoints = listOf(
-                        Pair(0, 0), Pair(2, 0),
-                        Pair(0, 1), Pair(1, 1), Pair(2, 1),
-                        Pair(0, 2), Pair(1, 2),
-                        Pair(1, 3),
-                        Pair(0, 4), Pair(1, 4)
+                    // Symmetrical heart coordinates on pointy-top hex grid:
+                    // Row 0: Dual peaks at X = -1 and +1 -> q = -1, +1
+                    // Row 1: Full width at X in [-1.5, 1.5] -> q = col - 2
+                    // Row 2: Inward taper at X in [-1, 1] -> q = col - 2
+                    // Row 3: Lower taper at X in [-0.5, 0.5] -> q = col - 2
+                    // Row 4: Heart apex at X = 0 -> q = -2
+                    val heartLayout = listOf(
+                        Pair(-1, 0), Pair(1, 0),
+                        Pair(-2, 1), Pair(-1, 1), Pair(0, 1), Pair(1, 1),
+                        Pair(-2, 2), Pair(-1, 2), Pair(0, 2),
+                        Pair(-2, 3), Pair(-1, 3),
+                        Pair(-2, 4)
                     )
                     for (i in 0 until count) {
-                        if (i < heartPoints.size) {
-                            coords.add(heartPoints[i])
+                        if (i < heartLayout.size) {
+                            coords.add(heartLayout[i])
                         } else {
-                            coords.add(Pair(i % 3, 4 + (i / 3)))
+                            val extraR = 5 + ((i - heartLayout.size) / 2)
+                            val extraCol = (i - heartLayout.size) % 2
+                            coords.add(Pair(extraCol - (extraR / 2) - 1, extraR))
                         }
                     }
                 }
                 SNAKE -> {
+                    // Meanders in a 3-tile wide column without rightward drift:
                     var r = 0
-                    var q = 0
+                    var col = 0
                     var goingRight = true
                     for (i in 0 until count) {
+                        val q = col - (r / 2)
                         coords.add(Pair(q, r))
                         if (goingRight) {
-                            q++
-                            if (q >= 3) {
-                                q = 2
+                            col++
+                            if (col >= 3) {
+                                col = 1
                                 r++
                                 goingRight = false
                             }
                         } else {
-                            q--
-                            if (q < 0) {
-                                q = 0
+                            col--
+                            if (col < 0) {
+                                col = 0
                                 r++
                                 goingRight = true
                             }
@@ -181,16 +205,23 @@ enum class HoneycombLayoutTemplate(val displayName: String, val icon: String) {
                     }
                 }
                 ZIGZAG -> {
-                    // Alternates left and right offsets
+                    // Alternates left and right vertically with zero lateral drift
                     for (i in 0 until count) {
                         val r = i
-                        val q = if (i % 2 == 0) 0 else 1
+                        val q = -(r / 2)
                         coords.add(Pair(q, r))
                     }
                 }
                 FREEFORM -> {
+                    var r = 0
+                    var col = 0
                     for (i in 0 until count) {
-                        coords.add(Pair(i % 3, i / 3))
+                        coords.add(Pair(col - (r / 2), r))
+                        col++
+                        if (col >= 3) {
+                            col = 0
+                            r++
+                        }
                     }
                 }
             }

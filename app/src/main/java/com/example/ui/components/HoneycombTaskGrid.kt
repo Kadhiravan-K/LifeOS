@@ -572,8 +572,9 @@ fun HoneycombCell(
             val cy = size.height / 2f
             val r = (size.height / 2f) - (strokeWidthPx / 2f)
 
-            val isCircle = shortcut.shape.equals("CIRCLE", ignoreCase = true)
-            val isSquare = shortcut.shape.equals("SQUARE", ignoreCase = true)
+            val effectiveShape = if (shortcut.shape.isNotBlank() && shortcut.shape != "HEXAGON") shortcut.shape else appearance.shape.name
+            val isCircle = effectiveShape.equals("CIRCLE", ignoreCase = true)
+            val isSquare = effectiveShape.equals("SQUARE", ignoreCase = true)
 
             val hexPath = if (!isCircle && !isSquare) {
                 createRoundedHexagonPath(

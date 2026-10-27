@@ -36,6 +36,14 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberDatePickerState
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -716,12 +724,15 @@ fun HabitEditModal(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RestartChallengeDialog(
     onDismiss: () -> Unit,
     onConfirmRestart: (newStartDateIso: String) -> Unit
 ) {
     var startDateIso by remember { mutableStateOf(DateUtils.todayString()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -739,13 +750,32 @@ fun RestartChallengeDialog(
                     text = "This will reset your current progress and restart the 75-day discipline cycle from Day 1.",
                     style = MaterialTheme.typography.bodyMedium
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
                 OutlinedTextField(
                     value = startDateIso,
                     onValueChange = { startDateIso = it },
-                    label = { Text("Start Date (YYYY-MM-DD)") },
+                    label = { Text("Start Date") },
+                    trailingIcon = {
+                        IconButton(onClick = { showDatePicker = true }) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = "Pick date from calendar", tint = MaterialTheme.colorScheme.primary)
+                        }
+                    },
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val today = DateUtils.todayString()
+                    val yesterday = DateUtils.addDays(today, -1)
+                    val tomorrow = DateUtils.addDays(today, 1)
+                    listOf("Today" to today, "Yesterday" to yesterday, "Tomorrow" to tomorrow).forEach { (lbl, dVal) ->
+                        FilterChip(
+                            selected = startDateIso == dVal,
+                            onClick = { startDateIso = dVal },
+                            label = { Text(lbl, fontSize = 11.sp) }
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
@@ -762,6 +792,32 @@ fun RestartChallengeDialog(
             }
         }
     )
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val millis = datePickerState.selectedDateMillis
+                        if (millis != null) {
+                            startDateIso = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(millis))
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("Select")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 }
 
 @Composable

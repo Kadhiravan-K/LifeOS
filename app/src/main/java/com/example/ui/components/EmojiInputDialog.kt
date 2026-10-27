@@ -116,16 +116,18 @@ fun EmojiInputDialog(
                 OutlinedTextField(
                     value = rawInput,
                     onValueChange = { input ->
-                        rawInput = input
                         val extracted = EmojiUtils.extractFirstEmoji(input)
                         if (extracted != null) {
+                            rawInput = extracted
                             detectedEmoji = extracted
                             errorMessage = null
                         } else if (input.trim().isEmpty()) {
+                            rawInput = ""
                             detectedEmoji = ""
                             errorMessage = null
                         } else {
-                            errorMessage = "Please enter an emoji (e.g. 📚, 🚀)"
+                            rawInput = input.take(2)
+                            errorMessage = "Please enter only one emoji (e.g. 📚, 🚀)"
                         }
                     },
                     placeholder = { Text("Enter emoji here...") },

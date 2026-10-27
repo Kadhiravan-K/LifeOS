@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -120,15 +121,18 @@ fun ChallengeScreen(
                 OutlinedButton(
                     onClick = { showRestartDialog = true },
                     shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFDC2626)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDC2626).copy(alpha = 0.5f)),
                     modifier = Modifier.testTag("restart_challenge_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.RestartAlt,
                         contentDescription = "Restart",
+                        tint = Color(0xFFDC2626),
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Restart", fontSize = 12.sp)
+                    Text("Restart", fontSize = 12.sp, color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -280,13 +284,14 @@ fun ChallengeScreen(
                         MaterialTheme.colorScheme.surface
                 ),
                 border = if (isChecked)
-                    androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDC2626).copy(alpha = 0.3f))
-                else null,
+                    androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFDC2626).copy(alpha = 0.35f))
+                else androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isChecked) 0.dp else 1.5.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp)
+                    .padding(vertical = 5.dp)
                     .clickable { viewModel.toggleChallengeRule(rule.id, todayIso) }
-                    .testTag("challenge_rule_${rule.id}")
+                    .testTag("challenge_rule_")
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -295,7 +300,7 @@ fun ChallengeScreen(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .size(42.dp)
+                            .size(48.dp)
                             .clip(CircleShape)
                             .background(if (isChecked) Color(0xFFDC2626) else MaterialTheme.colorScheme.surfaceVariant)
                     ) {
@@ -304,24 +309,25 @@ fun ChallengeScreen(
                                 imageVector = Icons.Default.Check,
                                 contentDescription = "Done",
                                 tint = Color.White,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         } else {
-                            Text(text = rule.emoji, fontSize = 20.sp)
+                            Text(text = rule.emoji, fontSize = 22.sp)
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(14.dp))
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = rule.title,
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
                                 textDecoration = if (isChecked) TextDecoration.LineThrough else null
                             ),
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = if (isChecked) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = rule.description,
                             style = MaterialTheme.typography.bodySmall,

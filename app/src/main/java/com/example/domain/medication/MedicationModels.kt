@@ -42,10 +42,13 @@ enum class MedicineScheduleType(val displayName: String) {
  * The four daily meal periods.
  */
 enum class MealPeriod(val displayName: String, val defaultTime: String) {
-    MORNING("Morning / Breakfast", "08:00"),
+    MORNING_EMPTY_STOMACH("Morning (Empty Stomach)", "06:30"),
+    BREAKFAST("Breakfast", "08:30"),
     LUNCH("Lunch", "13:00"),
     EVENING("Evening", "17:30"),
-    DINNER("Dinner", "20:30")
+    DINNER("Dinner", "20:30"),
+    BEFORE_SLEEP("Before Sleep", "22:30"),
+    MORNING("Morning / Breakfast", "08:00")
 }
 
 /**

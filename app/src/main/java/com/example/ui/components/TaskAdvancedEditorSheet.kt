@@ -127,6 +127,8 @@ fun TaskAdvancedEditorSheet(
     var selectedLabelIds by remember { mutableStateOf<Set<Long>>(task?.labels?.map { it.id }?.toSet() ?: emptySet()) }
     var isQuickReminder by remember { mutableStateOf(task?.isQuickReminder ?: false) }
     var isMedicineEnabled by remember { mutableStateOf(false) }
+    var eventLink by remember { mutableStateOf("") }
+    var eventLinkLabel by remember { mutableStateOf("Registration Link") }
     var medicationDraft by remember { mutableStateOf<com.example.domain.medication.MedicationItem?>(null) }
 
     // 2. Schedule Date & Time
@@ -588,6 +590,17 @@ fun TaskAdvancedEditorSheet(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Medicine Reminder Section (Positioned right after Labels)
+            MedicineReminderSection(
+                isMedicineEnabled = isMedicineEnabled,
+                onMedicineEnabledChange = { isMedicineEnabled = it },
+                taskTitle = title,
+                initialMedication = null,
+                onMedicationDraftChanged = { medicationDraft = it }
+            )
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -1141,14 +1154,40 @@ fun TaskAdvancedEditorSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Medicine Reminder Section
-            MedicineReminderSection(
-                isMedicineEnabled = isMedicineEnabled,
-                onMedicineEnabledChange = { isMedicineEnabled = it },
-                taskTitle = title,
-                initialMedication = null,
-                onMedicationDraftChanged = { medicationDraft = it }
-            )
+            // Event / Link Attachment Section
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text("🔗 Event Links & Attachment", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = eventLink,
+                        onValueChange = { eventLink = it },
+                        placeholder = { Text("https://example.com/event-registration...") },
+                        label = { Text("Event / Action Link") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("Registration Link", "Meeting Link", "Location Map", "Docs", "Custom").forEach { lbl ->
+                            FilterChip(
+                                selected = eventLinkLabel == lbl,
+                                onClick = { eventLinkLabel = lbl },
+                                label = { Text(lbl, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
         }
@@ -1159,7 +1198,7 @@ fun TaskAdvancedEditorSheet(
         EmojiInputDialog(
             currentEmoji = emoji,
             onEmojiSelected = { chosen ->
-                emoji = chosen
+                emoji = com.example.utils.EmojiUtils.extractFirstEmoji(chosen) ?: chosen.trim().take(2)
             },
             onDismiss = { showEmojiDialog = false }
         )

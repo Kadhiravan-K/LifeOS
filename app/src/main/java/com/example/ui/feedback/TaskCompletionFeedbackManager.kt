@@ -29,7 +29,19 @@ enum class FeedbackSoundType(val displayName: String, val filename: String) {
     WATER("Water Droplet", "lifeos_chime_water.wav"),
     MILESTONE("Milestone Flourish", "lifeos_chime_milestone.wav"),
     LEVEL_UP("Level Up Fanfare", "lifeos_chime_levelup.wav"),
-    ALL_DONE("All Tasks Complete", "lifeos_chime_alldone.wav")
+    ALL_DONE("All Tasks Complete", "lifeos_chime_alldone.wav"),
+    BELL("Tibetan Bell", "lifeos_sound_bell.wav"),
+    POP("Crisp Bubble Pop", "lifeos_sound_pop.wav"),
+    RETRO("8-Bit Retro Ping", "lifeos_sound_retro.wav"),
+    SUCCESS("Victory Marimba", "lifeos_sound_success.wav"),
+    HARP("Celestial Harp", "lifeos_sound_harp.wav"),
+    CUSTOM("Custom Sound", "lifeos_custom_sound.wav");
+
+    companion object {
+        fun fromString(value: String): FeedbackSoundType {
+            return entries.find { it.name.equals(value, ignoreCase = true) } ?: TASK
+        }
+    }
 }
 
 /**
@@ -128,6 +140,24 @@ class TaskCompletionFeedbackManager private constructor(private val context: Con
         playSound(FeedbackSoundType.TASK)
     }
 
+    fun importCustomAudio(sourceUri: android.net.Uri): Boolean {
+        return try {
+            val destFile = File(context.filesDir, FeedbackSoundType.CUSTOM.filename)
+            context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                FileOutputStream(destFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            val sId = soundPool?.load(destFile.absolutePath, 1) ?: -1
+            if (sId != -1) {
+                soundIds[FeedbackSoundType.CUSTOM] = sId
+            }
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     fun playCompletionHaptic(view: View? = null) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -195,6 +225,12 @@ class TaskCompletionFeedbackManager private constructor(private val context: Con
                     FeedbackSoundType.MILESTONE -> 0.280
                     FeedbackSoundType.LEVEL_UP -> 0.340
                     FeedbackSoundType.ALL_DONE -> 0.400
+                    FeedbackSoundType.BELL -> 0.300
+                    FeedbackSoundType.POP -> 0.080
+                    FeedbackSoundType.RETRO -> 0.200
+                    FeedbackSoundType.SUCCESS -> 0.250
+                    FeedbackSoundType.HARP -> 0.300
+                    FeedbackSoundType.CUSTOM -> 0.180
                 }
                 val totalSamples = (sampleRate * durationSec).toInt()
                 val pcmData = ShortArray(totalSamples)
@@ -268,6 +304,43 @@ class TaskCompletionFeedbackManager private constructor(private val context: Con
                                     sin(2.0 * PI * 1046.50 * t) * 0.25 +
                                     sin(2.0 * PI * 1318.51 * t) * 0.15
                             (chord * env * 27000.0).toInt()
+                        }
+                        FeedbackSoundType.BELL -> {
+                            val attack = if (t < 0.005) t / 0.005 else 1.0
+                            val decay = exp(-t / 0.120)
+                            val tone = sin(2.0 * PI * 1046.50 * t) * 0.60 + sin(2.0 * PI * 2093.00 * t) * 0.25 + sin(2.0 * PI * 3139.50 * t) * 0.15
+                            ((tone * attack * decay) * 26000.0).toInt()
+                        }
+                        FeedbackSoundType.POP -> {
+                            val freq = 1200.0 - (800.0 * (t / durationSec))
+                            val env = (if (t < 0.003) t / 0.003 else 1.0) * exp(-t / 0.020)
+                            (sin(2.0 * PI * freq * t) * env * 28000.0).toInt()
+                        }
+                        FeedbackSoundType.RETRO -> {
+                            val seg = (t / 0.040).toInt().coerceIn(0, 3)
+                            val f = when (seg) { 0 -> 659.25; 1 -> 783.99; 2 -> 987.77; else -> 1318.51 }
+                            val env = exp(-(t - (seg * 0.040)) / 0.030)
+                            val tone = if (sin(2.0 * PI * f * t) > 0.0) 0.8 else -0.8
+                            (tone * env * 22000.0).toInt()
+                        }
+                        FeedbackSoundType.SUCCESS -> {
+                            val env = (if (t < 0.004) t / 0.004 else 1.0) * exp(-t / 0.070)
+                            val tone = sin(2.0 * PI * 698.46 * t) * 0.40 + sin(2.0 * PI * 880.00 * t) * 0.35 + sin(2.0 * PI * 1046.50 * t) * 0.25
+                            (tone * env * 26000.0).toInt()
+                        }
+                        FeedbackSoundType.HARP -> {
+                            val seg = (t / 0.045).toInt().coerceIn(0, 4)
+                            val f = when (seg) { 0 -> 523.25; 1 -> 659.25; 2 -> 783.99; 3 -> 1046.50; else -> 1318.51 }
+                            val env = exp(-(t - (seg * 0.045)) / 0.060)
+                            val tone = sin(2.0 * PI * f * t) * 0.7 + sin(2.0 * PI * f * 2.0 * t) * 0.3
+                            (tone * env * 25000.0).toInt()
+                        }
+                        FeedbackSoundType.CUSTOM -> {
+                            // Default fallback tone if user has not yet imported audio file
+                            val attack = if (t < 0.005) t / 0.005 else 1.0
+                            val decay = exp(-t / 0.050)
+                            val tone = sin(2.0 * PI * 987.77 * t) * 0.70 + sin(2.0 * PI * 1479.98 * t) * 0.30
+                            ((tone * attack * decay) * 26000.0).toInt()
                         }
                     }
                     pcmData[i] = sampleValue.coerceIn(-32768, 32767).toShort()

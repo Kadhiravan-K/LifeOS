@@ -19,6 +19,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.ViewList
+import com.example.ui.components.TaskGridCard
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -108,7 +115,8 @@ fun TasksScreen(
     var taskToReschedule by remember { mutableStateOf<TaskItem?>(null) }
     var historyTask by remember { mutableStateOf<TaskItem?>(null) }
     var showSortMenu by remember { mutableStateOf(false) }
-    var pendingBulkAction by remember { mutableStateOf<String?>(null) }
+        var pendingBulkAction by remember { mutableStateOf<String?>(null) }
+    var isGridView by remember { mutableStateOf(false) }
 
     // Project & Label sheet states
     var projectToEdit by remember { mutableStateOf<ProjectItem?>(null) }
@@ -176,6 +184,16 @@ fun TasksScreen(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
+                        onClick = { isGridView = !isGridView },
+                        modifier = Modifier.testTag("toggle_view_mode_button")
+                    ) {
+                        Icon(
+                            imageVector = if (isGridView) Icons.Default.ViewList else Icons.Default.GridView,
+                            contentDescription = if (isGridView) "Switch to List View" else "Switch to Grid View"
+                        )
+                    }
+
+                    IconButton(
                         onClick = { viewModel.toggleSelectionMode() },
                         modifier = Modifier.testTag("toggle_selection_mode_button")
                     ) {
@@ -197,11 +215,16 @@ fun TasksScreen(
                             expanded = showSortMenu,
                             onDismissRequest = { showSortMenu = false }
                         ) {
-                            listOf("Priority", "Due Date", "Title").forEach { sortOption ->
+                            listOf(
+                                "Priority" to "Priority (High to Low)",
+                                "Due Date" to "Due Date (Earliest First)",
+                                "Title" to "Title (A to Z)",
+                                "Created" to "Created (Newest First)"
+                            ).forEach { (sortKey, sortLabel) ->
                                 DropdownMenuItem(
-                                    text = { Text(sortOption) },
+                                    text = { Text(sortLabel) },
                                     onClick = {
-                                        viewModel.setTaskSort(sortOption)
+                                        viewModel.setTaskSort(sortKey)
                                         showSortMenu = false
                                     }
                                 )
@@ -592,6 +615,34 @@ fun TasksScreen(
                     title = "All Clear",
                     description = emptyMessage
                 )
+            } else if (isGridView) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("task_grid")
+                ) {
+                    items(uiState.filteredTasks, key = { it.id }) { task ->
+                        val isSelected = uiState.selectedTaskIds.contains(task.id)
+
+                        TaskGridCard(
+                            task = task,
+                            onToggleComplete = { viewModel.toggleTask(task.id, uiState.selectedDateIso) },
+                            onEdit = {
+                                taskToEdit = task
+                                showAdvancedEditorSheet = true
+                            },
+                            isSelectionMode = uiState.isSelectionMode,
+                            isSelected = isSelected,
+                            onSelectToggle = { viewModel.toggleTaskSelection(task.id) }
+                        )
+                    }
+                    item(span = { GridItemSpan(2) }) {
+                        Spacer(modifier = Modifier.height(80.dp))
+                    }
+                }
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp),

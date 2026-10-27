@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -112,21 +113,25 @@ fun MedicineReminderSection(
         mutableStateOf(initialMedication?.scheduleConfig?.scheduleType ?: MedicineScheduleType.MEAL_BASED)
     }
 
-    // Meal-based state
+    // Meal-based state (6 meal periods with customizable clock time and food relations)
     var mealConfigs by remember {
         mutableStateOf(
             if (initialMedication?.scheduleConfig?.mealPeriods?.isNotEmpty() == true) {
                 initialMedication.scheduleConfig.mealPeriods
             } else {
                 listOf(
-                    MealPeriodConfig(MealPeriod.MORNING, "08:00", FoodRelationship.BEFORE_FOOD),
-                    MealPeriodConfig(MealPeriod.LUNCH, "13:00", FoodRelationship.AFTER_FOOD),
-                    MealPeriodConfig(MealPeriod.EVENING, "17:30", FoodRelationship.WITH_FOOD, isEnabled = false),
-                    MealPeriodConfig(MealPeriod.DINNER, "20:30", FoodRelationship.AFTER_FOOD)
+                    MealPeriodConfig(MealPeriod.MORNING_EMPTY_STOMACH, "06:30", FoodRelationship.BEFORE_FOOD, isEnabled = false),
+                    MealPeriodConfig(MealPeriod.BREAKFAST, "08:30", FoodRelationship.AFTER_FOOD, isEnabled = true),
+                    MealPeriodConfig(MealPeriod.LUNCH, "13:00", FoodRelationship.AFTER_FOOD, isEnabled = true),
+                    MealPeriodConfig(MealPeriod.EVENING, "17:30", FoodRelationship.NO_FOOD, isEnabled = false),
+                    MealPeriodConfig(MealPeriod.DINNER, "20:30", FoodRelationship.AFTER_FOOD, isEnabled = true),
+                    MealPeriodConfig(MealPeriod.BEFORE_SLEEP, "22:30", FoodRelationship.NO_FOOD, isEnabled = false)
                 )
             }
         )
     }
+    var activeMealTimePickerIndex by remember { mutableStateOf<Int?>(null) }
+    var activeFoodRelMenuIndex by remember { mutableStateOf<Int?>(null) }
 
     // Fixed Times state
     var fixedTimes by remember {
@@ -495,16 +500,15 @@ fun MedicineReminderSection(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Switch(
+                                    Checkbox(
                                         checked = config.isEnabled,
                                         onCheckedChange = { checked ->
                                             mealConfigs = mealConfigs.toMutableList().also { list ->
                                                 list[index] = config.copy(isEnabled = checked)
                                             }
-                                        },
-                                        modifier = Modifier.size(36.dp)
+                                        }
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = config.period.displayName,
                                         fontSize = 12.sp,
@@ -517,37 +521,46 @@ fun MedicineReminderSection(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        // Food relationship selector chip
-                                        Surface(
-                                            onClick = {
-                                                val nextRel = when (config.foodRelation) {
-                                                    FoodRelationship.BEFORE_FOOD -> FoodRelationship.WITH_FOOD
-                                                    FoodRelationship.WITH_FOOD -> FoodRelationship.AFTER_FOOD
-                                                    FoodRelationship.AFTER_FOOD -> FoodRelationship.NO_FOOD
-                                                    FoodRelationship.NO_FOOD -> FoodRelationship.BEFORE_FOOD
+                                        // Food relationship dropdown
+                                        Box {
+                                            Surface(
+                                                onClick = { activeFoodRelMenuIndex = index },
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                            ) {
+                                                Text(
+                                                    text = config.foodRelation.displayName,
+                                                    fontSize = 10.sp,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                                                )
+                                            }
+                                            DropdownMenu(
+                                                expanded = activeFoodRelMenuIndex == index,
+                                                onDismissRequest = { activeFoodRelMenuIndex = null }
+                                            ) {
+                                                FoodRelationship.entries.forEach { rel ->
+                                                    DropdownMenuItem(
+                                                        text = { Text(rel.displayName, fontSize = 12.sp) },
+                                                        onClick = {
+                                                            mealConfigs = mealConfigs.toMutableList().also {
+                                                                it[index] = config.copy(foodRelation = rel)
+                                                            }
+                                                            activeFoodRelMenuIndex = null
+                                                        }
+                                                    )
                                                 }
-                                                mealConfigs = mealConfigs.toMutableList().also {
-                                                    it[index] = config.copy(foodRelation = nextRel)
-                                                }
-                                            },
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                                        ) {
-                                            Text(
-                                                text = config.foodRelation.displayName,
-                                                fontSize = 10.sp,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
-                                            )
+                                            }
                                         }
 
-                                        // Time chip
+                                        // Time picker button
                                         Surface(
+                                            onClick = { activeMealTimePickerIndex = index },
                                             shape = RoundedCornerShape(6.dp),
                                             color = MaterialTheme.colorScheme.surfaceVariant
                                         ) {
                                             Text(
-                                                text = config.scheduledTime,
+                                                text = "🕒 ",
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
@@ -555,6 +568,24 @@ fun MedicineReminderSection(
                                         }
                                     }
                                 }
+                            }
+                        }
+
+                        if (activeMealTimePickerIndex != null) {
+                            val pIndex = activeMealTimePickerIndex!!
+                            val targetConfig = mealConfigs.getOrNull(pIndex)
+                            if (targetConfig != null) {
+                                LifeTimePickerDialog(
+                                    initialTime = targetConfig.scheduledTime,
+                                    title = "Set  Time",
+                                    onConfirm = { picked ->
+                                        mealConfigs = mealConfigs.toMutableList().also { list ->
+                                            list[pIndex] = targetConfig.copy(scheduledTime = picked)
+                                        }
+                                        activeMealTimePickerIndex = null
+                                    },
+                                    onDismiss = { activeMealTimePickerIndex = null }
+                                )
                             }
                         }
                     }

@@ -1,6 +1,6 @@
 # LifeOS — Release 2 Readiness Report
 
-**Document Version:** 2.5.0<br>
+**Document Version:** 2.6.0<br>
 **Date:** October 27, 2026<br>
 **Auditor / Lead Engineer:** Antigravity AI<br>
 **Repository:** `https://github.com/Kadhiravan-K/LifeOS`<br>
@@ -103,16 +103,16 @@ Result: **122 tests passed, 0 failed, 0 errors, 0 skipped** across 10 test class
 
 ### Debug APK (Core Library Desugared)
 - **Path:** `app/build/outputs/apk/debug/app-debug.apk`
-- **Size:** 22,205,534 bytes (~21.18 MB)
-- **SHA-256:** `9D04DEFCD94585A3B58847917E98D5AA47E728A5C2090D35561AFC3A02A0374D`
+- **Size:** 22,237,600 bytes (~21.2 MB)
+- **SHA-256:** `0CC87CB3D90BD1588C9339DB52F148AE1611B78988013AB8F779AE8B233CCF1C`
 - **Exit Code:** 0
 - **Build Warnings:** 0
 - **Status:** Built and verified with L8 core library desugaring and unified UI components.
 
 ### Release APK (Unsigned Candidate)
 - **Path:** `app/build/outputs/apk/release/app-release-unsigned.apk`
-- **Size:** 13,436,734 bytes (~12.81 MB)
-- **SHA-256:** `27625542309C4773D7E52D6244A53EDA973E36845312FFD82CE734B43955508A`
+- **Size:** 13,485,886 bytes (~12.86 MB)
+- **SHA-256:** `D01C6A52113B23B97FE5E0D3D482924F7F444484C3625EA587C3D12A5CFAE191`
 - **Status:** Built and verified with L8 core library desugaring and lintVitalRelease PASS.
 
 ### Security & Signing Gate Audit

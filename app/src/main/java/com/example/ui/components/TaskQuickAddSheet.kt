@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -151,6 +153,8 @@ fun TaskQuickAddSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(horizontal = 18.dp)
                 .padding(bottom = 24.dp)
         ) {
@@ -558,7 +562,7 @@ fun TaskQuickAddSheet(
         EmojiInputDialog(
             currentEmoji = emoji,
             onEmojiSelected = { chosen ->
-                emoji = chosen
+                emoji = com.example.utils.EmojiUtils.extractFirstEmoji(chosen) ?: chosen.trim().take(2)
             },
             onDismiss = { showEmojiDialog = false }
         )

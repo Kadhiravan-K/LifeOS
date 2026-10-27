@@ -56,6 +56,9 @@ class UserPreferences(private val context: Context) {
         val KEY_COMPLETION_SOUND = booleanPreferencesKey("completion_sound_enabled")
         val KEY_COMPLETION_VIBRATION = booleanPreferencesKey("completion_vibration_enabled")
         val KEY_COMPLETION_ANIMATION = booleanPreferencesKey("completion_animation_enabled")
+        val KEY_COMPLETION_SOUND_TYPE = stringPreferencesKey("completion_sound_type")
+        val KEY_CUSTOM_SOUND_URI = stringPreferencesKey("custom_sound_uri")
+        val KEY_TRASH_RETENTION_DAYS = intPreferencesKey("trash_retention_days")
 
         // Clean Onboarding & Templates
         val KEY_HAS_COMPLETED_ONBOARDING = booleanPreferencesKey("has_completed_onboarding")
@@ -315,6 +318,33 @@ class UserPreferences(private val context: Context) {
 
     suspend fun setCompletionAnimationEnabled(enabled: Boolean) {
         context.dataStore.edit { it[KEY_COMPLETION_ANIMATION] = enabled }
+    }
+
+    val completionSoundType: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[KEY_COMPLETION_SOUND_TYPE] ?: "TASK"
+    }
+
+    val customSoundUri: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[KEY_CUSTOM_SOUND_URI]
+    }
+
+    val trashRetentionDays: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[KEY_TRASH_RETENTION_DAYS] ?: 30
+    }
+
+    suspend fun setCompletionSoundType(type: String) {
+        context.dataStore.edit { it[KEY_COMPLETION_SOUND_TYPE] = type }
+    }
+
+    suspend fun setCustomSoundUri(uri: String?) {
+        context.dataStore.edit {
+            if (uri != null) it[KEY_CUSTOM_SOUND_URI] = uri
+            else it.remove(KEY_CUSTOM_SOUND_URI)
+        }
+    }
+
+    suspend fun setTrashRetentionDays(days: Int) {
+        context.dataStore.edit { it[KEY_TRASH_RETENTION_DAYS] = days }
     }
 
     // Honeycomb Flows
