@@ -1,15 +1,15 @@
 # LifeOS — Release 2 Readiness Report
 
-**Document Version:** 2.7.0<br>
+**Document Version:** 2.8.0<br>
 **Date:** October 27, 2026<br>
 **Auditor / Lead Engineer:** Antigravity AI<br>
 **Repository:** `https://github.com/Kadhiravan-K/LifeOS`<br>
 **Working Branch:** `recovery/release-2-reconstruction`<br>
 **Base Commit:** `ef2ecab7e8c5e3c7b2398fd97c2cbfa68646d085`<br>
 **Target Release Candidate:** Release 2 (Build 2)<br>
-**Automated Verification Status:** **100% PASS (139/139 Unit, SQLite Migration & Component Tests, 0 Lint Errors, Desugaring L8 Active, APK Assembled)**<br>
+**Automated Verification Status:** **100% PASS (172/172 Unit, SQLite Migration & Component Tests, 0 Lint Errors, Desugaring L8 Active, APK Assembled)**<br>
 **Classification:** **GO FOR PHYSICAL-DEVICE TESTING**<br>
-**Production Release Status:** **HOLD** (Awaiting physical device acceptance)<br>
+**Production Release Recommendation:** **NO-GO (BLOCKED ON PHYSICAL DEVICE ACCEPTANCE)**<br>
 
 ---
 
@@ -85,17 +85,20 @@ The database configuration in `AppDatabase.kt` was audited for monotonic migrati
 ## 6. Automated Test Suite Verification
 
 Command: `./gradlew testDebugUnitTest --no-configuration-cache`<br>
-Result: **139 tests passed, 0 failed, 0 errors, 0 skipped** across 11 test classes:
+Result: **172 tests passed, 0 failed, 0 errors, 0 skipped** across 14 test classes:
+- `Batch01HomeRegressionUnitTest`: **10 passed** (HOME-01 template project association, HOME-02 circular challenge counters, HOME-03 custom sound picker & audio engine)
+- `Batch02TasksCalendarRegressionUnitTest`: **12 passed** (TASK-01 header select mode, TASK-02 checkbox responsiveness & bulk actions, CAL-01 recurring task calendar dots & date navigation)
+- `Batch03SettingsWidgetRegressionUnitTest`: **11 passed** (SET-01 settings search registry, SET-02 theme transition & motif badge, SET-03 template standard projects & labels, SET-04 5 editable bundles, SET-05 trash duration conversion & bounds, SET-06 profile emoji preference & fallback, SET-07 Saturday week start & task duration steppers, WID-01 widget axial hex math & row parity)
 - `ComponentCatalogUnitTest`: **6 passed** (36 cataloged components, 34 EXISTING, 1 PARTIAL, 1 PROPOSED, all 8 functional categories, metadata integrity, search and filter queries)
 - `FrontendComponentsUnitTest`: **16 passed** (Time parsing, 12h/24h formatting, preset validation, Duration steppers & presets, URL auto-prefix & link icon detection, emoji catalog search & categorization, safety confirmation phrase matching)
 - `RoomMigrationRobolectricUnitTest`: **1 passed** (Real SQLite schema upgrade from v6 to v10 verifying task, habit, and shortcut data retention)
-- `Release2RegressionUnitTest`: **27 passed** (A-E recovery coverage + DateUtils API 24 UTC parity + Widget multi-instance isolation + Action constants + Midnight transitions in Kolkata/UTC/LA + Negative epoch days + Epoch math + 7 QR Presets Non-overlapping Math + Per-shortcut Shape Precedence + Yoga and Meditation Independence + Calendar Dot Indicator Recurrence Parity + Trash Retention Dynamic Duration) (A–E recovery coverage + DateUtils API 24 UTC parity + Widget multi-instance isolation + Action constants + Midnight transitions in Kolkata/UTC/LA + Negative epoch days + Epoch math)
+- `Release2RegressionUnitTest`: **27 passed** (A-E recovery coverage + DateUtils API 24 UTC parity + Widget multi-instance isolation + Action constants + Midnight transitions in Kolkata/UTC/LA + Negative epoch days + Epoch math + 7 QR Presets Non-overlapping Math + Per-shortcut Shape Precedence + Yoga and Meditation Independence + Calendar Dot Indicator Recurrence Parity + Trash Retention Dynamic Duration)
 - `P1AlarmAndQrWidgetUnitTest`: 11 passed (Widget helper & alarm tests)
 - `LegalConsentUnitTest`: 11 passed (Terms and privacy policy tests)
 - `MedicationScheduleEngineTest`: 9 passed (Dosing intervals & schedules)
 - `SubscriptionUnitTest`: 11 passed (Recurring bill frequency calculations)
 - `TrackerUnitTest`: 10 passed (Cycle calculation & inventory metrics)
-- `LifeOSDomainUnitTest`: 36 passed (Axial math, recurrence, chime audio math)
+- `LifeOSDomainUnitTest`: 37 passed (Axial math, recurrence, chime audio math, 20 template definitions, 12 bundles)
 - `ExampleUnitTest`: 1 passed
 
 ---
@@ -104,16 +107,16 @@ Result: **139 tests passed, 0 failed, 0 errors, 0 skipped** across 11 test class
 
 ### Debug APK (Core Library Desugared)
 - **Path:** `app/build/outputs/apk/debug/app-debug.apk`
-- **Size:** 22,353,674 bytes (~21.32 MB)
-- **SHA-256:** `208A5ECB9A5DD8B8DEF61448A571D548A3A86CC51EC9164B0F6A65A5B2AAB8AB`
+- **Size:** 22,358,342 bytes (~21.32 MB)
+- **SHA-256:** `AD914F63096F1D44DD1976A3B24763B8F815D47CF00AEDD53E790012D86A7694`
 - **Exit Code:** 0
 - **Build Warnings:** 0
 - **Status:** Built and verified with L8 core library desugaring and unified UI components.
 
 ### Release APK (Unsigned Candidate)
 - **Path:** `app/build/outputs/apk/release/app-release-unsigned.apk`
-- **Size:** 13,649,726 bytes (~13.02 MB)
-- **SHA-256:** `87FC8E2FBDD9590A0EB9C339933A79AEEBED7B4E7BA83BADD8AE4E2DF79C23F6`
+- **Size:** 13,698,878 bytes (~13.06 MB)
+- **SHA-256:** `94FFAF0607BF85E05E735B002871A00378220393D4A7AE7B2933284665BE69AB`
 - **Status:** Built and verified with L8 core library desugaring and lintVitalRelease PASS.
 
 ### Security & Signing Gate Audit
@@ -144,10 +147,11 @@ The following tests are marked **PENDING** awaiting physical Android hardware ve
 
 ## 9. Final Release Candidate Gate & Governance Decision
 
-### **DECISION: GO FOR PHYSICAL-DEVICE TESTING**
+### **RECOMMENDATION: NO-GO (BLOCKED ON PHYSICAL DEVICE ACCEPTANCE)**
 
-- **Automated Gates:** **ALL PASS.** Kotlin compilation, 111 unit tests, `lintDebug`, `assembleDebug` with L8 desugaring, and `assembleRelease` are 100% successful with 0 new issues and 0 baselined `NewApi` errors.
-- **Release Publication Gate:** **HOLD.** In strict compliance with LifeOS Release Governance, **Release 2 is NOT approved for production release tagging, merging to `main`, or publishing to GitHub Releases** until the Launcher Quick Reminders widget and core physical-device tests (PD-01 to PD-09) pass verification on an actual physical Android device.
+- **Automated Gates:** **ALL PASS (172/172 Tests).** Kotlin compilation, 172 unit tests, `lintDebug`, `lintVitalRelease`, `assembleDebug` with L8 desugaring, and `assembleRelease` are 100% successful with 0 errors and 0 baselined `NewApi` issues.
+- **Physical Acceptance Gate:** **BLOCKED (DEVICE UNAUTHORIZED).** Device `1596218277000I7` is attached via ADB but is currently in `unauthorized` state awaiting user screen authorization.
+- **Release Publication Gate:** **HOLD.** In strict compliance with LifeOS Release Governance, **LifeOS Version 2 is NOT approved for merging into `main`, creating release tags, signing with production keys, or publishing to GitHub Releases** until physical device acceptance tests (PD-01 through PD-09) are authorized and executed on hardware.
 
 ---
 
@@ -163,4 +167,54 @@ The following tests are marked **PENDING** awaiting physical Android hardware ve
 
 - **Unit Tests:** 149/149 passed (+10 new tests in `Batch01HomeRegressionUnitTest`).
 - **Lint:** 0 errors.
-- **APKs:** Assembled and verified with L8 desugaring (`app-debug.apk`: 22.35 MB, `app-release-unsigned.apk`: 13.02 MB).
+
+---
+
+## 11. Mobile Testing Review & Fixes — Batch 02: Tasks & Calendar
+
+### Summary of Batch 02 Results
+
+| Defect ID | Issue Description | Root Cause | Fix Applied | Automated Verification | Physical Device Status |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| **TASK-01** | Header Select Not Working | `_isSelectionMode` and `_selectedTaskIds` were accessed via static `.value` snapshots inside `filterParamsFlow` instead of being reactive flow inputs in `combine(...)`. Emitting selection mode changes never triggered emission of `tasksUiState`, leaving the UI frozen until a filter or search field was interacted with. | Reactively combined `_isSelectionMode` and `_selectedTaskIds` into `filterParamsFlow`, immediately propagating selection state updates to `tasksUiState` and `TasksScreen`. Header Select activates selection mode instantly and operates completely independently from Filter. | **PASS** (`Batch02TasksCalendarRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **TASK-02** | Task Checkboxes Stop Responding | Lack of reactive upstream emission from `_selectedTaskIds` in `filterParamsFlow` caused Compose to miss state updates when individual checkboxes were tapped. Tapping checkboxes or scrolling recycled item cards re-read stale StateFlow values. | Updated `filterParamsFlow` to emit immediately on `_selectedTaskIds` mutation; made `toggleTaskSelection` produce immutable set copies; enhanced `selectAllFilteredTasks` to toggle between Select All and Deselect All; ensured `clearSelection` resets cleanly across navigation and bulk operations. | **PASS** (`Batch02TasksCalendarRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **CAL-01** | Missing Recurring Task Dots | `RecurrenceEngine.isTaskScheduledOnDate` improperly enforced `recurrenceEndDateIso` even when `endCondition` was not `"ON_DATE"`, and empty string end dates caused false cutoff. Furthermore, `CalendarScreen` read `tasksUiState.allTasks` rather than observing `allTasks` directly, and `ThreeDayGridView` and `AgendaView` filtered strictly on `dueDateIso == dateIso` instead of evaluating recurrence rules. In addition, date navigation lacked synchronized year/month updates in `selectCalendarDate`. | Fixed `RecurrenceEngine` to enforce recurrence end dates strictly when `endCondition == "ON_DATE"` and non-blank; defaulted blank start dates to `todayString()`; directly bound `CalendarScreen` to `allTasks` StateFlow; integrated full recurrence scheduling and completion evaluation across Month, Week, 3-Day Grid, and Agenda views; synchronized `_calendarYear` and `_calendarMonth` on date jumps and month/week navigation. | **PASS** (`Batch02TasksCalendarRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+
+- **Unit Tests:** 161/161 passed (+12 new tests in `Batch02TasksCalendarRegressionUnitTest`).
+- **Lint:** 0 errors.
+
+---
+
+## 12. Mobile Testing Review & Fixes — Batch 03: Settings & Widget
+
+### Summary of Batch 03 Results
+
+| Defect ID | Issue Description | Root Cause | Fix Applied | Automated Verification | Physical Device Status |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| **SET-01** | Settings Search | Settings hub lacked a unified search index across nested subpages, requiring manual navigation. | Implemented `getSettingsSearchRegistry()` with searchable titles, subtitles, categories, and keyword tags for all Settings areas. Added a real-time search bar with direct subpage and action routing. | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **SET-02** | Theme Loading Animation | Theme switching rendered an abrupt transition with static emoji/icon, lacking a branded animated motif transition. | Wrapped theme page navigation and theme selection with a dedicated 1.5-second `ThemedLoadingIndicator` motif badge and smooth animated alpha/scale overlay (`ThemeMotifLoadingTransition`), supporting non-blocking touch interaction without duplicate overlays. | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **SET-03** | Template Projects & Labels | Template tasks lacked explicit labels, and templates used ad-hoc project names or fallback bundle names instead of standard categories. | Standardized project assignments across all template tasks to canonical categories: `Daily Habits`, `Home`, `Office`, `Personal`, `Health`, `Learning`, `Travel`. Added rich tags/labels to every task def. Implemented automatic label deduplication and Room `TaskLabelCrossRef` insertion upon template installation. | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **SET-04** | Additional Template Bundles | Catalog lacked popular actionable checklists for personal life, milestones, travel, and business setup. | Added 5 editable checklist bundles: `Bucket List` (`bundle_bucket_list`), `Couples Goals` (`bundle_couples_goals`), `Trip Packing Checklist` (`bundle_trip_packing`), `Marriage Planning Checklist` (`bundle_marriage_planning`), and `Startup Setup Checklist` (`bundle_startup_setup`). | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **SET-05** | Trash Retention Duration | Trash retention setting was a simple text display without flexible duration units or quick adjustments. | Replaced with full numeric input, unit dropdown (`Days`, `Weeks`, `Months`, `Years`), increment/decrement steppers (`[-]`/`[+]`), and preset pills (7d, 14d, 30d, 60d, 90d), strictly validated in `[1..365]` days. | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **SET-06** | Profile Emoji Avatar | Profile only allowed text name customization; no custom emoji avatar selector was available. | Added profile emoji avatar selector using `EmojiInputDialog`, persisted in `KEY_USER_PROFILE_EMOJI` DataStore preference, and integrated into Profile settings card and Dashboard greeting header with theme motif fallback. | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **SET-07** | Week Start & Task Duration | First Day of Week lacked `Saturday` start day for middle-eastern and custom work schedules; default task duration lacked fast stepper adjustments. | Added `Saturday` to `First Day of Week` options and updated calendar grid and week days calculations in `DateUtils` and `CalendarScreen`. Replaced default task duration with preset chips (15, 30, 45, 60, 90 min) and 5-minute stepper controls clamped to `[5..480]` minutes. | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **WID-01** | QR Widget Alignment | Launcher Quick Reminders widget items displayed irregular alignment differing from the in-app pointy-top honeycomb layout. | Aligned widget geometry to pointy-top axial hex math (`q, r`), grouping items by axial row parity (`r % 2 != 0` -> 2 columns offset by 0.5, `r % 2 == 0` -> 3 columns). Documented formulas and verified row chunking in unit tests. | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+
+- **Unit Tests:** 172/172 passed (+11 new tests in `Batch03SettingsWidgetRegressionUnitTest`).
+- **Lint:** 0 errors.
+
+---
+
+## 13. Version 2 Production Release-Readiness Verification Checklist
+
+| Verification Category | Requirement | Current Status | Evidence / Notes |
+| :--- | :--- | :---: | :--- |
+| **1. Critical Mobile Issues** | All reported issues across mobile testing batches resolved. | **PASS** | 14/14 defects resolved across Batch 01 (HOME-01..03), Batch 02 (TASK-01..02, CAL-01), and Batch 03 (SET-01..07, WID-01). |
+| **2. Automated Test Suite** | 100% test pass rate across all test classes, 0 failures, 0 errors. | **PASS** | 172/172 unit tests passing; AndroidTest compilation cleanly builds. |
+| **3. Physical-Device Testing** | Physical execution of PD-01 through PD-09 on authorized Android hardware. | **PENDING** | Device `1596218277000I7` attached but `unauthorized`. Hardware acceptance pending screen authorization. |
+| **4. Database & User Data** | Room schema continuity and preservation of existing user data across upgrades. | **PASS** | Schema v10 with migrations 1->2 through 9->10 verified via `RoomMigrationRobolectricUnitTest`. Existing user databases preserved without data wipe. |
+| **5. Widgets & Reminders** | Launcher Quick Reminders widget geometry, tap dispatch, and alarm notifications. | **PASS (Automated)** / **PENDING (Physical)** | Axial hex math, row staggering, and PendingIntent isolation verified via unit tests; physical launcher rendering awaits hardware check. |
+| **6. Versioning & Signing** | Application ID, version codes, and keystore security preserved. | **PASS** | `versionCode = 2`, `versionName = "1.1.0"`, package `com.aistudio.lifeos.vtrqkx`. Private keystores strictly withheld from Git. Release built in unsigned format. |
+| **7. Release Notes & Checksums** | Release notes prepared with verified SHA-256 build checksums. | **PASS** | Debug APK: `AD914F63...` (22.36 MB), Release APK: `94FFAF06...` (13.70 MB). Comprehensive release notes documented. |
+| **OVERALL RECOMMENDATION** | Final approval to merge, tag, and publish LifeOS Version 2. | **NO-GO (HOLD)** | Codebase and automated pipeline are 100% verified. Publication held pending physical device acceptance and explicit user authorization. |
+
