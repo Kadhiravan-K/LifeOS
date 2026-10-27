@@ -851,8 +851,9 @@ fun TemplatePreviewDialog(
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Medium
                                         )
+                                        val taskProjName = taskDef.projectName ?: if (template.projects.size == 1) template.projects.first().name else null
                                         Text(
-                                            text = "${taskDef.dueTime ?: "Anytime"} • ${taskDef.durationMinutes}m • ${taskDef.recurrenceType.displayName}",
+                                            text = "${taskDef.dueTime ?: "Anytime"} • ${taskDef.durationMinutes}m • ${taskDef.recurrenceType.displayName}${if (taskProjName != null) " • 📁 $taskProjName" else ""}",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -944,7 +945,7 @@ fun TemplatePreviewDialog(
                     }
 
                     // Project & Hexagons info
-                    if (template.project != null || template.shortcuts.isNotEmpty() || template.challenge != null) {
+                    if (template.projects.isNotEmpty() || template.shortcuts.isNotEmpty() || template.challenge != null) {
                         item {
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
@@ -953,9 +954,9 @@ fun TemplatePreviewDialog(
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(4.dp))
-                            template.project?.let {
+                            template.projects.forEach { proj ->
                                 Text(
-                                    text = "📁 Project: ${it.emoji} ${it.name}",
+                                    text = "📁 Project: ${proj.emoji} ${proj.name}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

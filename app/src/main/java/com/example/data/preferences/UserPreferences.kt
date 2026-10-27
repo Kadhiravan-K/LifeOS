@@ -58,6 +58,7 @@ class UserPreferences(private val context: Context) {
         val KEY_COMPLETION_ANIMATION = booleanPreferencesKey("completion_animation_enabled")
         val KEY_COMPLETION_SOUND_TYPE = stringPreferencesKey("completion_sound_type")
         val KEY_CUSTOM_SOUND_URI = stringPreferencesKey("custom_sound_uri")
+        val KEY_CUSTOM_SOUND_NAME = stringPreferencesKey("custom_sound_name")
         val KEY_TRASH_RETENTION_DAYS = intPreferencesKey("trash_retention_days")
 
         // Clean Onboarding & Templates
@@ -328,6 +329,10 @@ class UserPreferences(private val context: Context) {
         preferences[KEY_CUSTOM_SOUND_URI]
     }
 
+    val customSoundFileName: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[KEY_CUSTOM_SOUND_NAME]
+    }
+
     val trashRetentionDays: Flow<Int> = context.dataStore.data.map { preferences ->
         preferences[KEY_TRASH_RETENTION_DAYS] ?: 30
     }
@@ -336,11 +341,27 @@ class UserPreferences(private val context: Context) {
         context.dataStore.edit { it[KEY_COMPLETION_SOUND_TYPE] = type }
     }
 
-    suspend fun setCustomSoundUri(uri: String?) {
-        context.dataStore.edit {
-            if (uri != null) it[KEY_CUSTOM_SOUND_URI] = uri
-            else it.remove(KEY_CUSTOM_SOUND_URI)
+    suspend fun setCustomSound(uri: String?, fileName: String?) {
+        context.dataStore.edit { preferences ->
+            if (uri != null) {
+                preferences[KEY_CUSTOM_SOUND_URI] = uri
+            } else {
+                preferences.remove(KEY_CUSTOM_SOUND_URI)
+            }
+            if (fileName != null) {
+                preferences[KEY_CUSTOM_SOUND_NAME] = fileName
+            } else {
+                preferences.remove(KEY_CUSTOM_SOUND_NAME)
+            }
         }
+    }
+
+    suspend fun setCustomSoundUri(uri: String?) {
+        setCustomSound(uri, null)
+    }
+
+    suspend fun clearCustomSound() {
+        setCustomSound(null, null)
     }
 
     suspend fun setTrashRetentionDays(days: Int) {

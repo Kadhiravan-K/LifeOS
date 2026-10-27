@@ -104,16 +104,16 @@ Result: **139 tests passed, 0 failed, 0 errors, 0 skipped** across 11 test class
 
 ### Debug APK (Core Library Desugared)
 - **Path:** `app/build/outputs/apk/debug/app-debug.apk`
-- **Size:** 22,347,554 bytes (~21.31 MB)
-- **SHA-256:** `D89881F91E633A78C2954691403EF342C2C01F56DD00B63AD887919A545C218D`
+- **Size:** 22,353,674 bytes (~21.32 MB)
+- **SHA-256:** `208A5ECB9A5DD8B8DEF61448A571D548A3A86CC51EC9164B0F6A65A5B2AAB8AB`
 - **Exit Code:** 0
 - **Build Warnings:** 0
 - **Status:** Built and verified with L8 core library desugaring and unified UI components.
 
 ### Release APK (Unsigned Candidate)
 - **Path:** `app/build/outputs/apk/release/app-release-unsigned.apk`
-- **Size:** 13,633,342 bytes (~13.00 MB)
-- **SHA-256:** `DA0BBCEE186D260AF3F94FBE25AA2CCF4599ADB940D6763792E5FF916DAE08BD`
+- **Size:** 13,649,726 bytes (~13.02 MB)
+- **SHA-256:** `87FC8E2FBDD9590A0EB9C339933A79AEEBED7B4E7BA83BADD8AE4E2DF79C23F6`
 - **Status:** Built and verified with L8 core library desugaring and lintVitalRelease PASS.
 
 ### Security & Signing Gate Audit
@@ -148,3 +148,19 @@ The following tests are marked **PENDING** awaiting physical Android hardware ve
 
 - **Automated Gates:** **ALL PASS.** Kotlin compilation, 111 unit tests, `lintDebug`, `assembleDebug` with L8 desugaring, and `assembleRelease` are 100% successful with 0 new issues and 0 baselined `NewApi` errors.
 - **Release Publication Gate:** **HOLD.** In strict compliance with LifeOS Release Governance, **Release 2 is NOT approved for production release tagging, merging to `main`, or publishing to GitHub Releases** until the Launcher Quick Reminders widget and core physical-device tests (PD-01 to PD-09) pass verification on an actual physical Android device.
+
+---
+
+## 10. Mobile Testing Review & Fixes — Batch 01: Home Screen
+
+### Summary of Batch 01 Results
+
+| Defect ID | Issue Description | Root Cause | Fix Applied | Automated Verification | Physical Device Status |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| **HOME-01** | Browse Templates: Imported Tasks Missing Projects | `LifeRepository.installTemplate` only evaluated `template.project` (first project), lacked per-task `projectName` mappings, and omitted multi-project mapping logic. | Extended `TemplateTaskDef` with `projectName: String?`, mapped tasks to template projects (with multi-project support and single-project fallback), automated Room `ProjectEntity` creation with deduplication, and preserved intentional unassigned state when no projects are defined. | **PASS** (`Batch01HomeRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **HOME-02** | 75-Day Challenge: Interactive Daily Completion Circles | Dashboard card only rendered static text and progress bar; Challenge screen relied on standard checkboxes without circular daily controls or future/past day management. | Added interactive 44.dp circular completion row to Dashboard Challenge card matching Daily Habits; updated Challenge screen rule cards with 48.dp completion circles; added 75-day timeline strip with distinct completed, in-progress, and unavailable/future states; added Mutex atomicity and double-tap debounce. | **PASS** (`Batch01HomeRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **HOME-03** | More Completion Sounds + Custom Sound Import | Completion audio for habits was hardcoded to `FeedbackSoundType.HABIT` and challenge rules to `MILESTONE`, bypassing user settings; custom sound lacked file name persistence, MediaPlayer lifecycle handling, and settings preview/remove controls. | Exposed all 6 primary built-in sounds (Tibetan Bell, Crisp Pop, Retro, Victory Marimba, Celestial Harp, Default Chime) plus auxiliary sounds in Settings with interactive preview; added Storage Access Framework custom audio picker (MP3, WAV, OGG) with persistent URI permissions, internal caching, and MediaPlayer streaming; added custom sound preview, change, and remove controls in Settings; routed completion events across Tasks, Habits, 75-Day Challenge, and QR tiles dynamically to the user's selected completion sound. | **PASS** (`Batch01HomeRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+
+- **Unit Tests:** 149/149 passed (+10 new tests in `Batch01HomeRegressionUnitTest`).
+- **Lint:** 0 errors.
+- **APKs:** Assembled and verified with L8 desugaring (`app-debug.apk`: 22.35 MB, `app-release-unsigned.apk`: 13.02 MB).

@@ -31,7 +31,8 @@ object TemplateCatalog {
                     priority = TaskPriority.HIGH,
                     dueTime = "06:30",
                     durationMinutes = 15,
-                    recurrenceType = RecurrenceType.DAILY
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Daily Operations"
                 ),
                 TemplateTaskDef(
                     title = "Deep Work Block #1",
@@ -40,7 +41,8 @@ object TemplateCatalog {
                     priority = TaskPriority.HIGH,
                     dueTime = "09:00",
                     durationMinutes = 90,
-                    recurrenceType = RecurrenceType.DAILY
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Daily Operations"
                 ),
                 TemplateTaskDef(
                     title = "Midday Re-alignment & Walk",
@@ -49,7 +51,8 @@ object TemplateCatalog {
                     priority = TaskPriority.MEDIUM,
                     dueTime = "13:00",
                     durationMinutes = 20,
-                    recurrenceType = RecurrenceType.DAILY
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Personal Health"
                 ),
                 TemplateTaskDef(
                     title = "Daily Shutdown & Reset",
@@ -58,7 +61,8 @@ object TemplateCatalog {
                     priority = TaskPriority.MEDIUM,
                     dueTime = "18:00",
                     durationMinutes = 20,
-                    recurrenceType = RecurrenceType.DAILY
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Daily Operations"
                 ),
                 TemplateTaskDef(
                     title = "Sleep & Recovery (9:30 PM)",
@@ -67,7 +71,8 @@ object TemplateCatalog {
                     priority = TaskPriority.HIGH,
                     dueTime = "21:30",
                     durationMinutes = 480,
-                    recurrenceType = RecurrenceType.DAILY
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Personal Health"
                 )
             ),
             habits = listOf(

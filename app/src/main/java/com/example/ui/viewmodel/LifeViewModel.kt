@@ -108,6 +108,8 @@ data class DashboardUiState(
     val challengeProgressPercentage: Float = 0f,
     val challengeRulesCompletedToday: Int = 0,
     val challengeRulesTotal: Int = 6,
+    val challengeRules: List<com.example.domain.model.ChallengeRule> = emptyList(),
+    val challengeCompletedRuleIds: Set<String> = emptySet(),
     val hasInstalledDefaults: Boolean = false,
     val hasCompletedOnboarding: Boolean = false,
     val honeycombShortcuts: List<HoneycombShortcut> = emptyList(),
@@ -518,6 +520,18 @@ class LifeViewModel(
         initialValue = FeedbackSoundType.TASK
     )
 
+    val customSoundUriFlow: StateFlow<String?> = preferences.customSoundUri.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
+    val customSoundFileNameFlow: StateFlow<String?> = preferences.customSoundFileName.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
     val trashRetentionDaysFlow: StateFlow<Int> = preferences.trashRetentionDays.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -535,15 +549,53 @@ class LifeViewModel(
     }
 
     fun playPreviewSound(type: FeedbackSoundType) {
-        com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).playSound(type)
+        if (type == FeedbackSoundType.CUSTOM) {
+            val uriStr = customSoundUriFlow.value
+            com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).playCustomAudio(uriStr)
+        } else {
+            com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).playSound(type)
+        }
     }
 
     fun importCustomSound(uri: android.net.Uri) {
         viewModelScope.launch {
-            val success = com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).importCustomAudio(uri)
-            if (success) {
-                preferences.setCustomSoundUri(uri.toString())
-                preferences.setCompletionSoundType(FeedbackSoundType.CUSTOM.name)
+            try {
+                val app = getApplication<Application>()
+                val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                try {
+                    app.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                } catch (_: Exception) {}
+
+                var displayName: String? = null
+                try {
+                    val cursor = app.contentResolver.query(uri, null, null, null, null)
+                    cursor?.use {
+                        if (it.moveToFirst()) {
+                            val nameIdx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            if (nameIdx >= 0) {
+                                displayName = it.getString(nameIdx)
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+
+                val finalName = displayName ?: uri.lastPathSegment ?: "Custom Audio"
+
+                val success = com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(app).importCustomAudio(uri)
+                if (success) {
+                    preferences.setCustomSound(uri.toString(), finalName)
+                    preferences.setCompletionSoundType(FeedbackSoundType.CUSTOM.name)
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun removeCustomSound() {
+        viewModelScope.launch {
+            com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).removeCustomAudio()
+            preferences.clearCustomSound()
+            if (completionSoundTypeFlow.value == FeedbackSoundType.CUSTOM) {
+                preferences.setCompletionSoundType(FeedbackSoundType.TASK.name)
             }
         }
     }
@@ -860,6 +912,8 @@ class LifeViewModel(
             challengeProgressPercentage = challenge.progressPercentage,
             challengeRulesCompletedToday = challengeCompletedRules,
             challengeRulesTotal = challenge.rules.size,
+            challengeRules = challenge.rules,
+            challengeCompletedRuleIds = challengeTodayLog?.completedRuleIds ?: emptySet(),
             hasInstalledDefaults = prefs.hasInstalledDefaults,
             hasCompletedOnboarding = prefs.hasCompletedOnboarding
         )
@@ -1598,7 +1652,7 @@ class LifeViewModel(
                 com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).triggerCompletionFeedback(
                     soundEnabled = completionSoundEnabled.value,
                     vibrationEnabled = completionVibrationEnabled.value,
-                    soundType = FeedbackSoundType.HABIT
+                    soundType = completionSoundTypeFlow.value
                 )
             }
         }
@@ -1636,14 +1690,29 @@ class LifeViewModel(
     }
 
     // --- 75-Day Challenge Actions ---
+    private var lastChallengeRuleToggleTime = 0L
+    private var lastToggledRuleId = ""
+
     fun toggleChallengeRule(ruleId: String, dateIso: String = todayIso) {
+        val now = System.currentTimeMillis()
+        if (ruleId == lastToggledRuleId && now - lastChallengeRuleToggleTime < 250L) {
+            return
+        }
+        lastToggledRuleId = ruleId
+        lastChallengeRuleToggleTime = now
+
         viewModelScope.launch {
             val newlyCompleted = repository.toggleChallengeRule(ruleId, dateIso)
             if (newlyCompleted) {
+                val challenge = challengeState.value
+                val todayLog = challenge.logs[dateIso]
+                val allRulesDone = challenge.rules.isNotEmpty() && challenge.rules.all {
+                    it.id == ruleId || (todayLog != null && todayLog.completedRuleIds.contains(it.id))
+                }
                 com.example.ui.feedback.TaskCompletionFeedbackManager.getInstance(getApplication()).triggerCompletionFeedback(
                     soundEnabled = completionSoundEnabled.value,
                     vibrationEnabled = completionVibrationEnabled.value,
-                    soundType = FeedbackSoundType.MILESTONE
+                    soundType = if (allRulesDone) FeedbackSoundType.ALL_DONE else completionSoundTypeFlow.value
                 )
             }
         }

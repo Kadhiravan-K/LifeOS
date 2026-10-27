@@ -18,6 +18,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.border
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.ui.draw.alpha
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -35,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,9 +73,14 @@ fun ChallengeScreen(
 ) {
     var showRestartDialog by remember { mutableStateOf(false) }
     var showPresetsDialog by remember { mutableStateOf(false) }
+    var selectedDayNumber by remember(challenge.currentDayNumber) { mutableStateOf(challenge.currentDayNumber) }
     val todayIso = DateUtils.todayString()
-    val todayLog = challenge.logs[todayIso]
-    val completedRulesToday = todayLog?.completedRuleIds ?: emptySet()
+    val selectedDateIso = DateUtils.addDays(challenge.startDateIso, selectedDayNumber - 1)
+    val isToday = selectedDateIso == todayIso
+    val isFutureDay = DateUtils.daysBetween(todayIso, selectedDateIso) > 0
+    val selectedLog = challenge.logs[selectedDateIso]
+    val completedRulesForDay = selectedLog?.completedRuleIds ?: emptySet()
+    val allRulesDoneForDay = challenge.rules.isNotEmpty() && challenge.rules.all { completedRulesForDay.contains(it.id) }
 
     val animatedProgress by animateFloatAsState(
         targetValue = challenge.progressPercentage,
@@ -259,9 +270,162 @@ fun ChallengeScreen(
             Spacer(modifier = Modifier.height(14.dp))
         }
 
-        // Today's Discipline Checklist
+        // 75-Day Interactive Timeline Row
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "Day Selector (1 to ${challenge.targetDays})",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            if (selectedDayNumber != challenge.currentDayNumber) {
+                TextButton(
+                    onClick = { selectedDayNumber = challenge.currentDayNumber }
+                ) {
+                    Text("Jump to Today", fontSize = 12.sp, color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+
+        val daysRange = (1..challenge.targetDays).toList()
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(daysRange) { dayNum ->
+                val dayDate = DateUtils.addDays(challenge.startDateIso, dayNum - 1)
+                val dayLog = challenge.logs[dayDate]
+                val isDone = challenge.rules.isNotEmpty() && challenge.rules.all { dayLog?.completedRuleIds?.contains(it.id) == true }
+                val isSelected = dayNum == selectedDayNumber
+                val isDayToday = dayDate == todayIso
+                val isDayFuture = DateUtils.daysBetween(todayIso, dayDate) > 0
+
+                val bgColor = when {
+                    isSelected -> Color(0xFFDC2626)
+                    isDone -> Color(0xFFDC2626).copy(alpha = 0.18f)
+                    isDayFuture -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                }
+                val textColor = when {
+                    isSelected -> Color.White
+                    isDone -> Color(0xFFDC2626)
+                    isDayFuture -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    else -> MaterialTheme.colorScheme.onSurface
+                }
+
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(width = 46.dp, height = 52.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(bgColor)
+                        .clickable { selectedDayNumber = dayNum }
+                        .then(
+                            if (isDayToday && !isSelected)
+                                Modifier.border(1.5.dp, Color(0xFFDC2626), RoundedCornerShape(12.dp))
+                            else Modifier
+                        )
+                        .testTag("challenge_day_tab_$dayNum")
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = if (isDayToday) "TODAY" else "D$dayNum",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textColor
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        if (isDone) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Day Complete",
+                                tint = textColor,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        } else if (isDayFuture) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Future Day",
+                                tint = textColor,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        } else {
+                            val doneCount = dayLog?.completedRuleIds?.size ?: 0
+                            Text(
+                                text = "$doneCount/${challenge.rules.size}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = textColor
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Selected Day Status Card
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = when {
+                    allRulesDoneForDay -> Color(0xFFDC2626).copy(alpha = 0.12f)
+                    isFutureDay -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    else -> MaterialTheme.colorScheme.surface
+                }
+            ),
+            border = if (allRulesDoneForDay)
+                androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDC2626).copy(alpha = 0.4f))
+            else androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(14.dp)
+            ) {
+                Text(
+                    text = when {
+                        allRulesDoneForDay -> "🔥"
+                        isFutureDay -> "🔒"
+                        else -> "📋"
+                    },
+                    fontSize = 26.sp
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = when {
+                            allRulesDoneForDay -> "Day $selectedDayNumber Complete!"
+                            isFutureDay -> "Day $selectedDayNumber: Future Day"
+                            else -> "Day $selectedDayNumber: ${completedRulesForDay.size} of ${challenge.rules.size} Rules Completed"
+                        },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (allRulesDoneForDay) Color(0xFFDC2626) else MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = when {
+                            allRulesDoneForDay -> "All discipline criteria met. Unbroken streak preserved!"
+                            isFutureDay -> "Future days cannot be pre-recorded. Check back on ${DateUtils.formatDisplayDate(selectedDateIso)}."
+                            else -> "Tap the completion circles below to mark today's rules."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Discipline Rules with Interactive Circular Completion Indicator
         Text(
-            text = "Today's Checklist (Day ${challenge.currentDayNumber})",
+            text = "Day $selectedDayNumber Checklist",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
@@ -274,7 +438,7 @@ fun ChallengeScreen(
         Spacer(modifier = Modifier.height(10.dp))
 
         challenge.rules.forEach { rule ->
-            val isChecked = completedRulesToday.contains(rule.id)
+            val isChecked = completedRulesForDay.contains(rule.id)
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
@@ -290,8 +454,10 @@ fun ChallengeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 5.dp)
-                    .clickable { viewModel.toggleChallengeRule(rule.id, todayIso) }
-                    .testTag("challenge_rule_")
+                    .clickable(enabled = !isFutureDay) {
+                        viewModel.toggleChallengeRule(rule.id, selectedDateIso)
+                    }
+                    .testTag("challenge_rule_${rule.id}")
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -302,17 +468,31 @@ fun ChallengeScreen(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(CircleShape)
-                            .background(if (isChecked) Color(0xFFDC2626) else MaterialTheme.colorScheme.surfaceVariant)
+                            .background(
+                                when {
+                                    isFutureDay -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                                    isChecked -> Color(0xFFDC2626)
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                }
+                            )
+                            .clickable(enabled = !isFutureDay) {
+                                viewModel.toggleChallengeRule(rule.id, selectedDateIso)
+                            }
+                            .testTag("challenge_rule_toggle_${rule.id}")
                     ) {
                         if (isChecked) {
                             Icon(
                                 imageVector = Icons.Default.Check,
                                 contentDescription = "Done",
                                 tint = Color.White,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(26.dp)
                             )
                         } else {
-                            Text(text = rule.emoji, fontSize = 22.sp)
+                            Text(
+                                text = rule.emoji,
+                                fontSize = 22.sp,
+                                modifier = Modifier.alpha(if (isFutureDay) 0.4f else 1f)
+                            )
                         }
                     }
 
@@ -325,21 +505,70 @@ fun ChallengeScreen(
                                 fontWeight = FontWeight.Bold,
                                 textDecoration = if (isChecked) TextDecoration.LineThrough else null
                             ),
-                            color = if (isChecked) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface
+                            color = if (isChecked)
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            else if (isFutureDay)
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                            else
+                                MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = rule.description,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isFutureDay) 0.45f else 1f)
                         )
                     }
 
-                    Checkbox(
-                        checked = isChecked,
-                        onCheckedChange = { viewModel.toggleChallengeRule(rule.id, todayIso) },
-                        colors = CheckboxDefaults.colors(checkedColor = Color(0xFFDC2626))
-                    )
+                    if (isFutureDay) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = "Locked",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Locked",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+                    } else if (isChecked) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFDC2626).copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = "Done ✓",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFDC2626),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        ) {
+                            Text(
+                                text = "Tap Circle",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

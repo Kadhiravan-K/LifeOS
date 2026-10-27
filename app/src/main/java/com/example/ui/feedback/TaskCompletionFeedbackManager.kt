@@ -120,7 +120,13 @@ class TaskCompletionFeedbackManager private constructor(private val context: Con
         }
     }
 
+    private var mediaPlayer: android.media.MediaPlayer? = null
+
     fun playSound(type: FeedbackSoundType = FeedbackSoundType.TASK) {
+        if (type == FeedbackSoundType.CUSTOM) {
+            playCustomAudio()
+            return
+        }
         try {
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
             if (audioManager != null && audioManager.ringerMode != AudioManager.RINGER_MODE_NORMAL) {
@@ -136,6 +142,82 @@ class TaskCompletionFeedbackManager private constructor(private val context: Con
         }
     }
 
+    fun playCustomAudio(customUriString: String? = null) {
+        try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            if (audioManager != null && audioManager.ringerMode != AudioManager.RINGER_MODE_NORMAL) {
+                return
+            }
+
+            try {
+                mediaPlayer?.stop()
+                mediaPlayer?.release()
+            } catch (_: Exception) {}
+            mediaPlayer = null
+
+            val customFile = File(context.filesDir, FeedbackSoundType.CUSTOM.filename)
+            val uri = customUriString?.let { android.net.Uri.parse(it) }
+
+            val player = android.media.MediaPlayer()
+            player.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+
+            var dataSourceSet = false
+            if (uri != null) {
+                try {
+                    player.setDataSource(context, uri)
+                    dataSourceSet = true
+                } catch (_: Exception) {
+                    // Inaccessible URI (revoked or file moved), fallback to local cache
+                }
+            }
+
+            if (!dataSourceSet) {
+                if (customFile.exists() && customFile.length() > 0) {
+                    player.setDataSource(customFile.absolutePath)
+                    dataSourceSet = true
+                }
+            }
+
+            if (!dataSourceSet) {
+                // If neither exists, fallback to default chime
+                player.release()
+                playSound(FeedbackSoundType.TASK)
+                return
+            }
+
+            player.setOnCompletionListener { mp ->
+                try {
+                    mp.release()
+                } catch (_: Exception) {}
+                if (mediaPlayer === mp) {
+                    mediaPlayer = null
+                }
+            }
+            player.setOnErrorListener { mp, _, _ ->
+                try {
+                    mp.release()
+                } catch (_: Exception) {}
+                if (mediaPlayer === mp) {
+                    mediaPlayer = null
+                }
+                true
+            }
+
+            player.prepare()
+            player.setVolume(0.85f, 0.85f)
+            player.start()
+            mediaPlayer = player
+        } catch (_: Exception) {
+            // Fallback to task chime on error
+            playSound(FeedbackSoundType.TASK)
+        }
+    }
+
     fun playCompletionSound() {
         playSound(FeedbackSoundType.TASK)
     }
@@ -148,10 +230,33 @@ class TaskCompletionFeedbackManager private constructor(private val context: Con
                     input.copyTo(output)
                 }
             }
-            val sId = soundPool?.load(destFile.absolutePath, 1) ?: -1
-            if (sId != -1) {
-                soundIds[FeedbackSoundType.CUSTOM] = sId
+            if (!destFile.exists() || destFile.length() == 0L) {
+                return false
             }
+            try {
+                val sId = soundPool?.load(destFile.absolutePath, 1) ?: -1
+                if (sId != -1) {
+                    soundIds[FeedbackSoundType.CUSTOM] = sId
+                }
+            } catch (_: Exception) {}
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    fun removeCustomAudio(): Boolean {
+        return try {
+            val destFile = File(context.filesDir, FeedbackSoundType.CUSTOM.filename)
+            if (destFile.exists()) {
+                destFile.delete()
+            }
+            soundIds.remove(FeedbackSoundType.CUSTOM)
+            try {
+                mediaPlayer?.stop()
+                mediaPlayer?.release()
+            } catch (_: Exception) {}
+            mediaPlayer = null
             true
         } catch (_: Exception) {
             false
@@ -192,6 +297,11 @@ class TaskCompletionFeedbackManager private constructor(private val context: Con
 
     fun release() {
         try {
+            try {
+                mediaPlayer?.stop()
+                mediaPlayer?.release()
+            } catch (_: Exception) {}
+            mediaPlayer = null
             soundPool?.release()
             soundPool = null
             loadedSoundIds.clear()

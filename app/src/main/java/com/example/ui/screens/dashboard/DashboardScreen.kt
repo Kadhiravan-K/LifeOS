@@ -673,6 +673,45 @@ fun DashboardScreen(
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,
                     strokeCap = StrokeCap.Round
                 )
+
+                if (uiState.challengeRules.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(uiState.challengeRules, key = { it.id }) { rule ->
+                            val isRuleDone = uiState.challengeCompletedRuleIds.contains(rule.id)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (isRuleDone)
+                                            Color(0xFFDC2626)
+                                        else
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                    .clickable {
+                                        viewModel.toggleChallengeRule(rule.id, uiState.todayDateIso)
+                                    }
+                                    .testTag("dashboard_challenge_rule_${rule.id}")
+                            ) {
+                                if (isRuleDone) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Rule completed",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                } else {
+                                    Text(text = rule.emoji, fontSize = 20.sp)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 

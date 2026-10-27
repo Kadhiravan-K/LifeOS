@@ -48,6 +48,8 @@ import com.example.domain.model.ChallengeDailyLog
 import com.example.domain.model.ChallengePreset
 import com.example.domain.model.ChallengeRule
 import com.example.domain.model.ChallengeState
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import com.example.domain.model.ChallengeStatus
 import com.example.domain.model.DefaultChallengeRules
 import com.example.domain.model.DefaultHabits
@@ -546,7 +548,9 @@ class LifeRepository(
         }
     }
 
-    suspend fun toggleChallengeRule(ruleId: String, dateIso: String): Boolean {
+    private val challengeMutex = Mutex()
+
+    suspend fun toggleChallengeRule(ruleId: String, dateIso: String): Boolean = challengeMutex.withLock {
         var entity = challengeDao.getActiveChallenge()
         if (entity == null) {
             val defaultState = createDefaultChallengeState()
@@ -588,7 +592,7 @@ class LifeRepository(
         }
         evaluateAchievements()
 
-        return isNewlyCompleted
+        isNewlyCompleted
     }
 
     suspend fun restartChallenge(newStartDateIso: String, customRules: List<ChallengeRule>? = null) {
@@ -1738,16 +1742,18 @@ class LifeRepository(
         var challengeConfigured = false
 
         database.withTransaction {
-            // 1. Project
-            var createdProjectId: Long? = null
-            template.project?.let { projDef ->
-                val existingProjects = projectDao.getAllProjectsList()
-                val match = existingProjects.find { it.name.equals(projDef.name, ignoreCase = true) }
-                createdProjectId = if (match != null) {
-                    match.id
-                } else {
-                    projectsAdded++
-                    projectDao.insertProject(
+            // 1. Projects
+            val existingProjects = projectDao.getAllProjectsList()
+            val projectNameToId = mutableMapOf<String, Long>()
+            existingProjects.forEach { p ->
+                projectNameToId[p.name.trim().lowercase()] = p.id
+            }
+
+            // Ensure all projects declared in template.projects exist
+            template.projects.forEach { projDef ->
+                val key = projDef.name.trim().lowercase()
+                if (!projectNameToId.containsKey(key)) {
+                    val newId = projectDao.insertProject(
                         ProjectEntity(
                             name = projDef.name,
                             description = projDef.description,
@@ -1755,6 +1761,27 @@ class LifeRepository(
                             emoji = projDef.emoji
                         )
                     )
+                    projectNameToId[key] = newId
+                    projectsAdded++
+                }
+            }
+
+            // Ensure any project referenced by tasks also exists
+            template.tasks.forEach { taskDef ->
+                taskDef.projectName?.let { pName ->
+                    val key = pName.trim().lowercase()
+                    if (key.isNotBlank() && !projectNameToId.containsKey(key)) {
+                        val newId = projectDao.insertProject(
+                            ProjectEntity(
+                                name = pName.trim(),
+                                description = "",
+                                colorId = "blue",
+                                emoji = "📁"
+                            )
+                        )
+                        projectNameToId[key] = newId
+                        projectsAdded++
+                    }
                 }
             }
 
@@ -1764,6 +1791,10 @@ class LifeRepository(
                 if (index in selectedTaskIndices) {
                     val isDuplicate = existingTasks.any { it.title.equals(taskDef.title, ignoreCase = true) }
                     if (!isDuplicate) {
+                        val targetProjectName = taskDef.projectName?.trim()
+                            ?: if (template.projects.size == 1) template.projects.first().name.trim() else null
+                        val taskProjectId = targetProjectName?.let { projectNameToId[it.lowercase()] }
+
                         taskDao.insertTask(
                             TaskEntity(
                                 title = taskDef.title,
@@ -1778,7 +1809,7 @@ class LifeRepository(
                                 recurrenceType = taskDef.recurrenceType.name,
                                 recurrenceDaysOfWeek = taskDef.recurrenceDaysOfWeek.joinToString(","),
                                 isReminderEnabled = taskDef.isReminderEnabled,
-                                projectId = createdProjectId,
+                                projectId = taskProjectId,
                                 createdAt = System.currentTimeMillis()
                             )
                         )

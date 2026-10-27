@@ -223,6 +223,8 @@ fun SettingsScreen(
     val defaultReminderBehavior by viewModel.defaultReminderBehavior.collectAsStateWithLifecycle()
     val activeThemeDef by viewModel.activeThemeDefinition.collectAsStateWithLifecycle()
     val completionSoundType by viewModel.completionSoundTypeFlow.collectAsStateWithLifecycle()
+    val customSoundUri by viewModel.customSoundUriFlow.collectAsStateWithLifecycle()
+    val customSoundFileName by viewModel.customSoundFileNameFlow.collectAsStateWithLifecycle()
     val trashRetentionDays by viewModel.trashRetentionDaysFlow.collectAsStateWithLifecycle()
 
     // Smart Alerts & Notifications flows
@@ -547,22 +549,20 @@ fun SettingsScreen(
 
                         if (completionSound) {
                             Spacer(modifier = Modifier.height(12.dp))
-                            Text("Completion Sound Effect", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Built-in Sound Profiles", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             Spacer(modifier = Modifier.height(8.dp))
 
                             val availableSounds = listOf(
-                                FeedbackSoundType.TASK to "Default Chime",
-                                FeedbackSoundType.BELL to "Tibetan Bell",
-                                FeedbackSoundType.POP to "Crisp Pop",
-                                FeedbackSoundType.RETRO to "8-Bit Retro",
-                                FeedbackSoundType.SUCCESS to "Victory Marimba",
-                                FeedbackSoundType.HARP to "Celestial Harp",
-                                FeedbackSoundType.HABIT to "Habit Bell",
-                                FeedbackSoundType.WATER to "Water Drop",
-                                FeedbackSoundType.MILESTONE to "Milestone",
-                                FeedbackSoundType.LEVEL_UP to "Level Up",
-                                FeedbackSoundType.ALL_DONE to "All Done",
-                                FeedbackSoundType.CUSTOM to "Custom Audio File"
+                                FeedbackSoundType.BELL to "🔔 Tibetan Bell",
+                                FeedbackSoundType.POP to "🫧 Crisp Pop",
+                                FeedbackSoundType.RETRO to "👾 8-Bit Retro",
+                                FeedbackSoundType.SUCCESS to "🏆 Victory Marimba",
+                                FeedbackSoundType.HARP to "🪕 Celestial Harp",
+                                FeedbackSoundType.TASK to "🎵 Default Chime",
+                                FeedbackSoundType.HABIT to "🧘 Habit Bell",
+                                FeedbackSoundType.WATER to "💧 Water Drop",
+                                FeedbackSoundType.MILESTONE to "🌟 Milestone",
+                                FeedbackSoundType.ALL_DONE to "🎉 All Done"
                             )
 
                             @OptIn(ExperimentalLayoutApi::class)
@@ -587,7 +587,7 @@ fun SettingsScreen(
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Default.PlayArrow,
-                                                    contentDescription = "Preview sound",
+                                                    contentDescription = "Preview $label",
                                                     modifier = Modifier.size(14.dp)
                                                 )
                                             }
@@ -596,14 +596,131 @@ fun SettingsScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(10.dp))
-                            OutlinedButton(
-                                onClick = { soundLauncher.launch("audio/*") },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Import Custom Sound (.wav, .mp3, .ogg)")
+                            Spacer(modifier = Modifier.height(14.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Text("Custom Completion Sound", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            if (customSoundUri != null) {
+                                val isCustomActive = completionSoundType == FeedbackSoundType.CUSTOM
+                                Card(
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isCustomActive)
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                        else
+                                            MaterialTheme.colorScheme.surface
+                                    ),
+                                    border = if (isCustomActive)
+                                        androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+                                    else
+                                        androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Box(
+                                                contentAlignment = Alignment.Center,
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        if (isCustomActive)
+                                                            MaterialTheme.colorScheme.primary
+                                                        else
+                                                            MaterialTheme.colorScheme.surfaceVariant
+                                                    )
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.MusicNote,
+                                                    contentDescription = null,
+                                                    tint = if (isCustomActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = customSoundFileName ?: "Custom Sound",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 13.sp,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = if (isCustomActive) "Currently Active Completion Sound" else "Imported Audio File",
+                                                    fontSize = 11.sp,
+                                                    color = if (isCustomActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            IconButton(
+                                                onClick = { viewModel.playPreviewSound(FeedbackSoundType.CUSTOM) },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.PlayArrow,
+                                                    contentDescription = "Preview custom sound",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(10.dp))
+
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            if (!isCustomActive) {
+                                                Button(
+                                                    onClick = { viewModel.setCompletionSoundType(FeedbackSoundType.CUSTOM) },
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    modifier = Modifier.weight(1f)
+                                                ) {
+                                                    Text("Use as Sound", fontSize = 11.sp)
+                                                }
+                                            }
+                                            OutlinedButton(
+                                                onClick = { soundLauncher.launch("audio/*") },
+                                                shape = RoundedCornerShape(10.dp),
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Text("Change", fontSize = 11.sp)
+                                            }
+                                            OutlinedButton(
+                                                onClick = { viewModel.removeCustomSound() },
+                                                shape = RoundedCornerShape(10.dp),
+                                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                                            ) {
+                                                Icon(Icons.Default.Delete, contentDescription = "Remove", modifier = Modifier.size(14.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = { soundLauncher.launch("audio/*") },
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Import Custom Audio File (.mp3, .wav, .ogg)")
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Select any audio file from your device storage to use as your completion chime.",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }

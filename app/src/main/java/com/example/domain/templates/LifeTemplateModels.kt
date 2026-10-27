@@ -38,7 +38,8 @@ data class TemplateTaskDef(
     val isReminderEnabled: Boolean = false,
     val reminderMinutesBefore: Int = 15,
     val emoji: String = "📝",
-    val schedulingMode: String = "DURATION"
+    val schedulingMode: String = "DURATION",
+    val projectName: String? = null
 )
 
 data class TemplateHabitDef(

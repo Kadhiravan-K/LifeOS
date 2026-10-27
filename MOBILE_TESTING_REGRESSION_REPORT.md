@@ -141,3 +141,24 @@ All physical device checks remain **PENDING** until verified on physical Android
 - **Static Analysis Errors (New):** 0
 - **Baselined NewApi Errors:** 0 (Fully resolved via L8 core library desugaring)
 - **Pending Actions:** Physical-device verification following the 7 prioritized sequences above.
+
+---
+
+## 6. Mobile Testing Batch 01 — Home Screen Results
+
+### Defect Resolution Summary
+
+| Issue | Title | Root Cause | Fix Implemented | Automated Tests | Physical Device Status |
+|---|---|---|---|---|---|
+| **HOME-01** | Browse Templates: Imported Tasks Missing Projects | `installTemplate` only inspected `template.project` (first project), lacked per-task `projectName` mappings, and omitted multi-project mapping logic. | Added `projectName: String?` to `TemplateTaskDef`, mapped tasks to template projects (with multi-project support and single-project fallback), automated Room `ProjectEntity` creation with deduplication, and preserved intentional unassigned state when no projects are defined. | **PASS** (`Batch01HomeRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **HOME-02** | 75-Day Challenge: Interactive Daily Completion Circles | Dashboard card only rendered static text and progress bar; Challenge screen relied on standard checkboxes without circular daily controls or future/past day management. | Added interactive 44.dp circular completion row to Dashboard Challenge card matching Daily Habits; updated Challenge screen rule cards with 48.dp completion circles; added 75-day timeline strip with distinct completed, in-progress, and unavailable/future states; added Mutex atomicity and double-tap debounce. | **PASS** (`Batch01HomeRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **HOME-03** | More Completion Sounds + Custom Sound Import | Completion audio for habits was hardcoded to `FeedbackSoundType.HABIT` and challenge rules to `MILESTONE`, bypassing user settings; custom sound lacked file name persistence, MediaPlayer lifecycle handling, and settings preview/remove controls. | Exposed all 6 primary built-in sounds (Tibetan Bell, Crisp Pop, Retro, Victory Marimba, Celestial Harp, Default Chime) plus auxiliary sounds in Settings with interactive preview; added Storage Access Framework custom audio picker (MP3, WAV, OGG) with persistent URI permissions, internal caching, and MediaPlayer streaming; added custom sound preview, change, and remove controls in Settings; routed completion events across Tasks, Habits, 75-Day Challenge, and QR tiles dynamically to the user's selected completion sound. | **PASS** (`Batch01HomeRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+
+### Automated Pipeline Verification
+- `./gradlew compileDebugKotlin --no-configuration-cache`: **SUCCESS**
+- `./gradlew testDebugUnitTest --no-configuration-cache`: **SUCCESS** (149/149 tests passed)
+- `./gradlew compileDebugAndroidTestKotlin --no-configuration-cache`: **SUCCESS**
+- `./gradlew lintDebug lintVitalRelease --no-configuration-cache`: **SUCCESS** (0 errors)
+- `./gradlew assembleDebug assembleRelease --no-configuration-cache`: **SUCCESS**
+  - `app-debug.apk`: 22,353,674 bytes, SHA-256: `208A5ECB9A5DD8B8DEF61448A571D548A3A86CC51EC9164B0F6A65A5B2AAB8AB`
+  - `app-release-unsigned.apk`: 13,649,726 bytes, SHA-256: `87FC8E2FBDD9590A0EB9C339933A79AEEBED7B4E7BA83BADD8AE4E2DF79C23F6`

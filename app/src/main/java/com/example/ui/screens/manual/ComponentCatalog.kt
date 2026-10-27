@@ -1,4 +1,4 @@
-﻿package com.example.ui.screens.manual
+package com.example.ui.screens.manual
 
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.Icons
@@ -528,7 +528,7 @@ FilledTonalIconButton(onClick = { isGrid = !isGrid }) {
                 ComponentParam("activeColor", "Color", "Color corresponding to task priority"),
                 ComponentParam("onToggle", "() -> Unit", "Callback when circle is tapped")
             ),
-            usageLocations = listOf("TaskCard", "TaskGridCard", "CalendarScreen (TaskListSection, AgendaView)"),
+            usageLocations = listOf("TaskCard", "TaskGridCard", "CalendarScreen (TaskListSection, AgendaView)", "75-Day Challenge Screen", "Dashboard Challenge Card"),
             reuseRecommendations = "Ensure haptic feedback and sound triggers are routed consistently through TaskCompletionFeedbackManager.",
             codeExample = """
 TaskCompletionCircle(
@@ -809,7 +809,7 @@ if (uiState.isLoading) {
                 ComponentParam("soundType", "FeedbackSoundType", "Choice of 12 PCM sounds or custom audio"),
                 ComponentParam("hapticsEnabled", "Boolean", "Whether to vibrate")
             ),
-            usageLocations = listOf("LifeViewModel", "HoneycombTaskGrid", "TasksScreen", "SettingsScreen"),
+            usageLocations = listOf("LifeViewModel", "HoneycombTaskGrid", "TasksScreen", "SettingsScreen", "ChallengeScreen"),
             reuseRecommendations = "Never instantiate separate MediaPlayer objects; route all audio through the singleton manager.",
             codeExample = """
 TaskCompletionFeedbackManager.playCompletionFeedback(
