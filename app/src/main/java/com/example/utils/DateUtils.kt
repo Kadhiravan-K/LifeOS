@@ -15,35 +15,58 @@ object DateUtils {
     private val fullDisplayFormat = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.US)
     private val monthYearFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
 
-    fun todayString(): String {
-        return isoFormat.format(Date())
+    fun todayString(timeZone: TimeZone = TimeZone.getDefault(), nowMillis: Long = System.currentTimeMillis()): String {
+        val cal = Calendar.getInstance(timeZone).apply {
+            timeInMillis = nowMillis
+        }
+        return String.format(
+            Locale.US,
+            "%04d-%02d-%02d",
+            cal.get(Calendar.YEAR),
+            cal.get(Calendar.MONTH) + 1,
+            cal.get(Calendar.DAY_OF_MONTH)
+        )
     }
 
     fun currentTimeString(): String {
         return minutesToTime(getCurrentMinuteOfDay())
     }
 
-    private val utcIsoFormat: SimpleDateFormat
-        get() = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
-
-    fun todayEpochDay(): Long {
-        return isoStringToEpochDay(todayString())
+    fun todayEpochDay(timeZone: TimeZone = TimeZone.getDefault(), nowMillis: Long = System.currentTimeMillis()): Long {
+        return isoStringToEpochDay(todayString(timeZone, nowMillis))
     }
 
     fun epochDayToIsoString(epochDay: Long): String {
-        val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-        calendar.timeInMillis = epochDay * (1000L * 60 * 60 * 24)
-        return utcIsoFormat.format(calendar.time)
+        val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            clear()
+            timeInMillis = epochDay * (1000L * 60 * 60 * 24)
+        }
+        return String.format(
+            Locale.US,
+            "%04d-%02d-%02d",
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH) + 1,
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
     }
 
     fun isoStringToEpochDay(isoDate: String): Long {
         return try {
-            val date = utcIsoFormat.parse(isoDate) ?: Date()
-            date.time / (1000L * 60 * 60 * 24)
+            val parts = isoDate.split("-")
+            if (parts.size == 3) {
+                val year = parts[0].toInt()
+                val month = parts[1].toInt()
+                val day = parts[2].toInt()
+                val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                    clear()
+                    set(year, month - 1, day)
+                }
+                Math.floorDiv(cal.timeInMillis, 1000L * 60 * 60 * 24)
+            } else {
+                Math.floorDiv(System.currentTimeMillis(), 1000L * 60 * 60 * 24)
+            }
         } catch (e: Exception) {
-            System.currentTimeMillis() / (1000L * 60 * 60 * 24)
+            Math.floorDiv(System.currentTimeMillis(), 1000L * 60 * 60 * 24)
         }
     }
 
@@ -97,11 +120,7 @@ object DateUtils {
 
     fun addDays(isoDate: String, daysToAdd: Int): String {
         return try {
-            val date = isoFormat.parse(isoDate) ?: Date()
-            val cal = Calendar.getInstance()
-            cal.time = date
-            cal.add(Calendar.DAY_OF_YEAR, daysToAdd)
-            isoFormat.format(cal.time)
+            epochDayToIsoString(isoStringToEpochDay(isoDate) + daysToAdd)
         } catch (e: Exception) {
             isoDate
         }
@@ -109,10 +128,7 @@ object DateUtils {
 
     fun daysBetween(startDateIso: String, endDateIso: String): Int {
         return try {
-            val d1 = isoFormat.parse(startDateIso) ?: Date()
-            val d2 = isoFormat.parse(endDateIso) ?: Date()
-            val diff = d2.time - d1.time
-            (diff / (1000L * 60 * 60 * 24)).toInt()
+            (isoStringToEpochDay(endDateIso) - isoStringToEpochDay(startDateIso)).toInt()
         } catch (e: Exception) {
             0
         }

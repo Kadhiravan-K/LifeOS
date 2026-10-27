@@ -41,8 +41,8 @@ class Release2RegressionUnitTest {
     @Test
     fun `test populated shortcut database preserves existing shortcuts on upgrade`() {
         val existingShortcuts = listOf(
-            HoneycombShortcut(id = 1, type = ShortcutType.TASK, targetId = "10", title = "Write Unit Tests", emoji = "🧪"),
-            HoneycombShortcut(id = 2, type = ShortcutType.HABIT, targetId = "20", title = "Evening Walk", emoji = "🚶")
+            HoneycombShortcut(id = 1, type = ShortcutType.TASK, targetId = "10", title = "Write Unit Tests", emoji = "Ã°Å¸Â§Âª"),
+            HoneycombShortcut(id = 2, type = ShortcutType.HABIT, targetId = "20", title = "Evening Walk", emoji = "Ã°Å¸Å¡Â¶")
         )
 
         // On upgrade, existing shortcuts must be fully preserved
@@ -63,7 +63,7 @@ class Release2RegressionUnitTest {
             type = ShortcutType.TASK,
             targetId = "100",
             title = "Design Mockups",
-            emoji = "🎨",
+            emoji = "Ã°Å¸Å½Â¨",
             colorSource = "PROJECT",
             projectColorHex = projectColorHex
         )
@@ -78,7 +78,7 @@ class Release2RegressionUnitTest {
             type = ShortcutType.HABIT,
             targetId = "200",
             title = "Morning Meditation",
-            emoji = "🧘",
+            emoji = "Ã°Å¸Â§Ëœ",
             colorSource = "PROJECT"
         )
         assertNotNull("Habit shortcut must resolve non-null effective color", habitShortcut.effectiveColorHex)
@@ -89,7 +89,7 @@ class Release2RegressionUnitTest {
             type = ShortcutType.WATER,
             targetId = "water",
             title = "Hydration",
-            emoji = "💧",
+            emoji = "Ã°Å¸â€™Â§",
             colorSource = "PROJECT"
         )
         assertNotNull("Water shortcut must resolve non-null effective color", waterShortcut.effectiveColorHex)
@@ -100,7 +100,7 @@ class Release2RegressionUnitTest {
             type = ShortcutType.CHALLENGE_RULE,
             targetId = "rule_reading",
             title = "Reading 10 Pages",
-            emoji = "📖",
+            emoji = "Ã°Å¸â€œâ€“",
             colorSource = "PROJECT"
         )
         assertNotNull("Challenge shortcut must resolve non-null effective color", challengeShortcut.effectiveColorHex)
@@ -116,7 +116,7 @@ class Release2RegressionUnitTest {
             type = ShortcutType.TASK,
             targetId = "300",
             title = "VIP Feature",
-            emoji = "⭐",
+            emoji = "Ã¢Â­Â",
             colorSource = "CUSTOM",
             customColorHex = customColor,
             projectColorHex = projectColor
@@ -135,7 +135,7 @@ class Release2RegressionUnitTest {
             type = ShortcutType.TASK,
             targetId = "400",
             title = "Unassigned Task",
-            emoji = "📋",
+            emoji = "Ã°Å¸â€œâ€¹",
             colorSource = "PROJECT",
             customColorHex = null,
             projectColorHex = null
@@ -438,5 +438,102 @@ class Release2RegressionUnitTest {
         assertEquals("Single item must produce 1 row", 1, singleItemRows.size)
         assertTrue("First row must be 3-column layout type", singleItemRows[0].isThreeColumn)
         assertEquals(1, singleItemRows[0].items.size)
+    }
+
+    @Test
+    fun `test DateUtils midnight transition across Asia Kolkata, UTC, and America Los Angeles without clock dependency`() {
+        val kolkataTz = java.util.TimeZone.getTimeZone("Asia/Kolkata")
+        val utcTz = java.util.TimeZone.getTimeZone("UTC")
+        val laTz = java.util.TimeZone.getTimeZone("America/Los_Angeles")
+
+        // 1. Kolkata Midnight: 2026-10-27 00:00:00 IST = 2026-10-26 18:30:00 UTC
+        val calKolkata = java.util.Calendar.getInstance(utcTz).apply {
+            clear()
+            set(2026, 9, 26, 18, 30, 0)
+        }
+        val kolkataMidnightMs = calKolkata.timeInMillis
+
+        // 1 second before midnight in Kolkata (23:59:59 IST on 2026-10-26)
+        assertEquals("2026-10-26", com.example.utils.DateUtils.todayString(kolkataTz, kolkataMidnightMs - 1000L))
+        assertEquals(com.example.utils.DateUtils.isoStringToEpochDay("2026-10-26"), com.example.utils.DateUtils.todayEpochDay(kolkataTz, kolkataMidnightMs - 1000L))
+
+        // 1 second after midnight in Kolkata (00:00:01 IST on 2026-10-27)
+        assertEquals("2026-10-27", com.example.utils.DateUtils.todayString(kolkataTz, kolkataMidnightMs + 1000L))
+        assertEquals(com.example.utils.DateUtils.isoStringToEpochDay("2026-10-27"), com.example.utils.DateUtils.todayEpochDay(kolkataTz, kolkataMidnightMs + 1000L))
+
+        // 2. UTC Midnight: 2026-10-27 00:00:00 UTC
+        val calUtc = java.util.Calendar.getInstance(utcTz).apply {
+            clear()
+            set(2026, 9, 27, 0, 0, 0)
+        }
+        val utcMidnightMs = calUtc.timeInMillis
+
+        // 1 second before UTC midnight
+        assertEquals("2026-10-26", com.example.utils.DateUtils.todayString(utcTz, utcMidnightMs - 1000L))
+        // 1 second after UTC midnight
+        assertEquals("2026-10-27", com.example.utils.DateUtils.todayString(utcTz, utcMidnightMs + 1000L))
+
+        // 3. Los Angeles Midnight (PDT = UTC-7): 2026-10-27 00:00:00 PDT = 2026-10-27 07:00:00 UTC
+        val calLa = java.util.Calendar.getInstance(utcTz).apply {
+            clear()
+            set(2026, 9, 27, 7, 0, 0)
+        }
+        val laMidnightMs = calLa.timeInMillis
+
+        // 1 second before midnight in LA
+        assertEquals("2026-10-26", com.example.utils.DateUtils.todayString(laTz, laMidnightMs - 1000L))
+        // 1 second after midnight in LA
+        assertEquals("2026-10-27", com.example.utils.DateUtils.todayString(laTz, laMidnightMs + 1000L))
+    }
+
+    @Test
+    fun `test DateUtils negative and positive epoch days roundtrip and timezone independence`() {
+        // Day 0: Unix epoch 1970-01-01
+        assertEquals("1970-01-01", com.example.utils.DateUtils.epochDayToIsoString(0L))
+        assertEquals(0L, com.example.utils.DateUtils.isoStringToEpochDay("1970-01-01"))
+
+        // Negative Day -1: 1969-12-31
+        assertEquals("1969-12-31", com.example.utils.DateUtils.epochDayToIsoString(-1L))
+        assertEquals(-1L, com.example.utils.DateUtils.isoStringToEpochDay("1969-12-31"))
+
+        // Negative Day -365: 1969-01-01
+        assertEquals("1969-01-01", com.example.utils.DateUtils.epochDayToIsoString(-365L))
+        assertEquals(-365L, com.example.utils.DateUtils.isoStringToEpochDay("1969-01-01"))
+
+        // Historical negative: -10000L -> 1942-08-16
+        val neg10k = -10000L
+        val neg10kIso = com.example.utils.DateUtils.epochDayToIsoString(neg10k)
+        assertEquals("1942-08-16", neg10kIso)
+        assertEquals(neg10k, com.example.utils.DateUtils.isoStringToEpochDay(neg10kIso))
+
+        // Modern day: 2026-10-27 -> 20754L
+        val day2026 = 20753L
+        val iso2026 = com.example.utils.DateUtils.epochDayToIsoString(day2026)
+        assertEquals("2026-10-27", iso2026)
+        assertEquals(day2026, com.example.utils.DateUtils.isoStringToEpochDay(iso2026))
+
+        // Timezone independence verification
+        val originalTz = java.util.TimeZone.getDefault()
+        try {
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Pacific/Honolulu")) // UTC-10
+            assertEquals(20753L, com.example.utils.DateUtils.isoStringToEpochDay("2026-10-27"))
+
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Asia/Tokyo")) // UTC+9
+            assertEquals(20753L, com.example.utils.DateUtils.isoStringToEpochDay("2026-10-27"))
+        } finally {
+            java.util.TimeZone.setDefault(originalTz)
+        }
+    }
+
+    @Test
+    fun `test DateUtils addDays and daysBetween epoch arithmetic precision`() {
+        assertEquals("1969-12-31", com.example.utils.DateUtils.addDays("1970-01-01", -1))
+        assertEquals("1970-01-01", com.example.utils.DateUtils.addDays("1969-12-31", 1))
+        assertEquals("2026-11-01", com.example.utils.DateUtils.addDays("2026-10-27", 5))
+
+        assertEquals(1, com.example.utils.DateUtils.daysBetween("1969-12-31", "1970-01-01"))
+        assertEquals(-1, com.example.utils.DateUtils.daysBetween("1970-01-01", "1969-12-31"))
+        assertEquals(26, com.example.utils.DateUtils.daysBetween("2026-10-01", "2026-10-27"))
+        assertEquals(-26, com.example.utils.DateUtils.daysBetween("2026-10-27", "2026-10-01"))
     }
 }
