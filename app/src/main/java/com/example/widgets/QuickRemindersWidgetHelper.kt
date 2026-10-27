@@ -87,4 +87,24 @@ object QuickRemindersWidgetHelper {
         path.close()
         return path
     }
+
+    /**
+     * Mathematical geometry formula for pointy-top axial honeycomb grid:
+     * - Physical X = hStep * (q + r / 2.0)
+     * - Physical Y = vStep * r
+     * where hStep = hexWidth + spacing = sqrt(3) * radius + spacing
+     *       vStep = 1.5 * radius + spacing
+     *
+     * In an Android RemoteViews ListView:
+     * Even rows (r % 2 == 0) have no horizontal stagger: 3 columns (weights: 1, 1, 1).
+     * Odd rows (r % 2 != 0) are staggered by exactly +0.5 tile width: 2 columns with
+     * half-weight margin spacers (weights: 0.5, 1, 1, 0.5).
+     */
+    fun calculateAxialStaggerFactor(r: Int): Float = if (r % 2 != 0) 0.5f else 0f
+
+    fun isOddStaggeredRow(r: Int): Boolean = (r % 2 != 0)
+
+    fun calculateHexWidth(radius: Float): Float = (kotlin.math.sqrt(3.0) * radius).toFloat()
+
+    fun calculateHexHeight(radius: Float): Float = 2f * radius
 }

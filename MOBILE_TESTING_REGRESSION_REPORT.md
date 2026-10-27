@@ -1,10 +1,10 @@
 # LifeOS Release 2 — Mobile Testing Regression Report
 
-**Document Version:** 1.7.0<br>
+**Document Version:** 1.8.0<br>
 **Date:** October 27, 2026<br>
 **Target Release:** Release 2.0 (v1.1.0-reconstruction)<br>
 **Branch:** `recovery/release-2-reconstruction`<br>
-**Test Suite Status:** 139 Passed / 0 Failed / 0 Errors / 0 Skipped<br>
+**Test Suite Status:** 172 Passed / 0 Failed / 0 Errors / 0 Skipped<br>
 **Build Status:** `assembleDebug` SUCCESS (L8 Core Library Desugaring Active, 0 Warnings)<br>
 **Lint Status:** `lintDebug` SUCCESS (0 New Issues, 0 `NewApi` Errors in Baseline, 106 Historical Warnings)<br>
 **Overall Physical Device Status:** **PENDING PHYSICAL DEVICE VERIFICATION**<br>
@@ -183,4 +183,31 @@ All physical device checks remain **PENDING** until verified on physical Android
 - `./gradlew assembleDebug assembleRelease --no-configuration-cache`: **SUCCESS**
   - `app-debug.apk`: 22,354,424 bytes, SHA-256: `22638365849A6FF155031F36069A78B84E456D5173010B2FD136F5DC41984D12`
   - `app-release-unsigned.apk`: 13,649,726 bytes, SHA-256: `1C63C407C016671081DDD23D4BB4F3EFB716B0075F76033243AC834BFA11A79F`
+
+---
+
+## 8. Mobile Testing Batch 03 — Settings & Widget Results
+
+### Defect Resolution Summary
+
+| Issue | Title | Root Cause | Fix Implemented | Automated Tests | Physical Device Status |
+|---|---|---|---|---|---|
+| **SET-01** | Settings Search | Settings hub lacked a unified search index across nested subpages and direct settings actions, forcing users to manually browse through every subpage. | Implemented `getSettingsSearchRegistry()` with searchable titles, subtitles, categories, and keyword tags for all Settings areas. Added a real-time search bar with result cards that route directly to target subpages or trigger direct navigation dialogs. | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **SET-02** | Theme Loading Animation | Theme switching rendered an abrupt transition with static emoji/icon, lacking a branded animated motif transition. | Wrapped theme page navigation and theme selection with a dedicated 1.5-second `ThemedLoadingIndicator` motif badge and smooth animated alpha/scale overlay (`ThemeMotifLoadingTransition`), supporting non-blocking touch interaction without duplicate overlays. | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **SET-03** | Template Projects & Labels | Template task defs lacked explicit labels, and templates used ad-hoc project names or fallback bundle names instead of standard categories. | Standardized project assignments across all template tasks to canonical categories: `Daily Habits`, `Home`, `Office`, `Personal`, `Health`, `Learning`, `Travel`. Added rich tags/labels to every task def. Implemented automatic label deduplication and Room `TaskLabelCrossRef` insertion upon template installation. | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **SET-04** | Additional Template Bundles | Catalog lacked popular actionable checklists for personal life, milestones, travel, and business setup. | Added 5 editable checklist bundles: `Bucket List` (`bundle_bucket_list`), `Couples Goals` (`bundle_couples_goals`), `Trip Packing Checklist` (`bundle_trip_packing`), `Marriage Planning Checklist` (`bundle_marriage_planning`), and `Startup Setup Checklist` (`bundle_startup_setup`). | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **SET-05** | Trash Retention Duration | Trash retention setting was a simple text display without flexible duration units or quick adjustments. | Replaced with full numeric input, unit dropdown (`Days`, `Weeks`, `Months`, `Years`), increment/decrement steppers (`[-]`/`[+]`), and preset pills (7d, 14d, 30d, 60d, 90d), strictly validated in `[1..365]` days. | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **SET-06** | Profile Emoji Avatar | Profile only allowed text name customization; no custom emoji avatar selector was available. | Added profile emoji avatar selector using `EmojiInputDialog`, persisted in `KEY_USER_PROFILE_EMOJI` DataStore preference, and integrated into Profile settings card and Dashboard greeting header with theme motif fallback. | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **SET-07** | Week Start & Task Duration | First Day of Week lacked `Saturday` start day for middle-eastern and custom work schedules; default task duration lacked fast stepper adjustments. | Added `Saturday` to `First Day of Week` options and updated calendar grid and week days calculations in `DateUtils` and `CalendarScreen`. Replaced default task duration with preset chips (15, 30, 45, 60, 90 min) and 5-minute stepper controls clamped to `[5..480]` minutes. | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **WID-01** | QR Widget Alignment | Launcher Quick Reminders widget items displayed irregular alignment differing from the in-app pointy-top honeycomb layout. | Aligned widget geometry to pointy-top axial hex math (`q, r`), grouping items by axial row parity (`r % 2 != 0` -> 2 columns offset by 0.5, `r % 2 == 0` -> 3 columns). Documented formulas and verified row chunking in unit tests. | **PASS** (`Batch03SettingsWidgetRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+
+### Automated Pipeline Verification
+- `./gradlew compileDebugKotlin --no-configuration-cache`: **SUCCESS**
+- `./gradlew testDebugUnitTest --no-configuration-cache`: **SUCCESS** (172/172 tests passed, 0 failures)
+- `./gradlew compileDebugAndroidTestKotlin --no-configuration-cache`: **SUCCESS**
+- `./gradlew lintDebug lintVitalRelease --no-configuration-cache`: **SUCCESS** (0 errors)
+- `./gradlew assembleDebug assembleRelease --no-configuration-cache`: **SUCCESS**
+  - `app-debug.apk`: 22,358,342 bytes, SHA-256: `AD914F63096F1D44DD1976A3B24763B8F815D47CF00AEDD53E790012D86A7694`
+  - `app-release-unsigned.apk`: 13,698,878 bytes, SHA-256: `94FFAF0607BF85E05E735B002871A00378220393D4A7AE7B2933284665BE69AB`
+
 

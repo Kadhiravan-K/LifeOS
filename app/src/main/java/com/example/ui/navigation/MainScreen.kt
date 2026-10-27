@@ -126,11 +126,13 @@ fun MainScreen(
         modifier = modifier.fillMaxSize()
     ) { innerPadding ->
         if (showThemeGallery) {
-            com.example.ui.screens.themes.ThemeGalleryScreen(
-                viewModel = viewModel,
-                onNavigateBack = { showThemeGallery = false },
-                modifier = Modifier.padding(innerPadding)
-            )
+            ThemeMotifLoadingTransition(label = "Theme Gallery") {
+                com.example.ui.screens.themes.ThemeGalleryScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { showThemeGallery = false },
+                    modifier = Modifier.padding(innerPadding)
+                )
+            }
         } else {
             androidx.compose.foundation.layout.Column(modifier = Modifier.padding(innerPadding)) {
                 // Persistent Preview Notification Banner across all tabs when in Preview Mode

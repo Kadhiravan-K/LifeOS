@@ -852,8 +852,9 @@ fun TemplatePreviewDialog(
                                             fontWeight = FontWeight.Medium
                                         )
                                         val taskProjName = taskDef.projectName ?: if (template.projects.size == 1) template.projects.first().name else null
+                                        val labelsText = if (taskDef.labels.isNotEmpty()) " • 🏷️ ${taskDef.labels.joinToString(", ")}" else ""
                                         Text(
-                                            text = "${taskDef.dueTime ?: "Anytime"} • ${taskDef.durationMinutes}m • ${taskDef.recurrenceType.displayName}${if (taskProjName != null) " • 📁 $taskProjName" else ""}",
+                                            text = "${taskDef.dueTime ?: "Anytime"} • ${taskDef.durationMinutes}m • ${taskDef.recurrenceType.displayName}${if (taskProjName != null) " • 📁 $taskProjName" else ""}$labelsText",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )

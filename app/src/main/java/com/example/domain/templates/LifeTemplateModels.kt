@@ -17,7 +17,11 @@ enum class TemplateCategory(val displayName: String, val emoji: String) {
     WEEKLY_PLANNING("Weekly Planning", "📅"),
     PERSONAL_DEV("Personal Development", "🧠"),
     CHALLENGE_75("75-Day Challenge", "🔥"),
-    BUCKET_LIST("Special Bucket List", "✨");
+    BUCKET_LIST("Special Bucket List", "✨"),
+    COUPLES_GOALS("Couples Goals", "💑"),
+    TRAVEL_CHECKLIST("Travel & Packing", "🧳"),
+    EVENT_PLANNING("Event Planning", "💍"),
+    STARTUP_LAUNCH("Startup & Business", "🚀");
 
     companion object {
         fun fromString(value: String): TemplateCategory {
@@ -39,7 +43,8 @@ data class TemplateTaskDef(
     val reminderMinutesBefore: Int = 15,
     val emoji: String = "📝",
     val schedulingMode: String = "DURATION",
-    val projectName: String? = null
+    val projectName: String? = null,
+    val labels: List<String> = emptyList()
 )
 
 data class TemplateHabitDef(

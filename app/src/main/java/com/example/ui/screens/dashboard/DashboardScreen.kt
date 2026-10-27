@@ -160,7 +160,7 @@ fun DashboardScreen(
                         .border(1.dp, activeTheme.colors.outline, activeTheme.shapes.buttonShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = activeTheme.decoration.motifEmoji, fontSize = 22.sp)
+                    Text(text = uiState.userProfileEmoji.ifBlank { activeTheme.decoration.motifEmoji }, fontSize = 22.sp)
                 }
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {

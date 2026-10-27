@@ -187,11 +187,10 @@ object DateUtils {
         }
 
         val firstDayOfWeekCal = firstDayCal.get(Calendar.DAY_OF_WEEK) // 1=Sun, 2=Mon...
-        val offset = if (firstDayOfWeek == "SUNDAY") {
-            firstDayOfWeekCal - Calendar.SUNDAY
-        } else {
-            // Monday start: Sun=6, Mon=0, Tue=1...
-            if (firstDayOfWeekCal == Calendar.SUNDAY) 6 else firstDayOfWeekCal - Calendar.MONDAY
+        val offset = when (firstDayOfWeek.uppercase()) {
+            "SUNDAY" -> firstDayOfWeekCal - Calendar.SUNDAY
+            "SATURDAY" -> (firstDayOfWeekCal - Calendar.SATURDAY + 7) % 7
+            else -> if (firstDayOfWeekCal == Calendar.SUNDAY) 6 else firstDayOfWeekCal - Calendar.MONDAY
         }
 
         val grid = mutableListOf<String>()
@@ -239,10 +238,10 @@ object DateUtils {
         val cal = Calendar.getInstance().apply { time = date }
         val currentDayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
 
-        val daysBeforeStart = if (firstDayOfWeek == "SUNDAY") {
-            currentDayOfWeek - Calendar.SUNDAY
-        } else {
-            if (currentDayOfWeek == Calendar.SUNDAY) 6 else currentDayOfWeek - Calendar.MONDAY
+        val daysBeforeStart = when (firstDayOfWeek.uppercase()) {
+            "SUNDAY" -> currentDayOfWeek - Calendar.SUNDAY
+            "SATURDAY" -> (currentDayOfWeek - Calendar.SATURDAY + 7) % 7
+            else -> if (currentDayOfWeek == Calendar.SUNDAY) 6 else currentDayOfWeek - Calendar.MONDAY
         }
 
         cal.add(Calendar.DAY_OF_YEAR, -daysBeforeStart)

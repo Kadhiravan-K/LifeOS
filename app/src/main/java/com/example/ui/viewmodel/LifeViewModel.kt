@@ -85,6 +85,7 @@ import kotlinx.coroutines.delay
 data class DashboardUiState(
     val isLoading: Boolean = true,
     val userName: String = "",
+    val userProfileEmoji: String = "👤",
     val greeting: String = "",
     val todayDateFormatted: String = "",
     val todayDateIso: String = "",
@@ -145,7 +146,8 @@ data class CalendarUiState(
     val tasksOnSelectedDate: List<TaskItem> = emptyList(),
     val conflictsOnSelectedDate: List<ScheduleConflict> = emptyList(),
     val selectedCategoryFilter: String? = null,
-    val selectedPriorityFilter: TaskPriority? = null
+    val selectedPriorityFilter: TaskPriority? = null,
+    val firstDayOfWeek: String = "MONDAY"
 )
 
 data class HabitsUiState(
@@ -159,6 +161,7 @@ data class HabitsUiState(
 
 private data class UserDashboardPrefs(
     val userName: String,
+    val userProfileEmoji: String,
     val hasInstalledDefaults: Boolean,
     val is24Hour: Boolean,
     val hasCompletedOnboarding: Boolean
@@ -338,6 +341,12 @@ class LifeViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = "Master"
+    )
+
+    val userProfileEmojiFlow: StateFlow<String> = preferences.userProfileEmoji.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "👤"
     )
 
     val themeModeFlow: StateFlow<String> = preferences.themeMode.stateIn(
@@ -803,8 +812,8 @@ class LifeViewModel(
         initialValue = emptyList()
     )
 
-    private val userPrefsFlow = combine(userNameFlow, hasInstalledDefaultsFlow, clockFormatFlow, preferences.hasCompletedOnboarding) { name, defaults, clock, onboarding ->
-        UserDashboardPrefs(name, defaults, clock == "24_HOUR", onboarding)
+    private val userPrefsFlow = combine(userNameFlow, userProfileEmojiFlow, hasInstalledDefaultsFlow, clockFormatFlow, preferences.hasCompletedOnboarding) { name, emoji, defaults, clock, onboarding ->
+        UserDashboardPrefs(name, emoji, defaults, clock == "24_HOUR", onboarding)
     }
 
     private val filterParamsFlow = combine(
@@ -890,6 +899,7 @@ class LifeViewModel(
         DashboardUiState(
             isLoading = false,
             userName = prefs.userName,
+            userProfileEmoji = prefs.userProfileEmoji,
             greeting = greetingText,
             todayDateFormatted = DateUtils.formatDisplayDate(todayIso),
             todayDateIso = todayIso,
@@ -1053,9 +1063,9 @@ class LifeViewModel(
         val monthGrid = DateUtils.getMonthCalendarGrid(year, month, firstDay)
         val weekGrid = DateUtils.getWeekDays(selDate, firstDay)
         val threeDays = listOf(selDate, DateUtils.addDays(selDate, 1), DateUtils.addDays(selDate, 2))
-        Triple(monthTitle, Pair(monthGrid, weekGrid), threeDays)
-    }.flatMapLatest { (title, grids, threeDays) ->
-        val (monthGrid, weekGrid) = grids
+        Triple(Triple(monthTitle, monthGrid, weekGrid), threeDays, firstDay)
+    }.flatMapLatest { (grids, threeDays, firstDay) ->
+        val (title, monthGrid, weekGrid) = grids
         val selDate = _calendarSelectedDate.value
         repository.getTasksForDateFlow(selDate).map { tasksOnDate ->
             val wakeUp = DateUtils.timeToMinutes(wakeUpTimeFlow.value).coerceAtLeast(330)
@@ -1094,7 +1104,8 @@ class LifeViewModel(
                 tasksOnSelectedDate = filtered,
                 conflictsOnSelectedDate = allConflicts.distinctBy { it.message },
                 selectedCategoryFilter = _calendarCategoryFilter.value,
-                selectedPriorityFilter = _calendarPriorityFilter.value
+                selectedPriorityFilter = _calendarPriorityFilter.value,
+                firstDayOfWeek = firstDay
             )
         }
     }.stateIn(
@@ -1768,6 +1779,10 @@ class LifeViewModel(
     // --- Preferences Actions ---
     fun updateUserName(name: String) {
         viewModelScope.launch { preferences.setUserName(name) }
+    }
+
+    fun updateUserProfileEmoji(emoji: String) {
+        viewModelScope.launch { preferences.setUserProfileEmoji(emoji) }
     }
 
     fun updateThemeMode(mode: String) {

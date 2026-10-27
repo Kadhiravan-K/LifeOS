@@ -1785,7 +1785,35 @@ class LifeRepository(
                 }
             }
 
-            // 2. Tasks
+            // 2. Labels
+            val existingLabels = labelDao.getAllLabelsList()
+            val labelNameToId = mutableMapOf<String, Long>()
+            existingLabels.forEach { l ->
+                labelNameToId[l.name.trim().lowercase()] = l.id
+            }
+
+            // Ensure all labels referenced in template tasks exist
+            template.tasks.forEach { taskDef ->
+                taskDef.labels.forEach { labelName ->
+                    val key = labelName.trim().lowercase()
+                    if (key.isNotBlank() && !labelNameToId.containsKey(key)) {
+                        val newLabelId = labelDao.insertLabel(
+                            LabelEntity(
+                                name = labelName.trim(),
+                                colorId = "blue",
+                                isFavorite = false,
+                                isArchived = false,
+                                orderIndex = existingLabels.size + labelNameToId.size,
+                                createdAt = System.currentTimeMillis(),
+                                updatedAt = System.currentTimeMillis()
+                            )
+                        )
+                        labelNameToId[key] = newLabelId
+                    }
+                }
+            }
+
+            // 3. Tasks
             val existingTasks = taskDao.getAllTasksList()
             template.tasks.forEachIndexed { index, taskDef ->
                 if (index in selectedTaskIndices) {
@@ -1795,7 +1823,7 @@ class LifeRepository(
                             ?: if (template.projects.size == 1) template.projects.first().name.trim() else null
                         val taskProjectId = targetProjectName?.let { projectNameToId[it.lowercase()] }
 
-                        taskDao.insertTask(
+                        val newTaskId = taskDao.insertTask(
                             TaskEntity(
                                 title = taskDef.title,
                                 emoji = taskDef.emoji,
@@ -1814,11 +1842,23 @@ class LifeRepository(
                             )
                         )
                         tasksAdded++
+
+                        if (taskDef.labels.isNotEmpty()) {
+                            val crossRefs = taskDef.labels.mapNotNull { labelName ->
+                                val key = labelName.trim().lowercase()
+                                labelNameToId[key]?.let { lId ->
+                                    TaskLabelCrossRef(taskId = newTaskId, labelId = lId)
+                                }
+                            }
+                            if (crossRefs.isNotEmpty()) {
+                                labelDao.insertTaskLabelCrossRefs(crossRefs)
+                            }
+                        }
                     }
                 }
             }
 
-            // 3. Habits
+            // 4. Habits
             val existingHabits = habitDao.getAllHabitsList()
             template.habits.forEachIndexed { index, habitDef ->
                 if (index in selectedHabitIndices) {

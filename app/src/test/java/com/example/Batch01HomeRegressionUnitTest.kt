@@ -36,22 +36,23 @@ class Batch01HomeRegressionUnitTest {
 
         val morningPlan = tasks.find { it.title.contains("Morning Intentions") }
         assertNotNull(morningPlan)
-        assertEquals("Daily Operations", morningPlan!!.projectName)
+        assertEquals("Daily Habits", morningPlan!!.projectName)
 
         val middayWalk = tasks.find { it.title.contains("Midday Re-alignment") }
         assertNotNull(middayWalk)
-        assertEquals("Personal Health", middayWalk!!.projectName)
+        assertEquals("Health", middayWalk!!.projectName)
     }
 
     @Test
-    fun `test template with no projects preserves intentional null project`() {
+    fun `test template defines meaningful project categories and labels`() {
         val morningRoutine = TemplateCatalog.getTemplateById("template_high_perf_morning")
         assertNotNull(morningRoutine)
-        assertTrue(morningRoutine!!.projects.isEmpty())
+        assertFalse(morningRoutine!!.projects.isEmpty())
 
         morningRoutine.tasks.forEach { taskDef ->
             val effectiveProject = taskDef.projectName ?: if (morningRoutine.projects.size == 1) morningRoutine.projects.first().name else null
-            assertNull("Tasks in projectless templates must remain null/Inbox", effectiveProject)
+            assertNotNull("Tasks in templates must have meaningful projects", effectiveProject)
+            assertTrue("Task must have meaningful labels", taskDef.labels.isNotEmpty())
         }
     }
 
@@ -60,11 +61,11 @@ class Batch01HomeRegressionUnitTest {
         val deepWorkTmpl = TemplateCatalog.getTemplateById("template_deep_work_focus")
         assertNotNull(deepWorkTmpl)
         assertEquals(1, deepWorkTmpl!!.projects.size)
-        assertEquals("Deep Work Projects", deepWorkTmpl.projects.first().name)
+        assertEquals("Office", deepWorkTmpl.projects.first().name)
 
         deepWorkTmpl.tasks.forEach { taskDef ->
             val effectiveProject = taskDef.projectName ?: if (deepWorkTmpl.projects.size == 1) deepWorkTmpl.projects.first().name else null
-            assertEquals("Deep Work Projects", effectiveProject)
+            assertEquals("Office", effectiveProject)
         }
     }
 

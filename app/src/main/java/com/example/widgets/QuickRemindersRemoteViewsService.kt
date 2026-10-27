@@ -34,7 +34,9 @@ internal class QuickRemindersRemoteViewsFactory(
         val emoji: String,
         val shape: String,
         val colorArgb: Int,
-        val isCompleted: Boolean
+        val isCompleted: Boolean,
+        val coordQ: Int = 0,
+        val coordR: Int = 0
     )
 
     data class WidgetRow(
@@ -53,14 +55,35 @@ internal class QuickRemindersRemoteViewsFactory(
 
     private fun buildRows(items: List<WidgetQrItem>): List<WidgetRow> {
         val rows = mutableListOf<WidgetRow>()
-        var index = 0
-        var isThree = true
-        while (index < items.size) {
-            val count = if (isThree) 3 else 2
-            val chunk = items.subList(index, minOf(index + count, items.size))
-            rows.add(WidgetRow(isThreeColumn = isThree, items = chunk))
-            index += chunk.size
-            isThree = !isThree
+        if (items.isEmpty()) return rows
+
+        val hasAxialCoords = items.any { it.coordR != 0 || it.coordQ != 0 }
+        if (hasAxialCoords) {
+            val groupedByRow = items.groupBy { it.coordR }
+            val sortedRows = groupedByRow.keys.sorted()
+
+            sortedRows.forEach { r ->
+                val rowItems = groupedByRow[r]!!.sortedBy { it.coordQ.toFloat() + (r.toFloat() / 2f) }
+                val isThree = (r % 2 == 0)
+                val maxCol = if (isThree) 3 else 2
+
+                var idx = 0
+                while (idx < rowItems.size) {
+                    val chunk = rowItems.subList(idx, minOf(idx + maxCol, rowItems.size))
+                    rows.add(WidgetRow(isThreeColumn = isThree, items = chunk))
+                    idx += chunk.size
+                }
+            }
+        } else {
+            var index = 0
+            var isThree = true
+            while (index < items.size) {
+                val count = if (isThree) 3 else 2
+                val chunk = items.subList(index, minOf(index + count, items.size))
+                rows.add(WidgetRow(isThreeColumn = isThree, items = chunk))
+                index += chunk.size
+                isThree = !isThree
+            }
         }
         return rows
     }
@@ -155,7 +178,9 @@ internal class QuickRemindersRemoteViewsFactory(
                             emoji = sc.emoji,
                             shape = sc.shape,
                             colorArgb = effectiveColor.toInt(),
-                            isCompleted = isCompleted
+                            isCompleted = isCompleted,
+                            coordQ = sc.coordQ,
+                            coordR = sc.coordR
                         )
                     )
                 }

@@ -365,6 +365,7 @@ fun CalendarScreen(
                             today = todayStr,
                             monthIndex = uiState.currentMonthZeroIndexed,
                             datesWithTasks = datesWithTasks,
+                            firstDayOfWeek = uiState.firstDayOfWeek,
                             onSelectDate = { viewModel.selectCalendarDate(it) }
                         )
                     } else {
@@ -791,8 +792,15 @@ fun MonthGridView(
     today: String,
     monthIndex: Int,
     datesWithTasks: Set<String> = emptySet(),
+    firstDayOfWeek: String = "MONDAY",
     onSelectDate: (String) -> Unit
 ) {
+    val dayLabels = when (firstDayOfWeek.uppercase()) {
+        "SATURDAY" -> listOf("S", "S", "M", "T", "W", "T", "F")
+        "SUNDAY" -> listOf("S", "M", "T", "W", "T", "F", "S")
+        else -> listOf("M", "T", "W", "T", "F", "S", "S")
+    }
+
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -803,7 +811,7 @@ fun MonthGridView(
                 horizontalArrangement = Arrangement.SpaceAround,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                listOf("M", "T", "W", "T", "F", "S", "S").forEach { day ->
+                dayLabels.forEach { day ->
                     Text(
                         text = day,
                         fontSize = 12.sp,

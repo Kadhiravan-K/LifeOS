@@ -10,6 +10,16 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Mood
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import com.example.ui.components.EmojiInputDialog
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.animation.AnimatedVisibility
@@ -137,6 +147,46 @@ enum class SettingsSubpage {
     USER_MANUAL
 }
 
+data class SettingsSearchItem(
+    val title: String,
+    val subtitle: String,
+    val category: String,
+    val subpage: SettingsSubpage,
+    val keywords: List<String> = emptyList(),
+    val onDirectAction: (() -> Unit)? = null
+)
+
+fun getSettingsSearchRegistry(
+    onNavigateToThemeGallery: () -> Unit = {},
+    onNavigateToPlanning: () -> Unit = {},
+    onNavigateToGamification: () -> Unit = {},
+    onNavigateToMedication: () -> Unit = {}
+): List<SettingsSearchItem> = listOf(
+    SettingsSearchItem("User Profile & Name", "Change user name and profile emoji avatar", "General", SettingsSubpage.GENERAL, listOf("username", "profile", "emoji", "avatar", "name", "picture")),
+    SettingsSearchItem("Clock Format", "12-hour (AM/PM) vs 24-hour system time format", "General", SettingsSubpage.GENERAL, listOf("12h", "24h", "clock", "time", "format")),
+    SettingsSearchItem("First Day of Week", "Configure calendar start day: Monday, Saturday, or Sunday", "General", SettingsSubpage.GENERAL, listOf("week", "calendar", "monday", "saturday", "sunday", "first day")),
+    SettingsSearchItem("Default Task Duration", "Set default duration presets (15m, 30m, 45m, 60m, 90m) and custom duration", "General", SettingsSubpage.GENERAL, listOf("duration", "minutes", "task length", "default", "presets")),
+    SettingsSearchItem("Theme Gallery", "Explore and activate themes, animations and atmospheres", "Appearance & Themes", SettingsSubpage.APPEARANCE, listOf("themes", "palette", "dark mode", "light mode", "atmosphere", "cosmic", "arcane", "cyber", "adventure"), onDirectAction = onNavigateToThemeGallery),
+    SettingsSearchItem("Dark / Light Mode", "Switch between System, Light, and Dark mode", "Appearance & Themes", SettingsSubpage.APPEARANCE, listOf("theme", "mode", "dark", "light", "display")),
+    SettingsSearchItem("QR Tile Shapes & Density", "Configure Honeycomb shortcut shapes (Hexagon, Circle, Square) and sizes", "Appearance & Themes", SettingsSubpage.APPEARANCE, listOf("honeycomb", "shape", "hex", "circle", "square", "density", "tiles", "qr")),
+    SettingsSearchItem("Completion Effects", "Toggle completion sound, vibration, and celebration animations", "Appearance & Themes", SettingsSubpage.APPEARANCE, listOf("completion", "sound", "vibration", "animation", "celebration", "audio")),
+    SettingsSearchItem("Smart Alarms & Notifications", "P1 alarms, medication reminders, snooze intervals, and sound alerts", "Notifications & Alerts", SettingsSubpage.NOTIFICATIONS, listOf("alarm", "notification", "p1", "snooze", "quiet hours", "sound")),
+    SettingsSearchItem("Medication Reminders", "Schedule dosage times, interval alerts, and override quiet hours", "Notifications & Alerts", SettingsSubpage.NOTIFICATIONS, listOf("medicine", "medication", "pills", "dose", "prescription"), onDirectAction = onNavigateToMedication),
+    SettingsSearchItem("Quiet Hours Schedule", "Mute non-critical notifications during sleep hours", "Notifications & Alerts", SettingsSubpage.NOTIFICATIONS, listOf("quiet hours", "sleep", "do not disturb", "mute", "silence")),
+    SettingsSearchItem("Projects & Labels Manager", "Organize tasks by color-coded projects and custom tag labels", "Organization & Essentials", SettingsSubpage.PROJECTS_LABELS, listOf("projects", "labels", "tags", "categories", "folders")),
+    SettingsSearchItem("Trackers & Subscriptions (My Essentials)", "Monitor monthly subscriptions, water intake, and recurring expenses", "Organization & Essentials", SettingsSubpage.TRACKERS_SUBSCRIPTIONS, listOf("essentials", "subscriptions", "expenses", "finance", "trackers", "spending")),
+    SettingsSearchItem("Daily Schedule (Wake & Bed Time)", "Set wake up and bedtime hours for productivity planning", "Productivity & Schedule", SettingsSubpage.PRODUCTIVITY, listOf("schedule", "wake", "bed", "sleep", "routine", "hours")),
+    SettingsSearchItem("Hydration Goal", "Configure daily target water intake in milliliters", "Productivity & Schedule", SettingsSubpage.PRODUCTIVITY, listOf("water", "hydration", "drink", "goal", "ml")),
+    SettingsSearchItem("Daily Planning Wizard", "Guided time-blocking and priority alignment workflow", "Productivity & Schedule", SettingsSubpage.PRODUCTIVITY, listOf("planning", "wizard", "daily plan", "routine"), onDirectAction = onNavigateToPlanning),
+    SettingsSearchItem("Gamification & XP Progress", "View levels, achievement badges, streaks, and reset XP profile", "Gamification & Progress", SettingsSubpage.GAMIFICATION, listOf("gamification", "xp", "level", "points", "badges", "streak", "rank"), onDirectAction = onNavigateToGamification),
+    SettingsSearchItem("Encrypted Backup & Restore", "Export encrypted system JSON or restore LifeOS database", "Data & Storage", SettingsSubpage.DATA_STORAGE, listOf("backup", "restore", "export", "import", "database", "json")),
+    SettingsSearchItem("Trash Bin Recovery & Retention", "Restore deleted items and configure auto-delete retention period", "Data & Storage", SettingsSubpage.DATA_STORAGE, listOf("trash", "bin", "recovery", "retention", "delete", "purge")),
+    SettingsSearchItem("Starter Productivity Templates", "Browse and import curated habit, task, and shortcut bundles", "Data & Storage", SettingsSubpage.DATA_STORAGE, listOf("templates", "bundles", "browse", "routines", "morning", "deep work", "bucket list", "packing", "wedding", "startup")),
+    SettingsSearchItem("Terms & Conditions", "Review legal terms, offline pledge, and application licensing", "Legal & Privacy", SettingsSubpage.LEGAL_PRIVACY, listOf("terms", "conditions", "legal", "license", "eula")),
+    SettingsSearchItem("Privacy Policy", "Offline-first privacy architecture, zero telemetry, local storage", "Legal & Privacy", SettingsSubpage.LEGAL_PRIVACY, listOf("privacy", "policy", "offline", "data", "security", "telemetry")),
+    SettingsSearchItem("User Manual & UI Components Library", "Explore 36 reusable frontend UI components and documentation", "User Manual", SettingsSubpage.USER_MANUAL, listOf("manual", "help", "guide", "components", "frontend", "ui library", "documentation"))
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -204,6 +254,7 @@ fun SettingsScreen(
     var showTemplateBrowserDialog by remember { mutableStateOf(false) }
     var showResetGamificationDialog by remember { mutableStateOf(false) }
     var showClearTemplatesDialog by remember { mutableStateOf(false) }
+    var showProfileEmojiDialog by remember { mutableStateOf(false) }
     var viewingLegalDoc by remember { mutableStateOf<String?>(null) }
 
     var tempWakeUp by remember { mutableStateOf(wakeUpTime) }
@@ -226,6 +277,7 @@ fun SettingsScreen(
     val customSoundUri by viewModel.customSoundUriFlow.collectAsStateWithLifecycle()
     val customSoundFileName by viewModel.customSoundFileNameFlow.collectAsStateWithLifecycle()
     val trashRetentionDays by viewModel.trashRetentionDaysFlow.collectAsStateWithLifecycle()
+    val userProfileEmoji by viewModel.userProfileEmojiFlow.collectAsStateWithLifecycle()
 
     // Smart Alerts & Notifications flows
     val notifMedicine by viewModel.notifMedicineEnabled.collectAsStateWithLifecycle()
@@ -261,8 +313,16 @@ fun SettingsScreen(
                 userName = userName,
                 themeMode = themeMode,
                 activeThemeName = activeThemeDef.name,
-                onNavigateToSubpage = { currentSubpage = it },
+                searchQuery = searchQuery,
+                onSearchQueryChange = { searchQuery = it },
+                onNavigateToSubpage = {
+                    searchQuery = ""
+                    currentSubpage = it
+                },
                 onNavigateToGamificationHub = onNavigateToGamification,
+                onNavigateToThemeGallery = onNavigateToThemeGallery,
+                onNavigateToPlanning = onNavigateToPlanning,
+                onNavigateToMedication = onNavigateToMedication,
                 modifier = modifier
             )
         }
@@ -272,7 +332,7 @@ fun SettingsScreen(
                 title = "General Settings",
                 onBack = { currentSubpage = SettingsSubpage.HUB }
             ) {
-                // Profile & Name
+                // Profile & Name (SET-06)
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
@@ -287,24 +347,30 @@ fun SettingsScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
-                                        .size(40.dp)
+                                        .size(48.dp)
                                         .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                                        .clickable { showProfileEmojiDialog = true },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(imageVector = Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Text(text = userProfileEmoji, fontSize = 24.sp)
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
-                                    Text(text = "User Name", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    Text(text = "User Name & Avatar", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                     Text(text = userName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
-                            IconButton(onClick = {
-                                newName = userName
-                                showEditNameDialog = true
-                            }) {
-                                Icon(Icons.Default.Edit, contentDescription = "Edit Name", tint = MaterialTheme.colorScheme.primary)
+                            Row {
+                                IconButton(onClick = { showProfileEmojiDialog = true }) {
+                                    Icon(Icons.Default.Mood, contentDescription = "Change Profile Emoji", tint = MaterialTheme.colorScheme.primary)
+                                }
+                                IconButton(onClick = {
+                                    newName = userName
+                                    showEditNameDialog = true
+                                }) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Edit Name", tint = MaterialTheme.colorScheme.primary)
+                                }
                             }
                         }
                     }
@@ -338,7 +404,7 @@ fun SettingsScreen(
                         Text("First Day of Week", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("MONDAY" to "Monday", "SUNDAY" to "Sunday").forEach { (valKey, label) ->
+                            listOf("MONDAY" to "Monday", "SATURDAY" to "Saturday", "SUNDAY" to "Sunday").forEach { (valKey, label) ->
                                 FilterChip(
                                     selected = firstDayOfWeek == valKey,
                                     onClick = { viewModel.updateFirstDayOfWeek(valKey) },
@@ -354,7 +420,7 @@ fun SettingsScreen(
                         Text("Default Task Duration", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(15, 30, 45, 60).forEach { mins ->
+                            listOf(15, 30, 45, 60, 90).forEach { mins ->
                                 FilterChip(
                                     selected = defaultDuration == mins,
                                     onClick = { viewModel.updateDefaultTaskDuration(mins) },
@@ -362,22 +428,49 @@ fun SettingsScreen(
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        var customDurationText by remember(defaultDuration) { mutableStateOf(defaultDuration.toString()) }
-                        OutlinedTextField(
-                            value = customDurationText,
-                            onValueChange = { input ->
-                                val digits = input.filter { it.isDigit() }.take(3)
-                                customDurationText = digits
-                                val d = digits.toIntOrNull()
-                                if (d != null && d in 1..480) {
-                                    viewModel.updateDefaultTaskDuration(d)
-                                }
-                            },
-                            label = { Text("Custom Duration (1-480 min)") },
-                            singleLine = true,
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.fillMaxWidth()
-                        )
+                        ) {
+                            FilledTonalIconButton(
+                                onClick = {
+                                    val newDur = (defaultDuration - 5).coerceAtLeast(5)
+                                    viewModel.updateDefaultTaskDuration(newDur)
+                                },
+                                enabled = defaultDuration > 5
+                            ) {
+                                Icon(Icons.Default.Remove, contentDescription = "Decrease Duration")
+                            }
+
+                            var customDurationText by remember(defaultDuration) { mutableStateOf(defaultDuration.toString()) }
+                            OutlinedTextField(
+                                value = customDurationText,
+                                onValueChange = { input ->
+                                    val digits = input.filter { it.isDigit() }.take(3)
+                                    customDurationText = digits
+                                    val d = digits.toIntOrNull()
+                                    if (d != null && d in 1..480) {
+                                        viewModel.updateDefaultTaskDuration(d)
+                                    }
+                                },
+                                label = { Text("Duration (1-480 min)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            FilledTonalIconButton(
+                                onClick = {
+                                    val newDur = (defaultDuration + 5).coerceAtMost(480)
+                                    viewModel.updateDefaultTaskDuration(newDur)
+                                },
+                                enabled = defaultDuration < 480
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "Increase Duration")
+                            }
+                        }
                     }
                 }
             }
@@ -1097,31 +1190,126 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(10.dp))
                         Text("Auto-delete retention period", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                         Spacer(modifier = Modifier.height(6.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(7, 14, 30, 60, 90).forEach { days ->
+                        // Preset Pills: 1w, 2w, 1mo, 2mo, 3mo, 1y
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.horizontalScroll(rememberScrollState())
+                        ) {
+                            listOf(
+                                7 to "1 Week",
+                                14 to "2 Weeks",
+                                30 to "1 Month",
+                                60 to "2 Months",
+                                90 to "3 Months",
+                                365 to "1 Year"
+                            ).forEach { (days, label) ->
                                 FilterChip(
                                     selected = trashRetentionDays == days,
                                     onClick = { viewModel.setTrashRetentionDays(days) },
-                                    label = { Text(" d") }
+                                    label = { Text(label) }
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        var customRetentionText by remember { mutableStateOf(trashRetentionDays.toString()) }
-                        OutlinedTextField(
-                            value = customRetentionText,
-                            onValueChange = { input ->
-                                val digits = input.filter { it.isDigit() }.take(3)
-                                customRetentionText = digits
-                                val d = digits.toIntOrNull()
-                                if (d != null && d in 1..365) {
-                                    viewModel.setTrashRetentionDays(d)
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        var retentionUnit by remember {
+                            mutableStateOf(
+                                when {
+                                    trashRetentionDays >= 365 && trashRetentionDays % 365 == 0 -> "Years"
+                                    trashRetentionDays >= 30 && trashRetentionDays % 30 == 0 -> "Months"
+                                    trashRetentionDays >= 7 && trashRetentionDays % 7 == 0 -> "Weeks"
+                                    else -> "Days"
                                 }
-                            },
-                            label = { Text("Custom Retention Days (1-365)") },
-                            singleLine = true,
+                            )
+                        }
+                        val multiplier = when (retentionUnit) {
+                            "Years" -> 365
+                            "Months" -> 30
+                            "Weeks" -> 7
+                            else -> 1
+                        }
+                        val displayedAmount = (trashRetentionDays / multiplier).coerceAtLeast(1)
+                        var retentionAmountText by remember(trashRetentionDays, retentionUnit) {
+                            mutableStateOf(displayedAmount.toString())
+                        }
+                        var showUnitDropdown by remember { mutableStateOf(false) }
+
+                        // Duration Stepper & Numeric Input + Unit Dropdown
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth()
-                        )
+                        ) {
+                            FilledTonalIconButton(
+                                onClick = {
+                                    val currentAmt = retentionAmountText.toIntOrNull() ?: displayedAmount
+                                    val newAmt = (currentAmt - 1).coerceAtLeast(1)
+                                    val newDays = (newAmt * multiplier).coerceIn(1, 365)
+                                    viewModel.setTrashRetentionDays(newDays)
+                                }
+                            ) {
+                                Icon(Icons.Default.Remove, contentDescription = "Decrease Retention")
+                            }
+
+                            OutlinedTextField(
+                                value = retentionAmountText,
+                                onValueChange = { input ->
+                                    val digits = input.filter { it.isDigit() }.take(3)
+                                    retentionAmountText = digits
+                                    val amt = digits.toIntOrNull()
+                                    if (amt != null && amt > 0) {
+                                        val days = (amt * multiplier).coerceIn(1, 365)
+                                        viewModel.setTrashRetentionDays(days)
+                                    }
+                                },
+                                label = { Text("Period") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            Box {
+                                OutlinedButton(onClick = { showUnitDropdown = true }) {
+                                    Text(retentionUnit)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                                }
+                                DropdownMenu(
+                                    expanded = showUnitDropdown,
+                                    onDismissRequest = { showUnitDropdown = false }
+                                ) {
+                                    listOf("Days", "Weeks", "Months", "Years").forEach { unit ->
+                                        DropdownMenuItem(
+                                            text = { Text(unit) },
+                                            onClick = {
+                                                retentionUnit = unit
+                                                showUnitDropdown = false
+                                                val amt = retentionAmountText.toIntOrNull() ?: 1
+                                                val newMult = when (unit) {
+                                                    "Years" -> 365
+                                                    "Months" -> 30
+                                                    "Weeks" -> 7
+                                                    else -> 1
+                                                }
+                                                val newDays = (amt * newMult).coerceIn(1, 365)
+                                                viewModel.setTrashRetentionDays(newDays)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            FilledTonalIconButton(
+                                onClick = {
+                                    val currentAmt = retentionAmountText.toIntOrNull() ?: displayedAmount
+                                    val newAmt = currentAmt + 1
+                                    val newDays = (newAmt * multiplier).coerceIn(1, 365)
+                                    viewModel.setTrashRetentionDays(newDays)
+                                }
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "Increase Retention")
+                            }
+                        }
                         Spacer(modifier = Modifier.height(12.dp))
                         OutlinedButton(onClick = { showTrashBinSheet = true }) {
                             Text("View Trash Bin")
@@ -1328,6 +1516,17 @@ fun SettingsScreen(
         )
     }
 
+    if (showProfileEmojiDialog) {
+        EmojiInputDialog(
+            currentEmoji = userProfileEmoji,
+            onEmojiSelected = { emoji ->
+                viewModel.updateUserProfileEmoji(emoji)
+                showProfileEmojiDialog = false
+            },
+            onDismiss = { showProfileEmojiDialog = false }
+        )
+    }
+
     if (showBackupRestoreDialog) {
         BackupRestoreDialog(viewModel = viewModel, onDismiss = { showBackupRestoreDialog = false })
     }
@@ -1381,10 +1580,37 @@ private fun SettingsHubView(
     userName: String,
     themeMode: String,
     activeThemeName: String,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
     onNavigateToSubpage: (SettingsSubpage) -> Unit,
     onNavigateToGamificationHub: () -> Unit,
+    onNavigateToThemeGallery: () -> Unit = {},
+    onNavigateToPlanning: () -> Unit = {},
+    onNavigateToMedication: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val searchRegistry = remember {
+        getSettingsSearchRegistry(
+            onNavigateToThemeGallery = onNavigateToThemeGallery,
+            onNavigateToPlanning = onNavigateToPlanning,
+            onNavigateToGamification = onNavigateToGamificationHub,
+            onNavigateToMedication = onNavigateToMedication
+        )
+    }
+
+    val searchResults = remember(searchQuery) {
+        if (searchQuery.isBlank()) emptyList()
+        else {
+            val q = searchQuery.trim().lowercase()
+            searchRegistry.filter { item ->
+                item.title.lowercase().contains(q) ||
+                item.subtitle.lowercase().contains(q) ||
+                item.category.lowercase().contains(q) ||
+                item.keywords.any { it.lowercase().contains(q) }
+            }
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -1406,111 +1632,242 @@ private fun SettingsHubView(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // HUB ENTRY CARDS
-        SettingsNavigationCard(
-            icon = Icons.Default.Settings,
-            title = "General",
-            subtitle = "Profile name, clock format (12h/24h), week start, duration defaults",
-            onClick = { onNavigateToSubpage(SettingsSubpage.GENERAL) }
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        SettingsNavigationCard(
-            icon = Icons.Default.Palette,
-            title = "Appearance & Themes",
-            subtitle = "Active Theme: $activeThemeName • $themeMode mode • Honeycomb density",
-            onClick = { onNavigateToSubpage(SettingsSubpage.APPEARANCE) }
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        SettingsNavigationCard(
-            icon = Icons.Default.Notifications,
-            title = "Notifications & Smart Alerts",
-            subtitle = "P1 Smart Alarms, medication alerts, channels, quiet hours schedule",
-            onClick = { onNavigateToSubpage(SettingsSubpage.NOTIFICATIONS) }
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        SettingsNavigationCard(
-            icon = Icons.Outlined.Folder,
-            title = "Organization & Essentials",
-            subtitle = "Projects & Labels Manager • Smart Trackers & Subscriptions (My Essentials)",
-            onClick = { onNavigateToSubpage(SettingsSubpage.ORGANIZATION) },
-            highlighted = true
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        SettingsNavigationCard(
-            icon = Icons.Default.Speed,
-            title = "Productivity & Schedule",
-            subtitle = "Daily wake & bedtime schedule, hydration goal, daily planning wizard",
-            onClick = { onNavigateToSubpage(SettingsSubpage.PRODUCTIVITY) }
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        SettingsNavigationCard(
-            icon = Icons.Default.EmojiEvents,
-            title = "Gamification & Progress",
-            subtitle = "Levels, XP points, sound & haptic rewards, gamification hub",
-            onClick = { onNavigateToSubpage(SettingsSubpage.GAMIFICATION) }
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        SettingsNavigationCard(
-            icon = Icons.Default.Storage,
-            title = "Data & Storage",
-            subtitle = "Encrypted backup & restore, trash bin recovery, template browser",
-            onClick = { onNavigateToSubpage(SettingsSubpage.DATA_STORAGE) }
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        SettingsNavigationCard(
-            icon = Icons.Default.Security,
-            title = "Legal & Privacy",
-            subtitle = "Terms & Conditions, Privacy Policy, 100% offline-first pledge",
-            onClick = { onNavigateToSubpage(SettingsSubpage.LEGAL_PRIVACY) }
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        SettingsNavigationCard(
-            icon = Icons.Default.MenuBook,
-            title = "User Manual & UI Components",
-            subtitle = "Feature documentation and interactive Reusable Frontend UI Components library (36 components)",
-            onClick = { onNavigateToSubpage(SettingsSubpage.USER_MANUAL) },
-            highlighted = true
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // About LifeOS Card
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("About LifeOS", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        // SET-01: Settings Search Bar
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            placeholder = { Text("Search all settings (e.g. theme, alarm, trash, templates)...", fontSize = 13.sp) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search Settings") },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { onSearchQueryChange("") }) {
+                        Icon(Icons.Default.Close, contentDescription = "Clear Search")
+                    }
                 }
-                Spacer(modifier = Modifier.height(6.dp))
-                Text("Version 1.1.0 (Build 2) • Production Release", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                Text("Zero cloud dependencies. Zero telemetry. Privacy-first offline architecture.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("settings_search_bar")
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        if (searchQuery.isNotBlank()) {
+            Text(
+                text = "Search Results (${searchResults.size})",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (searchResults.isEmpty()) {
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🔍", fontSize = 32.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "No settings found for \"$searchQuery\"",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Try searching for keywords like theme, clock, alarm, trash, projects, templates, or backup.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    searchResults.forEach { result ->
+                        SettingsSearchResultCard(
+                            item = result,
+                            onClick = {
+                                if (result.onDirectAction != null) {
+                                    result.onDirectAction.invoke()
+                                } else {
+                                    onNavigateToSubpage(result.subpage)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        } else {
+            // HUB ENTRY CARDS
+            SettingsNavigationCard(
+                icon = Icons.Default.Settings,
+                title = "General",
+                subtitle = "Profile name, clock format (12h/24h), week start, duration defaults",
+                onClick = { onNavigateToSubpage(SettingsSubpage.GENERAL) }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            SettingsNavigationCard(
+                icon = Icons.Default.Palette,
+                title = "Appearance & Themes",
+                subtitle = "Active Theme: $activeThemeName • $themeMode mode • Honeycomb density",
+                onClick = { onNavigateToSubpage(SettingsSubpage.APPEARANCE) }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            SettingsNavigationCard(
+                icon = Icons.Default.Notifications,
+                title = "Notifications & Smart Alerts",
+                subtitle = "P1 Smart Alarms, medication alerts, channels, quiet hours schedule",
+                onClick = { onNavigateToSubpage(SettingsSubpage.NOTIFICATIONS) }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            SettingsNavigationCard(
+                icon = Icons.Outlined.Folder,
+                title = "Organization & Essentials",
+                subtitle = "Projects & Labels Manager • Smart Trackers & Subscriptions (My Essentials)",
+                onClick = { onNavigateToSubpage(SettingsSubpage.ORGANIZATION) },
+                highlighted = true
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            SettingsNavigationCard(
+                icon = Icons.Default.Speed,
+                title = "Productivity & Schedule",
+                subtitle = "Daily wake & bedtime schedule, hydration goal, daily planning wizard",
+                onClick = { onNavigateToSubpage(SettingsSubpage.PRODUCTIVITY) }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            SettingsNavigationCard(
+                icon = Icons.Default.EmojiEvents,
+                title = "Gamification & Progress",
+                subtitle = "Levels, XP points, sound & haptic rewards, gamification hub",
+                onClick = { onNavigateToSubpage(SettingsSubpage.GAMIFICATION) }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            SettingsNavigationCard(
+                icon = Icons.Default.Storage,
+                title = "Data & Storage",
+                subtitle = "Encrypted backup & restore, trash bin recovery, template browser",
+                onClick = { onNavigateToSubpage(SettingsSubpage.DATA_STORAGE) }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            SettingsNavigationCard(
+                icon = Icons.Default.Security,
+                title = "Legal & Privacy",
+                subtitle = "Terms & Conditions, Privacy Policy, 100% offline-first pledge",
+                onClick = { onNavigateToSubpage(SettingsSubpage.LEGAL_PRIVACY) }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            SettingsNavigationCard(
+                icon = Icons.Default.MenuBook,
+                title = "User Manual & UI Components",
+                subtitle = "Feature documentation and interactive Reusable Frontend UI Components library (36 components)",
+                onClick = { onNavigateToSubpage(SettingsSubpage.USER_MANUAL) },
+                highlighted = true
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // About LifeOS Card
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("About LifeOS", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("Version 1.1.0 (Build 2) • Production Release", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    Text("Zero cloud dependencies. Zero telemetry. Privacy-first offline architecture.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun SettingsSearchResultCard(
+    item: SettingsSearchItem,
+    onClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .testTag("settings_search_result_${item.title}")
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                ) {
+                    Text(
+                        text = item.category.uppercase(),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = item.title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+                Text(
+                    text = item.subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

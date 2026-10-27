@@ -1,8 +1,18 @@
 package com.example.ui.screens.themes
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -89,8 +99,17 @@ fun ThemeGalleryScreen(
     val persistedThemeId by viewModel.activeThemeIdFlow.collectAsStateWithLifecycle()
 
     var showUnlockModalForTheme by remember { mutableStateOf<ThemeDefinition?>(null) }
+    var transitioningTheme by remember { mutableStateOf<ThemeDefinition?>(null) }
 
-    Scaffold(
+    LaunchedEffect(transitioningTheme) {
+        if (transitioningTheme != null) {
+            delay(1500)
+            transitioningTheme = null
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        Scaffold(
         topBar = {
             TopAppBar(
                 title = {
@@ -296,12 +315,15 @@ fun ThemeGalleryScreen(
                     isPreviewing = isCurrentlyPreviewing,
                     isUnlocked = isUnlocked,
                     onPreviewClick = {
+                        transitioningTheme = theme
                         viewModel.startThemePreview(theme.id)
                     },
                     onApplyClick = {
                         val success = viewModel.selectTheme(theme.id)
                         if (!success) {
                             showUnlockModalForTheme = theme
+                        } else {
+                            transitioningTheme = theme
                         }
                     }
                 )
@@ -415,6 +437,105 @@ fun ThemeGalleryScreen(
                 }
             }
         )
+    }
+
+    if (transitioningTheme != null) {
+        ThemeTransitionOverlay(theme = transitioningTheme!!)
+    }
+    }
+}
+
+@Composable
+private fun ThemeTransitionOverlay(
+    theme: ThemeDefinition,
+    modifier: Modifier = Modifier
+) {
+    val overlayAlpha = remember { Animatable(0f) }
+    val motifScale = remember { Animatable(0.85f) }
+    val motifFloatOffset = remember { Animatable(12f) }
+
+    LaunchedEffect(theme) {
+        overlayAlpha.snapTo(0f)
+        motifScale.snapTo(0.85f)
+        motifFloatOffset.snapTo(12f)
+
+        // Phase 1 (0..300ms)
+        overlayAlpha.animateTo(1f, tween(300, easing = FastOutSlowInEasing))
+        motifScale.animateTo(1.05f, tween(300, easing = FastOutSlowInEasing))
+
+        // Phase 2 (300..1200ms)
+        motifFloatOffset.animateTo(-6f, tween(900, easing = LinearEasing))
+
+        // Phase 3 (1200..1500ms)
+        motifScale.animateTo(1.15f, tween(300, easing = FastOutSlowInEasing))
+        overlayAlpha.animateTo(0f, tween(300, easing = FastOutSlowInEasing))
+    }
+
+    CompositionLocalProvider(LocalLifeTheme provides theme) {
+        val alpha = overlayAlpha.value
+        if (alpha > 0.01f) {
+            Box(
+                modifier = modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = alpha * 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(140.dp)
+                        .scale(motifScale.value)
+                        .alpha(alpha * 0.45f)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    theme.colors.glowColor.copy(alpha = 0.6f),
+                                    theme.colors.primary.copy(alpha = 0.25f),
+                                    Color.Transparent
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                )
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .offset(y = motifFloatOffset.value.dp)
+                        .scale(motifScale.value)
+                        .alpha(alpha)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(theme.shapes.buttonShape)
+                            .background(theme.colors.surface.copy(alpha = 0.9f))
+                            .border(
+                                width = 2.dp,
+                                color = theme.colors.primary.copy(alpha = 0.85f),
+                                shape = theme.shapes.buttonShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        ThemedLoadingIndicator(size = 44.dp)
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "${theme.decoration.motifEmoji} ${theme.name}",
+                        style = theme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = theme.colors.onSurface.copy(alpha = 0.95f),
+                        modifier = Modifier
+                            .background(
+                                color = theme.colors.surface.copy(alpha = 0.75f),
+                                shape = theme.shapes.chipShape
+                            )
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
     }
 }
 

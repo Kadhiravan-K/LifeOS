@@ -6,6 +6,24 @@ import com.example.domain.model.ShortcutType
 import com.example.domain.model.TaskPriority
 
 /**
+ * Standard, meaningful project categories for LifeOS templates.
+ * Enforces architectural rule: templates must use meaningful project categories
+ * (Daily Habits, Home, Office, Personal, Health, Learning, Travel) and NEVER bundle names.
+ */
+object StandardProjects {
+    val DAILY_HABITS = TemplateProjectDef("Daily Habits", "☀️", "amber", "Daily routines and recurring habits")
+    val HOME = TemplateProjectDef("Home", "🏠", "orange", "Home maintenance, family, and domestic life")
+    val OFFICE = TemplateProjectDef("Office", "💼", "blue", "Work, business, startup, and office execution")
+    val PERSONAL = TemplateProjectDef("Personal", "👤", "purple", "Personal life, goals, relationships, and well-being")
+    val HEALTH = TemplateProjectDef("Health", "🏃", "green", "Fitness, movement, nutrition, and hydration")
+    val LEARNING = TemplateProjectDef("Learning", "📚", "teal", "Studies, reading, skills development, and research")
+    val TRAVEL = TemplateProjectDef("Travel", "✈️", "indigo", "Trips, expeditions, itineraries, and packing")
+
+    val ALL_NAMES = setOf("Daily Habits", "Home", "Office", "Personal", "Health", "Learning", "Travel")
+    val ALL = listOf(DAILY_HABITS, HOME, OFFICE, PERSONAL, HEALTH, LEARNING, TRAVEL)
+}
+
+/**
  * Curated offline catalog of structured LifeOS templates.
  * Fully bundled, 100% offline, zero network dependency.
  */
@@ -32,7 +50,8 @@ object TemplateCatalog {
                     dueTime = "06:30",
                     durationMinutes = 15,
                     recurrenceType = RecurrenceType.DAILY,
-                    projectName = "Daily Operations"
+                    projectName = "Daily Habits",
+                    labels = listOf("routine", "planning")
                 ),
                 TemplateTaskDef(
                     title = "Deep Work Block #1",
@@ -42,7 +61,8 @@ object TemplateCatalog {
                     dueTime = "09:00",
                     durationMinutes = 90,
                     recurrenceType = RecurrenceType.DAILY,
-                    projectName = "Daily Operations"
+                    projectName = "Office",
+                    labels = listOf("focus", "deep-work")
                 ),
                 TemplateTaskDef(
                     title = "Midday Re-alignment & Walk",
@@ -52,7 +72,8 @@ object TemplateCatalog {
                     dueTime = "13:00",
                     durationMinutes = 20,
                     recurrenceType = RecurrenceType.DAILY,
-                    projectName = "Personal Health"
+                    projectName = "Health",
+                    labels = listOf("wellness", "movement")
                 ),
                 TemplateTaskDef(
                     title = "Daily Shutdown & Reset",
@@ -62,7 +83,8 @@ object TemplateCatalog {
                     dueTime = "18:00",
                     durationMinutes = 20,
                     recurrenceType = RecurrenceType.DAILY,
-                    projectName = "Daily Operations"
+                    projectName = "Daily Habits",
+                    labels = listOf("routine", "wrapup")
                 ),
                 TemplateTaskDef(
                     title = "Sleep & Recovery (9:30 PM)",
@@ -72,7 +94,8 @@ object TemplateCatalog {
                     dueTime = "21:30",
                     durationMinutes = 480,
                     recurrenceType = RecurrenceType.DAILY,
-                    projectName = "Personal Health"
+                    projectName = "Health",
+                    labels = listOf("sleep", "recovery")
                 )
             ),
             habits = listOf(
@@ -86,10 +109,11 @@ object TemplateCatalog {
                 TemplateShortcutDef(ShortcutType.HABIT, "Daily Reading", "Reading", "📖", 2, 0)
             ),
             projects = listOf(
-                TemplateProjectDef("Daily Operations", "💼", "blue"),
-                TemplateProjectDef("Personal Health", "🏃", "green")
+                StandardProjects.DAILY_HABITS,
+                StandardProjects.OFFICE,
+                StandardProjects.HEALTH
             ),
-            tags = listOf("routine", "productivity", "focus", "balanced")
+            tags = listOf("productivity", "daily", "balance", "core")
         ),
 
         // 2. Morning Routine
@@ -101,9 +125,36 @@ object TemplateCatalog {
             category = TemplateCategory.MORNING_ROUTINE,
             emoji = "🌅",
             tasks = listOf(
-                TemplateTaskDef("Wake Up & Make Bed", "Start the day with an immediate small win", "Morning", TaskPriority.HIGH, "06:00", 10),
-                TemplateTaskDef("Morning Sunlight & Breathwork", "10 minutes of direct sunlight and diaphragmatic breathing", "Morning", TaskPriority.MEDIUM, "06:15", 15),
-                TemplateTaskDef("High-Protein Breakfast / Hydration", "Electrolytes and protein fueling", "Nutrition", TaskPriority.MEDIUM, "07:00", 30)
+                TemplateTaskDef(
+                    title = "Wake Up & Make Bed",
+                    description = "Start the day with an immediate small win",
+                    category = "Morning",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "06:00",
+                    durationMinutes = 10,
+                    projectName = "Daily Habits",
+                    labels = listOf("morning", "discipline")
+                ),
+                TemplateTaskDef(
+                    title = "Morning Sunlight & Breathwork",
+                    description = "10 minutes of direct sunlight and diaphragmatic breathing",
+                    category = "Morning",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "06:15",
+                    durationMinutes = 15,
+                    projectName = "Health",
+                    labels = listOf("morning", "breathwork")
+                ),
+                TemplateTaskDef(
+                    title = "High-Protein Breakfast / Hydration",
+                    description = "Electrolytes and protein fueling",
+                    category = "Nutrition",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "07:00",
+                    durationMinutes = 30,
+                    projectName = "Health",
+                    labels = listOf("nutrition", "energy")
+                )
             ),
             habits = listOf(
                 TemplateHabitDef("No Social Media (First 60m)", "📵", "Protect morning mental clarity", "06:00", 0xFFE91E63),
@@ -112,6 +163,10 @@ object TemplateCatalog {
             shortcuts = listOf(
                 TemplateShortcutDef(ShortcutType.HABIT, "No Social Media", "No Phone", "📵", 0, 0),
                 TemplateShortcutDef(ShortcutType.TASK, "Make Bed", "Make Bed", "🛏️", 1, 0)
+            ),
+            projects = listOf(
+                StandardProjects.DAILY_HABITS,
+                StandardProjects.HEALTH
             ),
             tags = listOf("morning", "discipline", "mindset")
         ),
@@ -125,9 +180,36 @@ object TemplateCatalog {
             category = TemplateCategory.EVENING_ROUTINE,
             emoji = "🌙",
             tasks = listOf(
-                TemplateTaskDef("Blue Light & Screen Curfew", "Turn off television, laptop, and phone screens", "Evening", TaskPriority.HIGH, "20:45", 15),
-                TemplateTaskDef("Night Hygiene & Warm Shower", "Lower core body temperature to trigger sleepiness", "Evening", TaskPriority.MEDIUM, "21:00", 20),
-                TemplateTaskDef("Plan Tomorrow's Top 3 Tasks", "Empty your working memory onto paper so you sleep peacefully", "Evening", TaskPriority.HIGH, "21:20", 10)
+                TemplateTaskDef(
+                    title = "Blue Light & Screen Curfew",
+                    description = "Turn off television, laptop, and phone screens",
+                    category = "Evening",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "20:45",
+                    durationMinutes = 15,
+                    projectName = "Daily Habits",
+                    labels = listOf("evening", "sleep")
+                ),
+                TemplateTaskDef(
+                    title = "Night Hygiene & Warm Shower",
+                    description = "Lower core body temperature to trigger sleepiness",
+                    category = "Evening",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "21:00",
+                    durationMinutes = 20,
+                    projectName = "Daily Habits",
+                    labels = listOf("hygiene", "relaxation")
+                ),
+                TemplateTaskDef(
+                    title = "Plan Tomorrow's Top 3 Tasks",
+                    description = "Empty your working memory onto paper so you sleep peacefully",
+                    category = "Evening",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "21:20",
+                    durationMinutes = 10,
+                    projectName = "Daily Habits",
+                    labels = listOf("planning", "organization")
+                )
             ),
             habits = listOf(
                 TemplateHabitDef("Evening Gratitude Journal", "📓", "Write 3 things you are grateful for", "21:15", 0xFF673AB7),
@@ -136,6 +218,10 @@ object TemplateCatalog {
             shortcuts = listOf(
                 TemplateShortcutDef(ShortcutType.HABIT, "Evening Gratitude", "Journal", "📓", 0, 0),
                 TemplateShortcutDef(ShortcutType.TASK, "Plan Tomorrow", "Tomorrow Plan", "📝", 1, 0)
+            ),
+            projects = listOf(
+                StandardProjects.DAILY_HABITS,
+                StandardProjects.HEALTH
             ),
             tags = listOf("sleep", "recovery", "evening")
         ),
@@ -149,9 +235,36 @@ object TemplateCatalog {
             category = TemplateCategory.PRODUCTIVITY,
             emoji = "⚡",
             tasks = listOf(
-                TemplateTaskDef("Deep Work Session 1: High Cognitive Task", "No tabs, full screen, airplane mode", "Deep Work", TaskPriority.HIGH, "09:30", 90),
-                TemplateTaskDef("Shallow Work Batching (Email / Comms)", "Process all administrative and reply tasks in a single block", "Admin", TaskPriority.MEDIUM, "11:30", 45),
-                TemplateTaskDef("Deep Work Session 2: Creation & Build", "Second focused block of the day", "Deep Work", TaskPriority.HIGH, "14:30", 90)
+                TemplateTaskDef(
+                    title = "Deep Work Session 1: High Cognitive Task",
+                    description = "No tabs, full screen, airplane mode",
+                    category = "Deep Work",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "09:30",
+                    durationMinutes = 90,
+                    projectName = "Office",
+                    labels = listOf("focus", "deep-work")
+                ),
+                TemplateTaskDef(
+                    title = "Shallow Work Batching (Email / Comms)",
+                    description = "Process all administrative and reply tasks in a single block",
+                    category = "Admin",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "11:30",
+                    durationMinutes = 45,
+                    projectName = "Office",
+                    labels = listOf("admin", "communication")
+                ),
+                TemplateTaskDef(
+                    title = "Deep Work Session 2: Creation & Build",
+                    description = "Second focused block of the day",
+                    category = "Deep Work",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "14:30",
+                    durationMinutes = 90,
+                    projectName = "Office",
+                    labels = listOf("focus", "creation")
+                )
             ),
             habits = listOf(
                 TemplateHabitDef("Zero Multi-tasking Focus", "🎯", "Single-task with full presence", "09:30", 0xFFF44336),
@@ -162,7 +275,7 @@ object TemplateCatalog {
                 TemplateShortcutDef(ShortcutType.TASK, "Deep Work 2", "Focus 2", "🚀", 1, 0)
             ),
             projects = listOf(
-                TemplateProjectDef("Deep Work Projects", "🧠", "purple")
+                StandardProjects.OFFICE
             ),
             tags = listOf("focus", "deep work", "efficiency")
         ),
@@ -176,9 +289,36 @@ object TemplateCatalog {
             category = TemplateCategory.STUDY_LEARNING,
             emoji = "📚",
             tasks = listOf(
-                TemplateTaskDef("Pomodoro Study Block 1 (Flashcards / Active Recall)", "Test yourself without looking at answers", "Study", TaskPriority.HIGH, "10:00", 50),
-                TemplateTaskDef("Pomodoro Study Block 2 (Problem Solving)", "Apply theory to real exercises", "Study", TaskPriority.HIGH, "11:00", 50),
-                TemplateTaskDef("Summarize Concepts in Your Own Words", "Feynman technique synthesis", "Review", TaskPriority.MEDIUM, "16:00", 30)
+                TemplateTaskDef(
+                    title = "Pomodoro Study Block 1 (Flashcards / Active Recall)",
+                    description = "Test yourself without looking at answers",
+                    category = "Study",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "10:00",
+                    durationMinutes = 50,
+                    projectName = "Learning",
+                    labels = listOf("study", "recall")
+                ),
+                TemplateTaskDef(
+                    title = "Pomodoro Study Block 2 (Problem Solving)",
+                    description = "Apply theory to real exercises",
+                    category = "Study",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "11:00",
+                    durationMinutes = 50,
+                    projectName = "Learning",
+                    labels = listOf("study", "practice")
+                ),
+                TemplateTaskDef(
+                    title = "Summarize Concepts in Your Own Words",
+                    description = "Feynman technique synthesis",
+                    category = "Review",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "16:00",
+                    durationMinutes = 30,
+                    projectName = "Learning",
+                    labels = listOf("study", "synthesis")
+                )
             ),
             habits = listOf(
                 TemplateHabitDef("Read Academic Paper / Chapter", "📑", "At least 10 pages of serious text", "15:00", 0xFF3F51B5),
@@ -189,7 +329,7 @@ object TemplateCatalog {
                 TemplateShortcutDef(ShortcutType.HABIT, "Read Paper", "Reading", "📑", 1, 0)
             ),
             projects = listOf(
-                TemplateProjectDef("Coursework & Exams", "🎓", "yellow")
+                StandardProjects.LEARNING
             ),
             tags = listOf("study", "learning", "memory")
         ),
@@ -203,8 +343,26 @@ object TemplateCatalog {
             category = TemplateCategory.FITNESS,
             emoji = "💪",
             tasks = listOf(
-                TemplateTaskDef("Strength & Resistance Training", "Push, pull, legs, or compound training", "Workout", TaskPriority.HIGH, "17:30", 60),
-                TemplateTaskDef("Post-Workout Protein & Recovery", "Replenish glycogen and 30g protein within 45 mins", "Nutrition", TaskPriority.MEDIUM, "18:45", 15)
+                TemplateTaskDef(
+                    title = "Strength & Resistance Training",
+                    description = "Push, pull, legs, or compound training",
+                    category = "Workout",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "17:30",
+                    durationMinutes = 60,
+                    projectName = "Health",
+                    labels = listOf("fitness", "strength")
+                ),
+                TemplateTaskDef(
+                    title = "Post-Workout Protein & Recovery",
+                    description = "Replenish glycogen and 30g protein within 45 mins",
+                    category = "Nutrition",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "18:45",
+                    durationMinutes = 15,
+                    projectName = "Health",
+                    labels = listOf("nutrition", "recovery")
+                )
             ),
             habits = listOf(
                 TemplateHabitDef("10,000 Steps Daily", "👟", "Walk outdoors or use walking pad", "18:00", 0xFFFF5722),
@@ -215,7 +373,7 @@ object TemplateCatalog {
                 TemplateShortcutDef(ShortcutType.HABIT, "10,000 Steps", "10k Steps", "👟", 1, 0)
             ),
             projects = listOf(
-                TemplateProjectDef("Body Transformation", "🏋️", "orange")
+                StandardProjects.HEALTH
             ),
             tags = listOf("fitness", "strength", "health")
         ),
@@ -229,8 +387,26 @@ object TemplateCatalog {
             category = TemplateCategory.HEALTH_HYDRATION,
             emoji = "💧",
             tasks = listOf(
-                TemplateTaskDef("Electrolyte Drink in Morning", "Water with pink salt and lemon for adrenal support", "Health", TaskPriority.MEDIUM, "06:30", 10),
-                TemplateTaskDef("Whole-Food Nutritious Meal Prep", "Clean vegetables, lean proteins, and complex carbohydrates", "Nutrition", TaskPriority.HIGH, "12:00", 45)
+                TemplateTaskDef(
+                    title = "Electrolyte Drink in Morning",
+                    description = "Water with pink salt and lemon for adrenal support",
+                    category = "Health",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "06:30",
+                    durationMinutes = 10,
+                    projectName = "Health",
+                    labels = listOf("hydration", "wellness")
+                ),
+                TemplateTaskDef(
+                    title = "Whole-Food Nutritious Meal Prep",
+                    description = "Clean vegetables, lean proteins, and complex carbohydrates",
+                    category = "Nutrition",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "12:00",
+                    durationMinutes = 45,
+                    projectName = "Health",
+                    labels = listOf("nutrition", "health")
+                )
             ),
             habits = listOf(
                 TemplateHabitDef("Drink 2,500ml Water", "💧", "Track throughout the day in LifeOS", "16:00", 0xFF03A9F4),
@@ -240,6 +416,9 @@ object TemplateCatalog {
             shortcuts = listOf(
                 TemplateShortcutDef(ShortcutType.WATER, "water", "Water Log", "💧", 0, 0),
                 TemplateShortcutDef(ShortcutType.HABIT, "Drink 2500ml", "Hydration", "🚰", 1, 0)
+            ),
+            projects = listOf(
+                StandardProjects.HEALTH
             ),
             tags = listOf("health", "hydration", "vitality")
         ),
@@ -253,7 +432,16 @@ object TemplateCatalog {
             category = TemplateCategory.HABIT_BUILDING,
             emoji = "🌱",
             tasks = listOf(
-                TemplateTaskDef("Habit Trigger Setup", "Place books on pillow, gym clothes by bed, water bottle on desk", "Environment", TaskPriority.MEDIUM, "21:00", 15)
+                TemplateTaskDef(
+                    title = "Habit Trigger Setup",
+                    description = "Place books on pillow, gym clothes by bed, water bottle on desk",
+                    category = "Environment",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "21:00",
+                    durationMinutes = 15,
+                    projectName = "Daily Habits",
+                    labels = listOf("habits", "environment")
+                )
             ),
             habits = listOf(
                 TemplateHabitDef("Keystone Habit: 20 Pushups", "💪", "Immediately after brushing teeth", "07:00", 0xFFFF9800),
@@ -263,6 +451,9 @@ object TemplateCatalog {
             shortcuts = listOf(
                 TemplateShortcutDef(ShortcutType.HABIT, "20 Pushups", "Pushups", "💪", 0, 0),
                 TemplateShortcutDef(ShortcutType.HABIT, "Read 5 Pages", "Read 5p", "📖", 1, 0)
+            ),
+            projects = listOf(
+                StandardProjects.DAILY_HABITS
             ),
             tags = listOf("habits", "consistency", "atomic")
         ),
@@ -284,7 +475,9 @@ object TemplateCatalog {
                     dueTime = "16:00",
                     durationMinutes = 30,
                     recurrenceType = RecurrenceType.SELECTED_WEEKDAYS,
-                    recurrenceDaysOfWeek = listOf("SUNDAY")
+                    recurrenceDaysOfWeek = listOf("SUNDAY"),
+                    projectName = "Daily Habits",
+                    labels = listOf("review", "milestones")
                 ),
                 TemplateTaskDef(
                     title = "Calendar & Milestone Audit",
@@ -294,7 +487,9 @@ object TemplateCatalog {
                     dueTime = "16:30",
                     durationMinutes = 30,
                     recurrenceType = RecurrenceType.SELECTED_WEEKDAYS,
-                    recurrenceDaysOfWeek = listOf("SUNDAY")
+                    recurrenceDaysOfWeek = listOf("SUNDAY"),
+                    projectName = "Daily Habits",
+                    labels = listOf("planning", "calendar")
                 ),
                 TemplateTaskDef(
                     title = "Laundry & Home Cleanliness Reset",
@@ -304,7 +499,9 @@ object TemplateCatalog {
                     dueTime = "17:30",
                     durationMinutes = 60,
                     recurrenceType = RecurrenceType.SELECTED_WEEKDAYS,
-                    recurrenceDaysOfWeek = listOf("SUNDAY")
+                    recurrenceDaysOfWeek = listOf("SUNDAY"),
+                    projectName = "Home",
+                    labels = listOf("home", "cleaning")
                 )
             ),
             habits = listOf(
@@ -315,7 +512,8 @@ object TemplateCatalog {
                 TemplateShortcutDef(ShortcutType.TASK, "Home Reset", "Cleaning", "🏠", 1, 0)
             ),
             projects = listOf(
-                TemplateProjectDef("Life Operations", "🌟", "purple")
+                StandardProjects.DAILY_HABITS,
+                StandardProjects.HOME
             ),
             tags = listOf("planning", "sunday", "weekly", "review")
         ),
@@ -329,8 +527,26 @@ object TemplateCatalog {
             category = TemplateCategory.PERSONAL_DEV,
             emoji = "🧠",
             tasks = listOf(
-                TemplateTaskDef("Skill Development Practice", "Dedicate 30 minutes to learning a hard skill (coding, design, instrument)", "Skill", TaskPriority.HIGH, "17:00", 45),
-                TemplateTaskDef("Evening Stoic Journaling", "Reflect on actions, temperance, and how to improve tomorrow", "Mindset", TaskPriority.MEDIUM, "21:00", 15)
+                TemplateTaskDef(
+                    title = "Skill Development Practice",
+                    description = "Dedicate 30 minutes to learning a hard skill (coding, design, instrument)",
+                    category = "Skill",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "17:00",
+                    durationMinutes = 45,
+                    projectName = "Learning",
+                    labels = listOf("skill", "learning")
+                ),
+                TemplateTaskDef(
+                    title = "Evening Stoic Journaling",
+                    description = "Reflect on actions, temperance, and how to improve tomorrow",
+                    category = "Mindset",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "21:00",
+                    durationMinutes = 15,
+                    projectName = "Personal",
+                    labels = listOf("journaling", "reflection")
+                )
             ),
             habits = listOf(
                 TemplateHabitDef("Language Practice (15 Mins)", "🗣️", "Vocabulary flashcards or conversational practice", "08:00", 0xFFE91E63),
@@ -339,6 +555,10 @@ object TemplateCatalog {
             shortcuts = listOf(
                 TemplateShortcutDef(ShortcutType.TASK, "Skill Practice", "Practice", "🧠", 0, 0),
                 TemplateShortcutDef(ShortcutType.HABIT, "Language Practice", "Language", "🗣️", 1, 0)
+            ),
+            projects = listOf(
+                StandardProjects.LEARNING,
+                StandardProjects.PERSONAL
             ),
             tags = listOf("growth", "journaling", "learning", "mindset")
         ),
@@ -352,9 +572,36 @@ object TemplateCatalog {
             category = TemplateCategory.CHALLENGE_75,
             emoji = "🔥",
             tasks = listOf(
-                TemplateTaskDef("Workout #1 (Outdoor 45m)", "45 minutes minimum outdoors regardless of weather", "Challenge", TaskPriority.HIGH, "06:30", 45),
-                TemplateTaskDef("Workout #2 (Gym / Strength 45m)", "Second workout separated by at least 3 hours", "Challenge", TaskPriority.HIGH, "17:00", 45),
-                TemplateTaskDef("Daily Non-Fiction Reading (10 Pages)", "10 pages of educational or self-development book", "Challenge", TaskPriority.HIGH, "20:30", 30)
+                TemplateTaskDef(
+                    title = "Workout #1 (Outdoor 45m)",
+                    description = "45 minutes minimum outdoors regardless of weather",
+                    category = "Challenge",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "06:30",
+                    durationMinutes = 45,
+                    projectName = "Health",
+                    labels = listOf("challenge", "workout")
+                ),
+                TemplateTaskDef(
+                    title = "Workout #2 (Gym / Strength 45m)",
+                    description = "Second workout separated by at least 3 hours",
+                    category = "Challenge",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "17:00",
+                    durationMinutes = 45,
+                    projectName = "Health",
+                    labels = listOf("challenge", "workout")
+                ),
+                TemplateTaskDef(
+                    title = "Daily Non-Fiction Reading (10 Pages)",
+                    description = "10 pages of educational or self-development book",
+                    category = "Challenge",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "20:30",
+                    durationMinutes = 30,
+                    projectName = "Learning",
+                    labels = listOf("challenge", "reading")
+                )
             ),
             habits = listOf(
                 TemplateHabitDef("Drink 3,800ml Water (1 Gallon)", "💧", "Zero alcohol, zero exceptions", "18:00", 0xFF0288D1),
@@ -378,6 +625,10 @@ object TemplateCatalog {
                 TemplateShortcutDef(ShortcutType.CHALLENGE_RULE, "rule_workout_1", "Workout 1", "🏃", 1, 0),
                 TemplateShortcutDef(ShortcutType.CHALLENGE_RULE, "rule_reading", "Reading", "📖", 2, 0)
             ),
+            projects = listOf(
+                StandardProjects.HEALTH,
+                StandardProjects.LEARNING
+            ),
             tags = listOf("75hard", "discipline", "toughness", "challenge")
         ),
 
@@ -390,14 +641,65 @@ object TemplateCatalog {
             category = TemplateCategory.BUCKET_LIST,
             emoji = "🌟",
             tasks = listOf(
-                TemplateTaskDef("Run a 10K or Half-Marathon", "Train consistently and cross the finish line", "Milestone", TaskPriority.HIGH, null, 120, RecurrenceType.NONE),
-                TemplateTaskDef("Master an Instrument Piece", "Learn to play a complete classic song with fluency", "Skill", TaskPriority.MEDIUM, null, 45, RecurrenceType.NONE),
-                TemplateTaskDef("Write and Publish a Creative Work", "Complete a book chapter, essay, or creative article", "Legacy", TaskPriority.HIGH, null, 90, RecurrenceType.NONE),
-                TemplateTaskDef("Mentor Someone Towards Their Dream Goal", "Invest guidance into someone building their future", "Impact", TaskPriority.HIGH, null, 60, RecurrenceType.NONE),
-                TemplateTaskDef("Plant a Tree and Watch It Grow", "Contribute positively to the Earth and leave roots behind", "Nature", TaskPriority.MEDIUM, null, 60, RecurrenceType.NONE)
+                TemplateTaskDef(
+                    title = "Run a 10K or Half-Marathon",
+                    description = "Train consistently and cross the finish line",
+                    category = "Milestone",
+                    priority = TaskPriority.HIGH,
+                    dueTime = null,
+                    durationMinutes = 120,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("milestone", "fitness")
+                ),
+                TemplateTaskDef(
+                    title = "Master an Instrument Piece",
+                    description = "Learn to play a complete classic song with fluency",
+                    category = "Skill",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = null,
+                    durationMinutes = 45,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("skill", "music")
+                ),
+                TemplateTaskDef(
+                    title = "Write and Publish a Creative Work",
+                    description = "Complete a book chapter, essay, or creative article",
+                    category = "Legacy",
+                    priority = TaskPriority.HIGH,
+                    dueTime = null,
+                    durationMinutes = 90,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("legacy", "writing")
+                ),
+                TemplateTaskDef(
+                    title = "Mentor Someone Towards Their Dream Goal",
+                    description = "Invest guidance into someone building their future",
+                    category = "Impact",
+                    priority = TaskPriority.HIGH,
+                    dueTime = null,
+                    durationMinutes = 60,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("impact", "mentorship")
+                ),
+                TemplateTaskDef(
+                    title = "Plant a Tree and Watch It Grow",
+                    description = "Contribute positively to the Earth and leave roots behind",
+                    category = "Nature",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = null,
+                    durationMinutes = 60,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("nature", "growth")
+                )
             ),
             projects = listOf(
-                TemplateProjectDef("Life Bucket List", "🌟", "purple", "Lifetime achievements and memories")
+                StandardProjects.PERSONAL,
+                StandardProjects.TRAVEL
             ),
             tags = listOf("bucketlist", "dreams", "goals", "milestones")
         ),
@@ -411,14 +713,66 @@ object TemplateCatalog {
             category = TemplateCategory.BUCKET_LIST,
             emoji = "❤️",
             tasks = listOf(
-                TemplateTaskDef("Sunrise Breakfast Picnic", "Pack warm coffee and watch the sunrise from a scenic peak", "Romance", TaskPriority.HIGH, "06:00", 90, RecurrenceType.NONE),
-                TemplateTaskDef("Cook an Authentic 3-Course Feast Together", "Select an international recipe and cook every dish from scratch", "Date Night", TaskPriority.MEDIUM, "18:00", 120, RecurrenceType.NONE),
-                TemplateTaskDef("Unplugged Weekend Cabin Retreat", "48 hours in nature with zero smartphone distractions", "Connection", TaskPriority.HIGH, null, 2880, RecurrenceType.NONE),
-                TemplateTaskDef("Midnight Stargazing with Hot Cocoa", "Lie back on a blanket and map constellations together", "Romance", TaskPriority.MEDIUM, "22:00", 60, RecurrenceType.NONE),
-                TemplateTaskDef("Shared Wellness & Spa Day", "Recharge together with massage, sauna, and deep relaxation", "Wellness", TaskPriority.MEDIUM, null, 180, RecurrenceType.NONE)
+                TemplateTaskDef(
+                    title = "Sunrise Breakfast Picnic",
+                    description = "Pack warm coffee and watch the sunrise from a scenic peak",
+                    category = "Romance",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "06:00",
+                    durationMinutes = 90,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("romance", "date")
+                ),
+                TemplateTaskDef(
+                    title = "Cook an Authentic 3-Course Feast Together",
+                    description = "Select an international recipe and cook every dish from scratch",
+                    category = "Date Night",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "18:00",
+                    durationMinutes = 120,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Home",
+                    labels = listOf("cooking", "date")
+                ),
+                TemplateTaskDef(
+                    title = "Unplugged Weekend Cabin Retreat",
+                    description = "48 hours in nature with zero smartphone distractions",
+                    category = "Connection",
+                    priority = TaskPriority.HIGH,
+                    dueTime = null,
+                    durationMinutes = 2880,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Travel",
+                    labels = listOf("connection", "travel")
+                ),
+                TemplateTaskDef(
+                    title = "Midnight Stargazing with Hot Cocoa",
+                    description = "Lie back on a blanket and map constellations together",
+                    category = "Romance",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "22:00",
+                    durationMinutes = 60,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("romance", "night")
+                ),
+                TemplateTaskDef(
+                    title = "Shared Wellness & Spa Day",
+                    description = "Recharge together with massage, sauna, and deep relaxation",
+                    category = "Wellness",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = null,
+                    durationMinutes = 180,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("wellness", "relaxation")
+                )
             ),
             projects = listOf(
-                TemplateProjectDef("Couples Adventures", "❤️", "pink", "Cherished moments and shared milestones")
+                StandardProjects.PERSONAL,
+                StandardProjects.HOME,
+                StandardProjects.TRAVEL
             ),
             tags = listOf("couples", "love", "date", "bucketlist", "relationship")
         ),
@@ -432,14 +786,64 @@ object TemplateCatalog {
             category = TemplateCategory.BUCKET_LIST,
             emoji = "✈️",
             tasks = listOf(
-                TemplateTaskDef("Solo Expedition to a Historic Capital", "Navigate, explore, and immerse in local history solo", "Travel", TaskPriority.HIGH, null, 1440, RecurrenceType.NONE),
-                TemplateTaskDef("Scenic Train Journey Across Mountains", "Experience panoramic rail transit across peaks and valleys", "Adventure", TaskPriority.MEDIUM, null, 360, RecurrenceType.NONE),
-                TemplateTaskDef("Explore an Ancient UNESCO Heritage Site", "Witness ancient architectural mastery and culture in person", "Culture", TaskPriority.HIGH, null, 240, RecurrenceType.NONE),
-                TemplateTaskDef("Coastal Road Trip with Ocean Views", "Drive along dramatic coastal highways with favorite soundtrack", "Exploration", TaskPriority.MEDIUM, null, 480, RecurrenceType.NONE),
-                TemplateTaskDef("Camp Under an Open Night Sky", "Pitch a tent away from city lights and fall asleep under stars", "Outdoors", TaskPriority.MEDIUM, null, 720, RecurrenceType.NONE)
+                TemplateTaskDef(
+                    title = "Solo Expedition to a Historic Capital",
+                    description = "Navigate, explore, and immerse in local history solo",
+                    category = "Travel",
+                    priority = TaskPriority.HIGH,
+                    dueTime = null,
+                    durationMinutes = 1440,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Travel",
+                    labels = listOf("travel", "culture")
+                ),
+                TemplateTaskDef(
+                    title = "Scenic Train Journey Across Mountains",
+                    description = "Experience panoramic rail transit across peaks and valleys",
+                    category = "Adventure",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = null,
+                    durationMinutes = 360,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Travel",
+                    labels = listOf("travel", "scenic")
+                ),
+                TemplateTaskDef(
+                    title = "Explore an Ancient UNESCO Heritage Site",
+                    description = "Witness ancient architectural mastery and culture in person",
+                    category = "Culture",
+                    priority = TaskPriority.HIGH,
+                    dueTime = null,
+                    durationMinutes = 240,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Travel",
+                    labels = listOf("culture", "history")
+                ),
+                TemplateTaskDef(
+                    title = "Coastal Road Trip with Ocean Views",
+                    description = "Drive along dramatic coastal highways with favorite soundtrack",
+                    category = "Exploration",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = null,
+                    durationMinutes = 480,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Travel",
+                    labels = listOf("travel", "roadtrip")
+                ),
+                TemplateTaskDef(
+                    title = "Camp Under an Open Night Sky",
+                    description = "Pitch a tent away from city lights and fall asleep under stars",
+                    category = "Outdoors",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = null,
+                    durationMinutes = 720,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Travel",
+                    labels = listOf("outdoors", "camping")
+                )
             ),
             projects = listOf(
-                TemplateProjectDef("Travel Expeditions", "✈️", "blue", "Global destinations and journeys")
+                StandardProjects.TRAVEL
             ),
             tags = listOf("travel", "wanderlust", "adventure", "explore")
         ),
@@ -453,16 +857,471 @@ object TemplateCatalog {
             category = TemplateCategory.BUCKET_LIST,
             emoji = "🏔️",
             tasks = listOf(
-                TemplateTaskDef("Summit a Mountain Peak", "Hike to the summit and take in the panoramic vista from above the clouds", "Trek", TaskPriority.HIGH, null, 360, RecurrenceType.NONE),
-                TemplateTaskDef("Whitewater River Rafting / Kayak Run", "Navigate roaring rapids with teamwork and adrenaline", "Water Sport", TaskPriority.HIGH, null, 180, RecurrenceType.NONE),
-                TemplateTaskDef("Scuba Dive or Snorkel a Coral Reef", "Descend beneath the surface to explore vibrant marine ecology", "Ocean", TaskPriority.MEDIUM, null, 120, RecurrenceType.NONE),
-                TemplateTaskDef("Multi-Day Wilderness Backpacking Trail", "Carry everything on your back and navigate wild terrain", "Survival", TaskPriority.HIGH, null, 2880, RecurrenceType.NONE),
-                TemplateTaskDef("Rock Climbing / Bouldering Challenge", "Conquer a technical outdoor or gym climbing route", "Fitness", TaskPriority.MEDIUM, null, 90, RecurrenceType.NONE)
+                TemplateTaskDef(
+                    title = "Summit a Mountain Peak",
+                    description = "Hike to the summit and take in the panoramic vista from above the clouds",
+                    category = "Trek",
+                    priority = TaskPriority.HIGH,
+                    dueTime = null,
+                    durationMinutes = 360,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Travel",
+                    labels = listOf("adventure", "hiking")
+                ),
+                TemplateTaskDef(
+                    title = "Whitewater River Rafting / Kayak Run",
+                    description = "Navigate roaring rapids with teamwork and adrenaline",
+                    category = "Water Sport",
+                    priority = TaskPriority.HIGH,
+                    dueTime = null,
+                    durationMinutes = 180,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Travel",
+                    labels = listOf("adventure", "watersport")
+                ),
+                TemplateTaskDef(
+                    title = "Scuba Dive or Snorkel a Coral Reef",
+                    description = "Descend beneath the surface to explore vibrant marine ecology",
+                    category = "Ocean",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = null,
+                    durationMinutes = 120,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Travel",
+                    labels = listOf("adventure", "ocean")
+                ),
+                TemplateTaskDef(
+                    title = "Multi-Day Wilderness Backpacking Trail",
+                    description = "Carry everything on your back and navigate wild terrain",
+                    category = "Survival",
+                    priority = TaskPriority.HIGH,
+                    dueTime = null,
+                    durationMinutes = 2880,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Travel",
+                    labels = listOf("adventure", "survival")
+                ),
+                TemplateTaskDef(
+                    title = "Rock Climbing / Bouldering Challenge",
+                    description = "Conquer a technical outdoor or gym climbing route",
+                    category = "Fitness",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = null,
+                    durationMinutes = 90,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Health",
+                    labels = listOf("fitness", "climbing")
+                )
             ),
             projects = listOf(
-                TemplateProjectDef("Adventure & Thrills", "🏔️", "orange", "Extreme feats and outdoor challenges")
+                StandardProjects.TRAVEL,
+                StandardProjects.HEALTH
             ),
             tags = listOf("adventure", "hiking", "nature", "outdoor", "thrills")
+        ),
+
+        // =========================================================================
+        // 16. SET-04 BUNDLE: Bucket List
+        // =========================================================================
+        LifeTemplate(
+            id = "template_bucket_list",
+            version = 1,
+            title = "Bucket List",
+            description = "Lifelong aspirations, transformative milestones, and unforgettable experiences to achieve in your lifetime.",
+            category = TemplateCategory.BUCKET_LIST,
+            emoji = "🌟",
+            tasks = listOf(
+                TemplateTaskDef(
+                    title = "Complete a Half-Marathon / 10K Run",
+                    description = "Train consistently with dedicated long runs and cross the finish line",
+                    category = "Milestone",
+                    priority = TaskPriority.HIGH,
+                    durationMinutes = 120,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("goals", "fitness")
+                ),
+                TemplateTaskDef(
+                    title = "Learn to Play a Favorite Instrument Song",
+                    description = "Master guitar, piano, or violin piece with fluency and confidence",
+                    category = "Skill",
+                    priority = TaskPriority.MEDIUM,
+                    durationMinutes = 60,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("skill", "music")
+                ),
+                TemplateTaskDef(
+                    title = "Write and Publish a Personal Creative Work",
+                    description = "Complete an essay, book chapter, short story, or portfolio showcase",
+                    category = "Legacy",
+                    priority = TaskPriority.HIGH,
+                    durationMinutes = 90,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("goals", "legacy")
+                ),
+                TemplateTaskDef(
+                    title = "Witness the Northern Lights or Solar Eclipse",
+                    description = "Travel to optimal viewing coordinates and experience the natural cosmic wonder",
+                    category = "Adventure",
+                    priority = TaskPriority.HIGH,
+                    durationMinutes = 240,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Travel",
+                    labels = listOf("adventure", "travel")
+                ),
+                TemplateTaskDef(
+                    title = "Plant a Fruit Tree and Harvest First Crop",
+                    description = "Plant roots, nurture the soil, and enjoy home-grown harvest with family",
+                    category = "Nature",
+                    priority = TaskPriority.MEDIUM,
+                    durationMinutes = 60,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("nature", "legacy")
+                )
+            ),
+            habits = listOf(
+                TemplateHabitDef("Weekly Bucket List Action", "🌟", "Spend 30 minutes advancing one lifelong goal", "10:00", 0xFF9C27B0)
+            ),
+            projects = listOf(
+                StandardProjects.PERSONAL,
+                StandardProjects.TRAVEL
+            ),
+            tags = listOf("bucketlist", "dreams", "aspirations", "goals")
+        ),
+
+        // =========================================================================
+        // 17. SET-04 BUNDLE: Couples Goals
+        // =========================================================================
+        LifeTemplate(
+            id = "template_couples_goals",
+            version = 1,
+            title = "Couples Goals",
+            description = "Strengthen connection, shared values, and relationship happiness through intentional shared habits.",
+            category = TemplateCategory.COUPLES_GOALS,
+            emoji = "💑",
+            tasks = listOf(
+                TemplateTaskDef(
+                    title = "Schedule Weekly Distraction-Free Date Night",
+                    description = "Reserve an evening every week with phones put away for quality presence",
+                    category = "Romance",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "19:00",
+                    durationMinutes = 120,
+                    recurrenceType = RecurrenceType.WEEKLY,
+                    recurrenceDaysOfWeek = listOf("FRIDAY"),
+                    projectName = "Personal",
+                    labels = listOf("relationship", "romance")
+                ),
+                TemplateTaskDef(
+                    title = "Monthly Couples Budget & Savings Sync",
+                    description = "Review joint expenses, upcoming vacation funds, and long-term milestones",
+                    category = "Finance",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "10:00",
+                    durationMinutes = 45,
+                    recurrenceType = RecurrenceType.MONTHLY,
+                    projectName = "Personal",
+                    labels = listOf("finances", "planning")
+                ),
+                TemplateTaskDef(
+                    title = "Plan an Annual Unplugged Anniversary Getaway",
+                    description = "Curate an itinerary for intimate rest, fine dining, and relaxation",
+                    category = "Travel",
+                    priority = TaskPriority.MEDIUM,
+                    durationMinutes = 60,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("relationship", "travel")
+                ),
+                TemplateTaskDef(
+                    title = "Cook a Gourmet Multi-Course Meal Together",
+                    description = "Choose a new international cuisine and prepare appetizers, main, and dessert together",
+                    category = "Home",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "18:00",
+                    durationMinutes = 90,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Home",
+                    labels = listOf("bonding", "home")
+                ),
+                TemplateTaskDef(
+                    title = "Living Space Declutter & Co-design Project",
+                    description = "Reorganize the bedroom or lounge to build a calm, aesthetically pleasing home sanctuary",
+                    category = "Home",
+                    priority = TaskPriority.MEDIUM,
+                    durationMinutes = 90,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Home",
+                    labels = listOf("home", "cozy")
+                )
+            ),
+            habits = listOf(
+                TemplateHabitDef("Daily Couples Gratitude Check-in", "❤️", "Share 1 thing you appreciate about your partner", "21:30", 0xFFE91E63),
+                TemplateHabitDef("Evening Walk & Conversation", "🚶", "15-minute screen-free neighborhood walk together", "19:30", 0xFF4CAF50)
+            ),
+            projects = listOf(
+                StandardProjects.PERSONAL,
+                StandardProjects.HOME
+            ),
+            tags = listOf("couples", "love", "relationship", "connection")
+        ),
+
+        // =========================================================================
+        // 18. SET-04 BUNDLE: Trip Packing Checklist
+        // =========================================================================
+        LifeTemplate(
+            id = "template_trip_packing",
+            version = 1,
+            title = "Trip Packing Checklist",
+            description = "Foolproof luggage packing checklist for business, vacation, flight, and road trip journeys.",
+            category = TemplateCategory.TRAVEL_CHECKLIST,
+            emoji = "🧳",
+            tasks = listOf(
+                TemplateTaskDef(
+                    title = "Passports, IDs, Travel Insurance & Boarding Passes",
+                    description = "Check passport validity (>6 months), printed visas, and digital wallet passes",
+                    category = "Travel",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "09:00",
+                    durationMinutes = 20,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Travel",
+                    labels = listOf("documents", "critical")
+                ),
+                TemplateTaskDef(
+                    title = "Prescription Medications & Compact First-Aid Kit",
+                    description = "Daily meds, motion sickness tablets, pain relief, and doctor notes in carry-on",
+                    category = "Health",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "10:00",
+                    durationMinutes = 20,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Health",
+                    labels = listOf("health", "essentials")
+                ),
+                TemplateTaskDef(
+                    title = "Universal Travel Power Adapters & Portable Battery",
+                    description = "Pack wall adapters, charging cables for phone/laptop, and 10,000mAh power bank",
+                    category = "Tech",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "11:00",
+                    durationMinutes = 15,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Travel",
+                    labels = listOf("electronics", "travel")
+                ),
+                TemplateTaskDef(
+                    title = "Weather-Appropriate Attire, Layers & Walking Footwear",
+                    description = "Pack daily outfits, versatile rain/wind jacket, comfortable shoes, and socks",
+                    category = "Packing",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "14:00",
+                    durationMinutes = 45,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("clothing", "packing")
+                ),
+                TemplateTaskDef(
+                    title = "Toiletries & TSA-Compliant 100ml Liquid Kit",
+                    description = "Toothbrush, travel toothpaste, deodorant, shampoo, sunscreen, and moisturizer",
+                    category = "Hygiene",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "15:00",
+                    durationMinutes = 20,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("toiletries", "essentials")
+                ),
+                TemplateTaskDef(
+                    title = "Download Offline Maps, City Guides & Itineraries",
+                    description = "Cache Google Maps, translation dictionaries, flight confirmations, and hotel vouchers",
+                    category = "Logistics",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "16:00",
+                    durationMinutes = 20,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Travel",
+                    labels = listOf("navigation", "travel")
+                )
+            ),
+            projects = listOf(
+                StandardProjects.TRAVEL,
+                StandardProjects.PERSONAL
+            ),
+            tags = listOf("packing", "travel", "checklist", "luggage", "vacation")
+        ),
+
+        // =========================================================================
+        // 19. SET-04 BUNDLE: Marriage Planning Checklist
+        // =========================================================================
+        LifeTemplate(
+            id = "template_marriage_planning",
+            version = 1,
+            title = "Marriage Planning Checklist",
+            description = "Structured roadmap for organizing your dream wedding: budget, vendors, invitations, and ceremony.",
+            category = TemplateCategory.EVENT_PLANNING,
+            emoji = "💍",
+            tasks = listOf(
+                TemplateTaskDef(
+                    title = "Define Overall Wedding Budget & Allocation Framework",
+                    description = "Set realistic maximum expenditure, emergency buffer (10%), and contribution shares",
+                    category = "Budget",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "10:00",
+                    durationMinutes = 60,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("wedding", "budget", "finance")
+                ),
+                TemplateTaskDef(
+                    title = "Draft Preliminary Guest List & RSVP Tracker",
+                    description = "Estimate headcount for Tier A and Tier B guests to inform venue capacity",
+                    category = "Guests",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "14:00",
+                    durationMinutes = 60,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("wedding", "logistics")
+                ),
+                TemplateTaskDef(
+                    title = "Tour, Select & Reserve Ceremony & Reception Venues",
+                    description = "Visit shortlisted venues, confirm catering availability, and lock deposit",
+                    category = "Venue",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "11:00",
+                    durationMinutes = 180,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("wedding", "venue", "logistics")
+                ),
+                TemplateTaskDef(
+                    title = "Book Key Vendors: Photographer, Caterer, Music",
+                    description = "Interview, review contracts, and secure photographer, DJ/band, and food tasting",
+                    category = "Vendors",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "15:00",
+                    durationMinutes = 90,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Office",
+                    labels = listOf("wedding", "vendors", "contracts")
+                ),
+                TemplateTaskDef(
+                    title = "Design & Mail Save-the-Dates and Wedding Invitations",
+                    description = "Finalize invitation stationery, website link, dietary queries, and postage",
+                    category = "Stationery",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "16:00",
+                    durationMinutes = 60,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("wedding", "invitations")
+                ),
+                TemplateTaskDef(
+                    title = "Obtain Marriage License & Legal Filings",
+                    description = "Submit legal registrar documentation, verify witness requirements, and pay fees",
+                    category = "Legal",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "09:30",
+                    durationMinutes = 60,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Personal",
+                    labels = listOf("wedding", "legal", "critical")
+                )
+            ),
+            projects = listOf(
+                StandardProjects.PERSONAL,
+                StandardProjects.OFFICE
+            ),
+            tags = listOf("wedding", "marriage", "planning", "event", "ceremony")
+        ),
+
+        // =========================================================================
+        // 20. SET-04 BUNDLE: Startup Setup Checklist
+        // =========================================================================
+        LifeTemplate(
+            id = "template_startup_setup",
+            version = 1,
+            title = "Startup Setup Checklist",
+            description = "Lean, battle-tested roadmap for launching an early-stage startup from idea to first customers.",
+            category = TemplateCategory.STARTUP_LAUNCH,
+            emoji = "🚀",
+            tasks = listOf(
+                TemplateTaskDef(
+                    title = "Register Corporate Legal Entity & Employer Identification",
+                    description = "Incorporate LLC/C-Corp, obtain EIN, founder agreement, and IP assignment",
+                    category = "Legal",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "10:00",
+                    durationMinutes = 90,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Office",
+                    labels = listOf("startup", "legal", "compliance")
+                ),
+                TemplateTaskDef(
+                    title = "Open Dedicated Business Banking & Merchant Accounts",
+                    description = "Establish zero-fee business checking account, debit cards, and Stripe integration",
+                    category = "Finance",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "13:00",
+                    durationMinutes = 45,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Office",
+                    labels = listOf("startup", "banking", "finance")
+                ),
+                TemplateTaskDef(
+                    title = "Reserve Domain Name, Primary Workspace & Handles",
+                    description = "Secure .com domain, Google Workspace email, GitHub org, and X/LinkedIn handles",
+                    category = "Setup",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "15:00",
+                    durationMinutes = 30,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Office",
+                    labels = listOf("startup", "infrastructure")
+                ),
+                TemplateTaskDef(
+                    title = "Launch Clean MVP Landing Page & Value Proposition",
+                    description = "Single-page responsive site with clear problem statement, demo video, and signup form",
+                    category = "Build",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "16:00",
+                    durationMinutes = 180,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Office",
+                    labels = listOf("startup", "mvp", "growth")
+                ),
+                TemplateTaskDef(
+                    title = "Conduct 15 Targeted Customer Problem Interviews",
+                    description = "Validate pain points, current manual workarounds, and willingness to pay with ideal users",
+                    category = "Research",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "11:00",
+                    durationMinutes = 120,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Learning",
+                    labels = listOf("startup", "research", "interviews")
+                ),
+                TemplateTaskDef(
+                    title = "Establish Core Metrics Dashboard & Customer Feedback Loop",
+                    description = "Set up weekly active users, CAC, retention metrics, and customer support channels",
+                    category = "Operations",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "17:00",
+                    durationMinutes = 60,
+                    recurrenceType = RecurrenceType.NONE,
+                    projectName = "Office",
+                    labels = listOf("startup", "analytics", "operations")
+                )
+            ),
+            projects = listOf(
+                StandardProjects.OFFICE,
+                StandardProjects.LEARNING
+            ),
+            tags = listOf("startup", "business", "entrepreneur", "mvp", "launch")
         )
     )
 
@@ -522,6 +1381,48 @@ object TemplateCatalog {
             emoji = "📅",
             templateIds = listOf("template_sunday_review", "template_master_daily_flow"),
             bonusXp = 50
+        ),
+
+        // --- SET-04 New Checklist Bundles ---
+        TemplateBundle(
+            id = "bundle_bucket_list",
+            title = "Bucket List",
+            description = "Lifelong aspirations, fitness milestones, creative legacy, and epic life memories.",
+            emoji = "🌟",
+            templateIds = listOf("template_bucket_list"),
+            bonusXp = 75
+        ),
+        TemplateBundle(
+            id = "bundle_couples_goals",
+            title = "Couples Goals",
+            description = "Relationship bonding, intentional date nights, joint budget sync, and shared home rituals.",
+            emoji = "💑",
+            templateIds = listOf("template_couples_goals"),
+            bonusXp = 75
+        ),
+        TemplateBundle(
+            id = "bundle_trip_packing",
+            title = "Trip Packing Checklist",
+            description = "Essential, stress-free travel packing checklist for flights, road trips, and adventures.",
+            emoji = "🧳",
+            templateIds = listOf("template_trip_packing"),
+            bonusXp = 60
+        ),
+        TemplateBundle(
+            id = "bundle_marriage_planning",
+            title = "Marriage Planning Checklist",
+            description = "End-to-end wedding roadmap: budget, venues, vendors, invitations, and marriage legalities.",
+            emoji = "💍",
+            templateIds = listOf("template_marriage_planning"),
+            bonusXp = 80
+        ),
+        TemplateBundle(
+            id = "bundle_startup_setup",
+            title = "Startup Setup Checklist",
+            description = "Battle-tested company formation: legal entity, business banking, MVP landing page, and discovery.",
+            emoji = "🚀",
+            templateIds = listOf("template_startup_setup"),
+            bonusXp = 80
         )
     )
 

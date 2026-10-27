@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.engine.LocalLifeTheme
+import com.example.ui.theme.engine.ThemedLoadingIndicator
 
 /**
  * Premium Themed Navigation Transition Wrapper.
@@ -180,16 +181,137 @@ fun MainNavigationTransition(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = activeTheme.decoration.motifEmoji,
-                            fontSize = 26.sp
-                        )
+                        ThemedLoadingIndicator(size = 36.dp)
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
                         text = targetItem.label,
+                        style = activeTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = activeTheme.colors.onSurface.copy(alpha = 0.9f),
+                        modifier = Modifier
+                            .background(
+                                color = activeTheme.colors.surface.copy(alpha = 0.7f),
+                                shape = activeTheme.shapes.chipShape
+                            )
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Standalone 1.5-second (1500 ms) non-blocking motif animation transition for full-screen navigations
+ * such as opening Theme Gallery from Appearance & Themes. Destination content is immediately visible
+ * and touch interactions pass straight through.
+ */
+@Composable
+fun ThemeMotifLoadingTransition(
+    label: String,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val context = LocalContext.current
+    val activeTheme = LocalLifeTheme.current
+
+    val isAnimationDisabled = remember(context) {
+        try {
+            val scale = Settings.Global.getFloat(
+                context.contentResolver,
+                Settings.Global.ANIMATOR_DURATION_SCALE,
+                1.0f
+            )
+            scale <= 0.05f
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    var isTransitionRunning by remember { mutableStateOf(!isAnimationDisabled) }
+    val overlayAlpha = remember { Animatable(0f) }
+    val motifScale = remember { Animatable(0.85f) }
+    val motifFloatOffset = remember { Animatable(12f) }
+
+    LaunchedEffect(Unit) {
+        if (isAnimationDisabled) {
+            isTransitionRunning = false
+            return@LaunchedEffect
+        }
+        overlayAlpha.snapTo(0f)
+        motifScale.snapTo(0.85f)
+        motifFloatOffset.snapTo(12f)
+
+        // Phase 1 (0..300ms): Entry
+        overlayAlpha.animateTo(1f, tween(300, easing = FastOutSlowInEasing))
+        motifScale.animateTo(1.05f, tween(300, easing = FastOutSlowInEasing))
+
+        // Phase 2 (300..1200ms): Floating atmospheric pulse (900ms)
+        motifFloatOffset.animateTo(-6f, tween(900, easing = LinearEasing))
+
+        // Phase 3 (1200..1500ms): Gentle departure
+        motifScale.animateTo(1.15f, tween(300, easing = FastOutSlowInEasing))
+        overlayAlpha.animateTo(0f, tween(300, easing = FastOutSlowInEasing))
+        isTransitionRunning = false
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        content()
+
+        if (isTransitionRunning && overlayAlpha.value > 0.01f) {
+            val alpha = overlayAlpha.value
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = alpha * 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(120.dp)
+                        .scale(motifScale.value)
+                        .alpha(alpha * 0.4f)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    activeTheme.colors.glowColor.copy(alpha = 0.5f),
+                                    activeTheme.colors.primary.copy(alpha = 0.2f),
+                                    Color.Transparent
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                )
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .offset(y = motifFloatOffset.value.dp)
+                        .scale(motifScale.value)
+                        .alpha(alpha)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(activeTheme.shapes.buttonShape)
+                            .background(activeTheme.colors.surface.copy(alpha = 0.85f))
+                            .border(
+                                width = 1.5.dp,
+                                color = activeTheme.colors.primary.copy(alpha = 0.75f),
+                                shape = activeTheme.shapes.buttonShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        ThemedLoadingIndicator(size = 36.dp)
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = label,
                         style = activeTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = activeTheme.colors.onSurface.copy(alpha = 0.9f),
