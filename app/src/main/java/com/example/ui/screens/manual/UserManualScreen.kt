@@ -1,4 +1,4 @@
-﻿package com.example.ui.screens.manual
+package com.example.ui.screens.manual
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
@@ -454,10 +454,23 @@ private fun ComponentCatalogCard(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text("✨ Live Interactive Preview", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+
                     FilledTonalButton(onClick = onClick) {
-                        Text("Inspect & Live Preview", fontSize = 11.sp)
+                        Text("Inspect & Preview", fontSize = 11.sp)
                     }
                 }
             }

@@ -1,12 +1,12 @@
 # LifeOS Release 2 — Mobile Testing Regression Report
 
-**Document Version:** 1.8.0<br>
-**Date:** October 27, 2026<br>
+**Document Version:** 2.0.0<br>
+**Date:** October 28, 2026<br>
 **Target Release:** Release 2.0 (v1.1.0-reconstruction)<br>
 **Branch:** `recovery/release-2-reconstruction`<br>
 **Test Suite Status:** 172 Passed / 0 Failed / 0 Errors / 0 Skipped<br>
-**Build Status:** `assembleDebug` SUCCESS (L8 Core Library Desugaring Active, 0 Warnings)<br>
-**Lint Status:** `lintDebug` SUCCESS (0 New Issues, 0 `NewApi` Errors in Baseline, 106 Historical Warnings)<br>
+**Build Status:** `assembleDebug` & `assembleRelease` SUCCESS (L8 Core Library Desugaring Active, 0 Warnings)<br>
+**Lint Status:** `lintDebug` & `lintVitalRelease` SUCCESS (0 Errors)<br>
 **Overall Physical Device Status:** **PENDING PHYSICAL DEVICE VERIFICATION**<br>
 
 ---
@@ -62,11 +62,16 @@ The complete unit test suite was executed via `./gradlew testDebugUnitTest --no-
 
 ## 3. Physical-Device Test Execution Sequence (Prioritized Protocol)
 
-### Verified Test Build Artifact
-- **APK Path:** `app/build/outputs/apk/debug/app-debug.apk`
-- **File Size:** 22,242,130 bytes (~21.2 MB)
-- **SHA-256 Checksum:** `CD6D39BC06771AD4625B544CF9D35A79E04DEF7748C681BAE31342D312F8B77B`
-- **Installation Command:** `adb install -r app/build/outputs/apk/debug/app-debug.apk`
+### Verified Test Build Artifacts
+- **Debug APK (Core Library Desugared):**
+  - **Path:** `app/build/outputs/apk/debug/app-debug.apk`
+  - **File Size:** 23,273,470 bytes (~22.20 MB)
+  - **SHA-256 Checksum:** `BA65104A7AA58BC8D5721706C648090BB0F3490A8F9675C719CD1143A526FD49`
+  - **Installation Command:** `adb install -r app/build/outputs/apk/debug/app-debug.apk`
+- **Release APK (Unsigned Production Candidate):**
+  - **Path:** `app/build/outputs/apk/release/app-release-unsigned.apk`
+  - **File Size:** 15,018,660 bytes (~14.32 MB)
+  - **SHA-256 Checksum:** `2C4AAC35E8BA121A2814D61F3D868B3C809660D6926D81A1AF5BFD47D9C7AF12`
 
 All physical device checks remain **PENDING** until verified on physical Android hardware (API 24 to 36).
 
@@ -207,7 +212,28 @@ All physical device checks remain **PENDING** until verified on physical Android
 - `./gradlew compileDebugAndroidTestKotlin --no-configuration-cache`: **SUCCESS**
 - `./gradlew lintDebug lintVitalRelease --no-configuration-cache`: **SUCCESS** (0 errors)
 - `./gradlew assembleDebug assembleRelease --no-configuration-cache`: **SUCCESS**
-  - `app-debug.apk`: 22,358,342 bytes, SHA-256: `AD914F63096F1D44DD1976A3B24763B8F815D47CF00AEDD53E790012D86A7694`
-  - `app-release-unsigned.apk`: 13,698,878 bytes, SHA-256: `94FFAF0607BF85E05E735B002871A00378220393D4A7AE7B2933284665BE69AB`
+  - `app-debug.apk`: 23,273,470 bytes, SHA-256: `BA65104A7AA58BC8D5721706C648090BB0F3490A8F9675C719CD1143A526FD49`
+  - `app-release-unsigned.apk`: 15,018,660 bytes, SHA-256: `2C4AAC35E8BA121A2814D61F3D868B3C809660D6926D81A1AF5BFD47D9C7AF12`
+
+---
+
+## 9. Release 2 Final Preparations — Logo, Dev Test Bundle & Interactive Previews
+
+### Summary of Scope & Implementations
+
+| Feature / Enhancement | Area | Implementation Details | Automated Tests | Physical Device Status |
+|---|---|---|---|---|
+| **Release 2 App Logo Branding** | Mipmap & Adaptive Icons | Extracted and rendered the user-provided emblem across all mipmap density buckets: `mdpi` (48x48), `hdpi` (72x72), `xhdpi` (96x96), `xxhdpi` (144x144), `xxxhdpi` (192x192) for both squircle `ic_launcher.png` and circular `ic_launcher_round.png`. Generated density-specific adaptive icon foreground layers (`drawable-mdpi` through `drawable-xxxhdpi`) within the 72dp safe area and updated `ic_launcher_background.xml` with matching royal-to-midnight blue gradient (`#12189E` -> `#070C48` -> `#02041D`). Added 512x512 `app_logo.png` for in-app displays. | **PASS** (Resource compilation & APK packaging clean) | **PENDING — DEVICE REQUIRED** |
+| **Developer & QA Test Suite Template Bundle** | Starter Productivity Templates | Added `template_dev_test` and `bundle_dev_test` in `TemplateCatalog.kt`. Contains tasks spanning all 4 priority levels (`P1` Urgent, `P2` High, `P3` Medium, `P4` Low), daily and weekly recurrence (MWF), all 7 canonical projects (`Office`, `Learning`, `Daily Habits`, `Personal`, `Health`, `Travel`, `Home`), rich labels (`P1`, `SmokeTest`, `Bug`, `Database`, `Calendar`, etc.), 3 test habits (Hydration, 10k Steps, Clean Architecture Code Review), and 4 quick reminder shortcuts (`TASK`, `HABIT`, `WATER`, `CHALLENGE_RULE`). | **PASS** (`LifeOSDomainUnitTest` 21 templates & 13 bundles verified) | **PENDING — DEVICE REQUIRED** |
+| **Interactive Live Previews for All 36 Components** | Settings -> User Manual -> Reusable Frontend UI Components | Implemented dedicated interactive Compose sandboxes for all 36 cataloged components in `ComponentDetailSheet.kt` (`RenderComponentLivePreview`). Includes interactive clock/time picker, date trigger, emoji selector, duration steppers, priority group, type-safe dropdown, color palette, labeled links editor, secure confirmation dialog, search bar, filter chips, sort menu, grid/list toggle, task completion circle, habit streak indicator, honeycomb axial hex tiles, numeric unit input, medication schedule selector, recurrence rules, smart alarm switch, empty state, loading skeletons, snackbar toasts, progress indicators, settings cards, modal bottom sheet, expandable card, toggle switches, validation error messages, sound preview audition chips, 7-day calendar strip, file picker field, section headers, milestone XP celebration, and backup/restore cards. Added `✨ Live Interactive Preview` indicator in `UserManualScreen.kt`. | **PASS** (`ComponentCatalogUnitTest`, `FrontendComponentsUnitTest`) | **PENDING — DEVICE REQUIRED** |
+
+### Automated Pipeline Verification
+- `./gradlew compileDebugKotlin --no-configuration-cache`: **SUCCESS**
+- `./gradlew testDebugUnitTest --no-configuration-cache`: **SUCCESS** (172/172 tests passed, 0 failures)
+- `./gradlew compileDebugAndroidTestKotlin --no-configuration-cache`: **SUCCESS**
+- `./gradlew lintDebug lintVitalRelease --no-configuration-cache`: **SUCCESS** (0 errors)
+- `./gradlew assembleDebug assembleRelease --no-configuration-cache`: **SUCCESS**
+  - `app-debug.apk`: 23,273,470 bytes, SHA-256: `BA65104A7AA58BC8D5721706C648090BB0F3490A8F9675C719CD1143A526FD49`
+  - `app-release-unsigned.apk`: 15,018,660 bytes, SHA-256: `2C4AAC35E8BA121A2814D61F3D868B3C809660D6926D81A1AF5BFD47D9C7AF12`
 
 

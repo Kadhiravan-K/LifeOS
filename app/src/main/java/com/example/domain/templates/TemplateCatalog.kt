@@ -1322,6 +1322,117 @@ object TemplateCatalog {
                 StandardProjects.LEARNING
             ),
             tags = listOf("startup", "business", "entrepreneur", "mvp", "launch")
+        ),
+
+        // 17. Developer Acceptance & QA Test Suite
+        LifeTemplate(
+            id = "template_dev_test",
+            version = 1,
+            title = "Developer & QA Test Suite",
+            description = "High-velocity physical device verification bundle: includes all 4 priority levels (URGENT to LOW), daily and weekly recurrence, standard projects, rich labels, habits, and shortcuts.",
+            category = TemplateCategory.PRODUCTIVITY,
+            emoji = "🧪",
+            tasks = listOf(
+                TemplateTaskDef(
+                    title = "[URGENT/P1] Critical Smoke Test & Priority Dispatch",
+                    description = "Verify P1 red badge rendering, high-priority sort ranking, and urgent alarm chime triggers",
+                    category = "QA",
+                    priority = TaskPriority.URGENT,
+                    dueTime = "09:00",
+                    durationMinutes = 15,
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Office",
+                    labels = listOf("P1", "SmokeTest", "Urgent", "QA")
+                ),
+                TemplateTaskDef(
+                    title = "[HIGH/P2] Room Schema v10 SQLite Upgrade Verification",
+                    description = "Verify task persistence, cross-reference associations, and monotonic Room database migrations",
+                    category = "Database",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "11:00",
+                    durationMinutes = 30,
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Learning",
+                    labels = listOf("Database", "Room", "Migration", "P2")
+                ),
+                TemplateTaskDef(
+                    title = "[MEDIUM/P3] Calendar Recurrence Dots & Midnight Rollover",
+                    description = "Verify calendar dot indicators match recurrence engine scheduling deterministically across midnight boundaries",
+                    category = "Calendar",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "14:00",
+                    durationMinutes = 45,
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Daily Habits",
+                    labels = listOf("Calendar", "Recurrence", "Dots", "P3")
+                ),
+                TemplateTaskDef(
+                    title = "[LOW/P4] Launcher QR Honeycomb Axial Grid Audit",
+                    description = "Audit pointy-top axial hex math (q, r), alternating 3/2 row chunking, and widget PendingIntent dispatch",
+                    category = "Widget",
+                    priority = TaskPriority.LOW,
+                    dueTime = "16:00",
+                    durationMinutes = 30,
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Personal",
+                    labels = listOf("Widget", "Honeycomb", "Launcher", "P4")
+                ),
+                TemplateTaskDef(
+                    title = "[P1/Medication] Smart Health & Medication Schedule Alert",
+                    description = "Audit meal-relationship scheduling (Before/With/After) and notification audio alert delivery",
+                    category = "Health",
+                    priority = TaskPriority.URGENT,
+                    dueTime = "12:30",
+                    durationMinutes = 15,
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Health",
+                    labels = listOf("Health", "Medication", "Alarms", "Audio")
+                ),
+                TemplateTaskDef(
+                    title = "[Interval/Weekly] Multi-Day Schedule Engine Stress Test",
+                    description = "Verify weekly recurring task evaluation and non-duplicating occurrence projections",
+                    category = "Testing",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "10:00",
+                    durationMinutes = 60,
+                    recurrenceType = RecurrenceType.WEEKLY,
+                    recurrenceDaysOfWeek = listOf("MONDAY", "WEDNESDAY", "FRIDAY"),
+                    projectName = "Travel",
+                    labels = listOf("Schedule", "Weekly", "StressTest")
+                ),
+                TemplateTaskDef(
+                    title = "[Home/Domestic] Domestic Chore & Safety Confirmation Test",
+                    description = "Verify domestic project categorization and safety phrase verification countdown modal",
+                    category = "Routine",
+                    priority = TaskPriority.LOW,
+                    dueTime = "18:00",
+                    durationMinutes = 20,
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Home",
+                    labels = listOf("Home", "Safety", "Verification")
+                )
+            ),
+            habits = listOf(
+                TemplateHabitDef("Hydration QA: 2500ml Daily Target", "💧", "Track daily water intake progress and midnight reset", "08:00", 0xFF0288D1),
+                TemplateHabitDef("Physical QA: 10,000 Steps Walking", "🏃", "Verify circular habit completion counters and streak calculation", "19:00", 0xFF4CAF50),
+                TemplateHabitDef("Code Quality: Zero-Warning Build", "💻", "Verify Git SHA parity, unit test execution, and release integrity", "21:00", 0xFF9C27B0)
+            ),
+            shortcuts = listOf(
+                TemplateShortcutDef(ShortcutType.TASK, "101", "Critical Smoke Test", "🧪", 0, 0),
+                TemplateShortcutDef(ShortcutType.HABIT, "102", "Hydration QA", "💧", 1, 0),
+                TemplateShortcutDef(ShortcutType.WATER, "103", "Drink Water", "🌊", 0, 1),
+                TemplateShortcutDef(ShortcutType.CHALLENGE_RULE, "104", "Discipline Check", "🔥", -1, 1)
+            ),
+            projects = listOf(
+                StandardProjects.OFFICE,
+                StandardProjects.LEARNING,
+                StandardProjects.DAILY_HABITS,
+                StandardProjects.PERSONAL,
+                StandardProjects.HEALTH,
+                StandardProjects.TRAVEL,
+                StandardProjects.HOME
+            ),
+            tags = listOf("dev", "test", "qa", "acceptance", "verification", "smoke")
         )
     )
 
@@ -1423,6 +1534,14 @@ object TemplateCatalog {
             emoji = "🚀",
             templateIds = listOf("template_startup_setup"),
             bonusXp = 80
+        ),
+        TemplateBundle(
+            id = "bundle_dev_test",
+            title = "Developer & QA Test Suite",
+            description = "High-velocity test suite for physical device verification: P1-P4 priorities, recurrence, standard projects, habits & widgets.",
+            emoji = "🧪",
+            templateIds = listOf("template_dev_test"),
+            bonusXp = 100
         )
     )
 
