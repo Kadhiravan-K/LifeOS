@@ -1,10 +1,10 @@
 # LifeOS Release 2 — Mobile Testing Regression Report
 
-**Document Version:** 1.3.0<br>
+**Document Version:** 1.4.0<br>
 **Date:** October 27, 2026<br>
 **Target Release:** Release 2.0 (v1.1.0-reconstruction)<br>
 **Branch:** `recovery/release-2-reconstruction`<br>
-**Test Suite Status:** 111 Passed / 0 Failed / 0 Errors / 0 Skipped<br>
+**Test Suite Status:** 112 Passed / 0 Failed / 0 Errors / 0 Skipped<br>
 **Build Status:** `assembleDebug` SUCCESS (L8 Core Library Desugaring Active, 0 Warnings)<br>
 **Lint Status:** `lintDebug` SUCCESS (0 New Issues, 0 `NewApi` Errors in Baseline, 106 Historical Warnings)<br>
 **Overall Physical Device Status:** **PENDING PHYSICAL DEVICE VERIFICATION**<br>
@@ -15,7 +15,7 @@
 
 This report establishes the mobile regression testing verification baseline for LifeOS Release 2 following workspace reconstruction and core library desugaring verification.
 
-Full API 24–25 (Android 7.0–7.1) compatibility has been unlocked and verified via `com.android.tools:desugar_jdk_libs:2.1.5` with L8 dex desugaring. All 111 `NewApi` errors previously baselined have been eliminated. All 5 core recovery gaps (Items A through E) and 15 baseline feature domains have been verified via automated unit test suites (111 passing tests), AndroidTest compilation, and static analysis.
+Full API 24–25 (Android 7.0–7.1) compatibility has been unlocked and verified via `com.android.tools:desugar_jdk_libs:2.1.5` with L8 dex desugaring. All 111 `NewApi` errors previously baselined have been eliminated. All 5 core recovery gaps (Items A through E) and 15 baseline feature domains have been verified via automated unit test suites (112 passing tests), AndroidTest compilation, and static analysis.
 
 ---
 
@@ -33,7 +33,7 @@ The complete unit test suite was executed via `./gradlew testDebugUnitTest --no-
 | `TrackerUnitTest` | 10 | 10 | 0 | 0 | 0 | **PASSED** |
 | `LifeOSDomainUnitTest` | 36 | 36 | 0 | 0 | 0 | **PASSED** |
 | `ExampleUnitTest` | 1 | 1 | 0 | 0 | 0 | **PASSED** |
-| **TOTALS** | **111** | **111** | **0** | **0** | **0** | **100% PASS** |
+| **TOTALS** | **112** | **112** | **0** | **0** | **0** | **100% PASS** |
 
 ### Verified Recovery Regression Scenarios (Release2RegressionUnitTest)
 1. **Empty Shortcut State (Item A):** Clean empty canvas emitted when Room DB is empty; zero default template injections on fresh installs.
@@ -49,6 +49,7 @@ The complete unit test suite was executed via `./gradlew testDebugUnitTest --no-
 11. **Midnight Rollover Determinism (Priority 1):** Date evaluation at 23:59:59 and 00:00:01 across `Asia/Kolkata`, `UTC`, and `America/Los_Angeles` accurately shifts local calendar day without system clock mutation.
 12. **Negative Epoch Day Precision (Priority 1):** Unix epoch day -1 (1969-12-31), -365 (1969-01-01), and -10000 (1942-08-16) roundtrip identically across all JVM timezones.
 13. **Room Schema Monotonicity (Priority 3):** Verified continuous sequence of migrations 1->2 through 9->10 without gaps or version regression.
+14. **Live SQLite Migration Execution (Priority 3):** Real SQLite database migration from v6 to v10 executed in RoomMigrationRobolectricUnitTest, validating data retention for tasks, habits, and shortcuts across schema changes.
 
 ---
 
