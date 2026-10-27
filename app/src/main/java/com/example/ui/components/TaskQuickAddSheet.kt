@@ -93,6 +93,7 @@ fun TaskQuickAddSheet(
     onSaveCustomOrder: (List<String>) -> Unit = {},
     onResetCustomOrder: () -> Unit = {},
     onSaveTask: (TaskItem) -> Unit,
+    defaultDuration: Int = 30,
     onSaveTaskWithMedication: ((TaskItem, com.example.domain.medication.MedicationItem?) -> Unit)? = null,
     onExpandToAdvanced: (TaskItem) -> Unit,
     onDismiss: () -> Unit
@@ -129,7 +130,9 @@ fun TaskQuickAddSheet(
 
         return (initialTask ?: TaskItem(
             title = title.trim(),
-            dueDateIso = dueDateIso
+            dueDateIso = dueDateIso,
+            durationMinutes = defaultDuration,
+            durationAmount = defaultDuration
         )).copy(
             title = title.trim(),
             emoji = emoji.trim(),

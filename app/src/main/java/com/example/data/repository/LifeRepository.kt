@@ -1313,6 +1313,11 @@ class LifeRepository(
         list.map { it.toDomainModel() }
     }
 
+    private suspend fun getTrashRetentionMillis(): Long {
+        val days = runCatching { preferences.trashRetentionDays.first() }.getOrDefault(30).toLong().coerceIn(1L, 365L)
+        return days * 24L * 60L * 60L * 1000L
+    }
+
     suspend fun softDeleteTask(task: TaskItem) {
         val payload = JSONObject().apply {
             put("id", task.id)
@@ -1332,7 +1337,7 @@ class LifeRepository(
                 title = task.title,
                 subtitle = "Scheduled for ${task.dueDateIso}",
                 originalPayloadJson = payload,
-                expiresAt = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000)
+                expiresAt = System.currentTimeMillis() + getTrashRetentionMillis()
             )
         )
         labelDao.clearLabelsForTask(task.id)
@@ -1357,7 +1362,7 @@ class LifeRepository(
                 title = habit.title,
                 subtitle = "Habit item",
                 originalPayloadJson = payload,
-                expiresAt = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000)
+                expiresAt = System.currentTimeMillis() + getTrashRetentionMillis()
             )
         )
         habitDao.deleteHabitById(habit.id)
@@ -1378,7 +1383,7 @@ class LifeRepository(
                 title = project.name,
                 subtitle = "Project folder",
                 originalPayloadJson = payload,
-                expiresAt = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000)
+                expiresAt = System.currentTimeMillis() + getTrashRetentionMillis()
             )
         )
         projectDao.deleteProjectById(project.id)
@@ -1397,7 +1402,7 @@ class LifeRepository(
                 title = "#${label.name}",
                 subtitle = "Label tag",
                 originalPayloadJson = payload,
-                expiresAt = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000)
+                expiresAt = System.currentTimeMillis() + getTrashRetentionMillis()
             )
         )
         labelDao.deleteLabelById(label.id)

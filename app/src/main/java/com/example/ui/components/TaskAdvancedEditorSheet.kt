@@ -112,6 +112,7 @@ fun TaskAdvancedEditorSheet(
     onSaveCustomOrder: (List<String>) -> Unit = {},
     onResetCustomOrder: () -> Unit = {},
     onSaveTask: (TaskItem) -> Unit,
+    defaultDuration: Int = 30,
     onSaveTaskWithMedication: ((TaskItem, com.example.domain.medication.MedicationItem?) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
@@ -142,7 +143,7 @@ fun TaskAdvancedEditorSheet(
     }
 
     // Duration draft state
-    var durationAmount by remember { mutableIntStateOf(task?.durationAmount ?: (task?.durationMinutes ?: 30)) }
+    var durationAmount by remember { mutableIntStateOf(task?.durationAmount ?: (task?.durationMinutes ?: defaultDuration)) }
     var durationUnit by remember { mutableStateOf(task?.durationUnit ?: DurationUnit.MINUTES) }
 
     // Deadline draft state

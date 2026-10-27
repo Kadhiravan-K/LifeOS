@@ -128,6 +128,7 @@ fun TasksScreen(
     val colorOrderingMode by viewModel.colorOrderingMode.collectAsStateWithLifecycle()
     val colorUsageCounts by viewModel.colorUsageCounts.collectAsStateWithLifecycle()
     val colorCustomOrder by viewModel.colorCustomOrder.collectAsStateWithLifecycle()
+    val defaultTaskDuration by viewModel.defaultTaskDurationFlow.collectAsStateWithLifecycle()
 
     // Habit and challenge overview states for navigation cards
     val habitsList by viewModel.habits.collectAsStateWithLifecycle()
@@ -696,6 +697,7 @@ fun TasksScreen(
             colorOrderingMode = colorOrderingMode,
             colorUsageCounts = colorUsageCounts,
             colorCustomOrder = colorCustomOrder,
+            defaultDuration = defaultTaskDuration,
             onCreateProject = { proj, onDone ->
                 viewModel.insertProject(proj) { newId -> onDone(newId) }
             },
@@ -737,6 +739,7 @@ fun TasksScreen(
             colorOrderingMode = colorOrderingMode,
             colorUsageCounts = colorUsageCounts,
             colorCustomOrder = colorCustomOrder,
+            defaultDuration = defaultTaskDuration,
             onCreateProject = { proj, onDone ->
                 viewModel.insertProject(proj) { newId -> onDone(newId) }
             },

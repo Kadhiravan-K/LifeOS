@@ -52,6 +52,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -89,8 +90,16 @@ fun MedicineReminderSection(
     modifier: Modifier = Modifier
 ) {
     // Medication Fields
-    var medName by remember(taskTitle) {
+    var isNameManuallyEdited by remember {
+        mutableStateOf(!initialMedication?.name.isNullOrBlank() && initialMedication?.name != taskTitle)
+    }
+    var medName by remember {
         mutableStateOf(initialMedication?.name ?: taskTitle.ifBlank { "" })
+    }
+    LaunchedEffect(taskTitle) {
+        if (!isNameManuallyEdited && medName != taskTitle) {
+            medName = taskTitle
+        }
     }
     var selectedForm by remember {
         mutableStateOf(initialMedication?.form ?: MedicationForm.TABLET)
@@ -347,7 +356,7 @@ fun MedicineReminderSection(
 
                 OutlinedTextField(
                     value = medName,
-                    onValueChange = { medName = it },
+                    onValueChange = { isNameManuallyEdited = true; medName = it },
                     label = { Text("Medication Name (e.g. Amoxicillin, Insulin)") },
                     singleLine = true,
                     modifier = Modifier

@@ -352,6 +352,22 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        var customDurationText by remember(defaultDuration) { mutableStateOf(defaultDuration.toString()) }
+                        OutlinedTextField(
+                            value = customDurationText,
+                            onValueChange = { input ->
+                                val digits = input.filter { it.isDigit() }.take(3)
+                                customDurationText = digits
+                                val d = digits.toIntOrNull()
+                                if (d != null && d in 1..480) {
+                                    viewModel.updateDefaultTaskDuration(d)
+                                }
+                            },
+                            label = { Text("Custom Duration (1-480 min)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
@@ -749,19 +765,83 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
+                        var hydrationUnit by remember { mutableStateOf("ml") } // "ml", "L", "oz"
+                        var customGoalText by remember(waterGoalMl, hydrationUnit) {
+                            mutableStateOf(
+                                when (hydrationUnit) {
+                                    "L" -> String.format(java.util.Locale.US, "%.2f", waterGoalMl / 1000f)
+                                    "oz" -> String.format(java.util.Locale.US, "%.1f", waterGoalMl / 29.5735f)
+                                    else -> waterGoalMl.toString()
+                                }
+                            )
+                        }
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Daily Hydration Goal", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                            Text("$waterGoalMl ml", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            val displayGoal = when (hydrationUnit) {
+                                "L" -> String.format(java.util.Locale.US, "%.2f L (%d ml)", waterGoalMl / 1000f, waterGoalMl)
+                                "oz" -> String.format(java.util.Locale.US, "%.1f oz (%d ml)", waterGoalMl / 29.5735f, waterGoalMl)
+                                else -> "$waterGoalMl ml"
+                            }
+                            Text(displayGoal, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                         }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Unit Selector Chips
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("ml" to "ml", "L" to "Liters", "oz" to "fl oz").forEach { (unitKey, unitLabel) ->
+                                FilterChip(
+                                    selected = hydrationUnit == unitKey,
+                                    onClick = { hydrationUnit = unitKey },
+                                    label = { Text(unitLabel) }
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
                         Slider(
-                            value = waterGoalMl.toFloat(),
+                            value = waterGoalMl.toFloat().coerceIn(1000f, 5000f),
                             onValueChange = { viewModel.updateWaterGoal(it.toInt()) },
-                            valueRange = 1000f..4000f,
-                            steps = 11
+                            valueRange = 1000f..5000f,
+                            steps = 15
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        OutlinedTextField(
+                            value = customGoalText,
+                            onValueChange = { input ->
+                                customGoalText = input
+                                when (hydrationUnit) {
+                                    "L" -> {
+                                        val l = input.toDoubleOrNull()
+                                        if (l != null && l in 0.5..10.0) {
+                                            viewModel.updateWaterGoal((l * 1000).toInt())
+                                        }
+                                    }
+                                    "oz" -> {
+                                        val oz = input.toDoubleOrNull()
+                                        if (oz != null && oz in 16.0..350.0) {
+                                            viewModel.updateWaterGoal((oz * 29.5735f).toInt())
+                                        }
+                                    }
+                                    else -> {
+                                        val ml = input.filter { it.isDigit() }.toIntOrNull()
+                                        if (ml != null && ml in 500..10000) {
+                                            viewModel.updateWaterGoal(ml)
+                                        }
+                                    }
+                                }
+                            },
+                            label = { Text("Custom Goal ($hydrationUnit, allows decimal)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }

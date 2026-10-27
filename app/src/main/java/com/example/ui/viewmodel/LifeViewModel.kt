@@ -78,6 +78,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.delay
 
 data class DashboardUiState(
     val isLoading: Boolean = true,
@@ -170,15 +172,38 @@ private data class TaskFilterParams(
     val selectedIds: Set<Long>
 )
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class LifeViewModel(
     application: Application,
     private val repository: LifeRepository,
     private val preferences: UserPreferences
 ) : AndroidViewModel(application) {
 
-    private val todayIso = DateUtils.todayString()
+    private val _currentDateIso = MutableStateFlow(DateUtils.todayString())
+    val currentDateIso: StateFlow<String> = _currentDateIso.asStateFlow()
+
+    fun checkDateRollover(): Boolean {
+        val current = DateUtils.todayString()
+        if (_currentDateIso.value != current) {
+            _currentDateIso.value = current
+            return true
+        }
+        return false
+    }
+
+    val todayIso: String
+        get() {
+            checkDateRollover()
+            return _currentDateIso.value
+        }
 
     init {
+        viewModelScope.launch {
+            while (isActive) {
+                delay(30_000L)
+                checkDateRollover()
+            }
+        }
         viewModelScope.launch {
             repository.seedDefaultHoneycombShortcuts()
             repository.seedDefaultProjectsAndLabels()
@@ -229,7 +254,9 @@ class LifeViewModel(
         initialValue = emptyList()
     )
 
-    val todayTasks: StateFlow<List<TaskItem>> = repository.getTasksForDateFlow(todayIso).stateIn(
+    val todayTasks: StateFlow<List<TaskItem>> = _currentDateIso.flatMapLatest { date ->
+        repository.getTasksForDateFlow(date)
+    }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
@@ -250,10 +277,12 @@ class LifeViewModel(
         )
     )
 
-    val todayWaterLog = repository.getWaterLogForDate(todayIso).stateIn(
+    val todayWaterLog = _currentDateIso.flatMapLatest { date ->
+        repository.getWaterLogForDate(date)
+    }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = com.example.data.local.entities.WaterLogEntity(dateIso = todayIso, amountMl = 0)
+        initialValue = com.example.data.local.entities.WaterLogEntity(dateIso = DateUtils.todayString(), amountMl = 0)
     )
 
     // --- Projects & Labels Flows ---
@@ -663,13 +692,15 @@ class LifeViewModel(
                     )
                 }
                 ShortcutType.HABIT -> {
-                    val matchedHabit = habitList.find {
-                        it.id.toString() == shortcut.targetId ||
-                        it.title.equals(shortcut.targetId, ignoreCase = true) ||
-                        it.title.contains(shortcut.targetId, ignoreCase = true) ||
-                        it.title.equals(shortcut.title, ignoreCase = true) ||
-                        it.title.contains(shortcut.title, ignoreCase = true)
-                    }
+                    val habitId = shortcut.targetId.toLongOrNull()
+                    val matchedHabit = (if (habitId != null) habitList.find { it.id == habitId } else null)
+                        ?: habitList.find { it.id.toString() == shortcut.targetId }
+                        ?: habitList.find { it.title.equals(shortcut.targetId, ignoreCase = true) }
+                        ?: habitList.find { it.title.equals(shortcut.title, ignoreCase = true) }
+                        ?: habitList.find {
+                            val words = it.title.split(Regex("[^A-Za-z0-9]")).filter { w -> w.isNotBlank() }
+                            words.any { w -> w.equals(shortcut.targetId, ignoreCase = true) || w.equals(shortcut.title, ignoreCase = true) }
+                        }
                     val isDone = matchedHabit?.completedDates?.contains(todayIso) ?: false
                     shortcut.copy(
                         isCompletedToday = isDone,
@@ -1429,7 +1460,9 @@ class LifeViewModel(
         initialValue = emptyList()
     )
 
-    val todayMedicationDoses: StateFlow<List<MedicationDoseItem>> = repository.getMedicationDosesForDateFlow(todayIso).stateIn(
+    val todayMedicationDoses: StateFlow<List<MedicationDoseItem>> = _currentDateIso.flatMapLatest { date ->
+        repository.getMedicationDosesForDateFlow(date)
+    }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()

@@ -1,5 +1,6 @@
 package com.example.ui.screens.calendar
 
+import com.example.domain.recurrence.RecurrenceEngine
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -111,11 +112,17 @@ fun CalendarScreen(
     val tasksUiState by viewModel.tasksUiState.collectAsStateWithLifecycle()
     val projects = tasksUiState.projects
     val labels = tasksUiState.labels
-    val datesWithTasks = remember(tasksUiState.allTasks) {
-        tasksUiState.allTasks
-            .filter { !it.isCompletedForDate && !it.isOneTimeCompleted && !it.isArchived && it.dueDateIso.isNotBlank() }
-            .map { it.dueDateIso }
-            .toSet()
+    val visibleDates = remember(uiState.monthGridDates, uiState.weekDates) {
+        (uiState.monthGridDates + uiState.weekDates).toSet()
+    }
+    val datesWithTasks = remember(tasksUiState.allTasks, visibleDates) {
+        val activeTasks = tasksUiState.allTasks.filter { !it.isArchived }
+        visibleDates.filter { dateIso ->
+            activeTasks.any { task ->
+                RecurrenceEngine.isTaskScheduledOnDate(task, dateIso) &&
+                    !RecurrenceEngine.isCompletedOnDate(task, dateIso)
+            }
+        }.toSet()
     }
 
     Scaffold(

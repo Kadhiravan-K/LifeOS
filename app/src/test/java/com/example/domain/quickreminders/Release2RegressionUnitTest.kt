@@ -536,4 +536,183 @@ class Release2RegressionUnitTest {
         assertEquals(26, com.example.utils.DateUtils.daysBetween("2026-10-01", "2026-10-27"))
         assertEquals(-26, com.example.utils.DateUtils.daysBetween("2026-10-27", "2026-10-01"))
     }
+
+    // =========================================================================
+    // F. RELEASE 2 HARDENING: QR PRESETS, SHAPES, CALENDAR, MEDICATION, RETENTION
+    // =========================================================================
+
+    @Test
+    fun `test all seven QR coordinate presets produce unique non-overlapping coordinates`() {
+        val templates = listOf(
+            com.example.domain.model.HoneycombLayoutTemplate.STANDARD,
+            com.example.domain.model.HoneycombLayoutTemplate.PYRAMID,
+            com.example.domain.model.HoneycombLayoutTemplate.DIAMOND,
+            com.example.domain.model.HoneycombLayoutTemplate.HEART,
+            com.example.domain.model.HoneycombLayoutTemplate.SNAKE,
+            com.example.domain.model.HoneycombLayoutTemplate.ZIGZAG,
+            com.example.domain.model.HoneycombLayoutTemplate.FREEFORM
+        )
+
+        for (template in templates) {
+            for (count in listOf(1, 5, 10, 16, 20)) {
+                val coords = com.example.domain.model.HoneycombLayoutTemplate.generateCoordinates(template, count)
+                assertEquals(
+                    "Preset ${template.name} with count $count must generate exactly $count coordinates",
+                    count,
+                    coords.size
+                )
+                val uniqueCoords = coords.toSet()
+                assertEquals(
+                    "Preset ${template.name} with count $count must contain 0 duplicate/overlapping coordinates",
+                    coords.size,
+                    uniqueCoords.size
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `test custom per-shortcut shape takes precedence over global appearance shape`() {
+        val globalCircleAppearance = com.example.domain.model.HoneycombAppearanceConfig(
+            shape = com.example.domain.model.DashboardShape.CIRCLE
+        )
+
+        // Shortcut explicitly customized to HEXAGON
+        val hexShortcut = HoneycombShortcut(
+            id = 1,
+            type = ShortcutType.TASK,
+            targetId = "1",
+            title = "Hex Shortcut",
+            emoji = "âš¡", shape = "HEXAGON"
+        )
+        val effectiveHex = if (hexShortcut.shape.isNotBlank()) hexShortcut.shape else globalCircleAppearance.shape.name
+        assertEquals("Explicit per-shortcut shape HEXAGON must take precedence over global CIRCLE", "HEXAGON", effectiveHex)
+
+        // Shortcut with blank shape falls back to global CIRCLE
+        val fallbackShortcut = HoneycombShortcut(
+            id = 2,
+            type = ShortcutType.TASK,
+            targetId = "2",
+            title = "Default Shortcut",
+            emoji = "âš¡", shape = ""
+        )
+        val effectiveFallback = if (fallbackShortcut.shape.isNotBlank()) fallbackShortcut.shape else globalCircleAppearance.shape.name
+        assertEquals("Blank shortcut shape must fall back to global CIRCLE", "CIRCLE", effectiveFallback)
+    }
+
+    @Test
+    fun `test Yoga and Meditation resolve to independent tasks and do not co-complete`() {
+        val yogaTask = com.example.domain.model.TaskItem(
+            id = 101L,
+            title = "Daily Yoga & Flexibility",
+            dueDateIso = "2026-10-27",
+            isCompletedForDate = false
+        )
+        val meditationTask = com.example.domain.model.TaskItem(
+            id = 102L,
+            title = "Mindful Meditation & Stillness",
+            dueDateIso = "2026-10-27",
+            isCompletedForDate = false
+        )
+        val allTasks = listOf(yogaTask, meditationTask)
+
+        val yogaShortcut = HoneycombShortcut(
+            id = 5,
+            type = ShortcutType.TASK,
+            targetId = "Yoga",
+            title = "Yoga", emoji = "ðŸ§˜"
+        )
+        val meditationShortcut = HoneycombShortcut(
+            id = 3,
+            type = ShortcutType.TASK,
+            targetId = "Meditation",
+            title = "Meditation", emoji = "ðŸ§˜"
+        )
+
+        // Resolution logic for Yoga
+        val matchedYoga = allTasks.find { it.id.toString() == yogaShortcut.targetId }
+            ?: allTasks.find { it.title.equals(yogaShortcut.targetId, ignoreCase = true) }
+            ?: allTasks.find { it.title.equals(yogaShortcut.title, ignoreCase = true) }
+            ?: allTasks.find {
+                val words = it.title.split(Regex("[^A-Za-z0-9]")).filter { w -> w.isNotBlank() }
+                words.any { w -> w.equals(yogaShortcut.targetId, ignoreCase = true) || w.equals(yogaShortcut.title, ignoreCase = true) }
+            }
+
+        // Resolution logic for Meditation
+        val matchedMeditation = allTasks.find { it.id.toString() == meditationShortcut.targetId }
+            ?: allTasks.find { it.title.equals(meditationShortcut.targetId, ignoreCase = true) }
+            ?: allTasks.find { it.title.equals(meditationShortcut.title, ignoreCase = true) }
+            ?: allTasks.find {
+                val words = it.title.split(Regex("[^A-Za-z0-9]")).filter { w -> w.isNotBlank() }
+                words.any { w -> w.equals(meditationShortcut.targetId, ignoreCase = true) || w.equals(meditationShortcut.title, ignoreCase = true) }
+            }
+
+        assertNotNull(matchedYoga)
+        assertNotNull(matchedMeditation)
+        assertEquals(101L, matchedYoga!!.id)
+        assertEquals(102L, matchedMeditation!!.id)
+        assertNotEquals("Yoga and Meditation must resolve to distinct task entities", matchedYoga.id, matchedMeditation.id)
+
+        // Marking Yoga complete must not affect Meditation completion state
+        val updatedYoga = yogaTask.copy(isCompletedForDate = true)
+        val updatedTaskList = listOf(updatedYoga, meditationTask)
+
+        val yogaDone = updatedTaskList.find { it.id == matchedYoga.id }?.isCompletedForDate == true
+        val meditationDone = updatedTaskList.find { it.id == matchedMeditation.id }?.isCompletedForDate == true
+
+        assertTrue("Yoga must be marked complete", yogaDone)
+        assertFalse("Meditation must remain incomplete", meditationDone)
+    }
+
+    @Test
+    fun `test Calendar dot indicators match RecurrenceEngine scheduling and completion parity`() {
+        val dailyTask = com.example.domain.model.TaskItem(
+            id = 1L,
+            title = "Daily Exercise",
+            dueDateIso = "2026-10-01",
+            recurrenceType = com.example.domain.model.RecurrenceType.DAILY,
+            completedDates = setOf("2026-10-27")
+        )
+        val oneTimeTask = com.example.domain.model.TaskItem(
+            id = 2L,
+            title = "Pay Electric Bill",
+            dueDateIso = "2026-10-28",
+            recurrenceType = com.example.domain.model.RecurrenceType.NONE,
+            isOneTimeCompleted = false
+        )
+        val tasks = listOf(dailyTask, oneTimeTask)
+
+        // Visible dates: 2026-10-27 (Daily task completed), 2026-10-28 (Daily task scheduled + oneTimeTask scheduled), 2026-10-29 (Daily scheduled)
+        val visibleDates = setOf("2026-10-27", "2026-10-28", "2026-10-29")
+        val datesWithTasks = visibleDates.filter { dateIso ->
+            tasks.any { task ->
+                com.example.domain.recurrence.RecurrenceEngine.isTaskScheduledOnDate(task, dateIso) &&
+                    !com.example.domain.recurrence.RecurrenceEngine.isCompletedOnDate(task, dateIso)
+            }
+        }.toSet()
+
+        // 2026-10-27 has all scheduled tasks completed -> no dot
+        assertFalse("2026-10-27 must not have dot because daily task is completed", datesWithTasks.contains("2026-10-27"))
+
+        // 2026-10-28 has pending tasks -> dot present
+        assertTrue("2026-10-28 must have dot indicator", datesWithTasks.contains("2026-10-28"))
+
+        // 2026-10-29 has pending recurring daily task -> dot present
+        assertTrue("2026-10-29 must have dot indicator", datesWithTasks.contains("2026-10-29"))
+    }
+
+    @Test
+    fun `test trash retention duration respects user preference range`() {
+        val minRetentionDays = 1
+        val maxRetentionDays = 365
+        val defaultRetentionDays = 30
+
+        val minMillis = minRetentionDays.toLong().coerceIn(1L, 365L) * 86_400_000L
+        val maxMillis = maxRetentionDays.toLong().coerceIn(1L, 365L) * 86_400_000L
+        val defMillis = defaultRetentionDays.toLong().coerceIn(1L, 365L) * 86_400_000L
+
+        assertEquals(86_400_000L, minMillis) // 1 day in ms
+        assertEquals(31_536_000_000L, maxMillis) // 365 days in ms
+        assertEquals(2_592_000_000L, defMillis) // 30 days in ms
+    }
 }

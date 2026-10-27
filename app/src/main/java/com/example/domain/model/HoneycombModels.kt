@@ -138,15 +138,7 @@ enum class HoneycombLayoutTemplate(val displayName: String, val icon: String) {
                     var col = 0
                     for (i in 0 until count) {
                         val rowLen = diamondRowLens[r % diamondRowLens.size]
-                        val q = when (r % 7) {
-                            0 -> 0
-                            1 -> col - 1
-                            2 -> col - 2
-                            3 -> col - 3
-                            4 -> col - 3
-                            5 -> col - 3
-                            else -> -3
-                        }
+                        val q = col - ((r + rowLen) / 2)
                         coords.add(Pair(q, r))
                         col++
                         if (col >= rowLen) {
@@ -208,7 +200,11 @@ enum class HoneycombLayoutTemplate(val displayName: String, val icon: String) {
                     // Alternates left and right vertically with zero lateral drift
                     for (i in 0 until count) {
                         val r = i
-                        val q = -(r / 2)
+                        val q = when (r % 4) {
+                            1 -> -(r / 2)
+                            3 -> -(r / 2) - 1
+                            else -> -(r / 2)
+                        }
                         coords.add(Pair(q, r))
                     }
                 }

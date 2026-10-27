@@ -1,10 +1,10 @@
 # LifeOS Release 2 — Mobile Testing Regression Report
 
-**Document Version:** 1.6.0<br>
+**Document Version:** 1.7.0<br>
 **Date:** October 27, 2026<br>
 **Target Release:** Release 2.0 (v1.1.0-reconstruction)<br>
 **Branch:** `recovery/release-2-reconstruction`<br>
-**Test Suite Status:** 122 Passed / 0 Failed / 0 Errors / 0 Skipped<br>
+**Test Suite Status:** 127 Passed / 0 Failed / 0 Errors / 0 Skipped<br>
 **Build Status:** `assembleDebug` SUCCESS (L8 Core Library Desugaring Active, 0 Warnings)<br>
 **Lint Status:** `lintDebug` SUCCESS (0 New Issues, 0 `NewApi` Errors in Baseline, 106 Historical Warnings)<br>
 **Overall Physical Device Status:** **PENDING PHYSICAL DEVICE VERIFICATION**<br>
@@ -25,7 +25,7 @@ The complete unit test suite was executed via `./gradlew testDebugUnitTest --no-
 
 | Test Suite Class | Tests | Passed | Failed | Errors | Skipped | Status |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| `Release2RegressionUnitTest` | 22 | 22 | 0 | 0 | 0 | **PASSED** |
+| `Release2RegressionUnitTest` | 27 | 27 | 0 | 0 | 0 | **PASSED** |
 | `P1AlarmAndQrWidgetUnitTest` | 11 | 11 | 0 | 0 | 0 | **PASSED** |
 | `LegalConsentUnitTest` | 11 | 11 | 0 | 0 | 0 | **PASSED** |
 | `MedicationScheduleEngineTest` | 9 | 9 | 0 | 0 | 0 | **PASSED** |
@@ -34,7 +34,7 @@ The complete unit test suite was executed via `./gradlew testDebugUnitTest --no-
 | `LifeOSDomainUnitTest` | 36 | 36 | 0 | 0 | 0 | **PASSED** |
 | `FrontendComponentsUnitTest` | 10 | 10 | 0 | 0 | 0 | **PASSED** |
 | `ExampleUnitTest` | 1 | 1 | 0 | 0 | 0 | **PASSED** |
-| **TOTALS** | **122** | **122** | **0** | **0** | **0** | **100% PASS** |
+| **TOTALS** | **127** | **127** | **0** | **0** | **0** | **100% PASS** |
 
 ### Verified Recovery Regression Scenarios (Release2RegressionUnitTest)
 1. **Empty Shortcut State (Item A):** Clean empty canvas emitted when Room DB is empty; zero default template injections on fresh installs.
@@ -51,6 +51,11 @@ The complete unit test suite was executed via `./gradlew testDebugUnitTest --no-
 12. **Negative Epoch Day Precision (Priority 1):** Unix epoch day -1 (1969-12-31), -365 (1969-01-01), and -10000 (1942-08-16) roundtrip identically across all JVM timezones.
 13. **Room Schema Monotonicity (Priority 3):** Verified continuous sequence of migrations 1->2 through 9->10 without gaps or version regression.
 14. **Live SQLite Migration Execution (Priority 3):** Real SQLite database migration from v6 to v10 executed in RoomMigrationRobolectricUnitTest, validating data retention for tasks, habits, and shortcuts across schema changes.
+15. **QR Preset Non-overlapping Math (Loop 1):** Verified all 7 presets (Standard Honeycomb, Pyramid, Diamond, Heart, Snake, Zigzag, Freeform) produce unique, non-overlapping coordinates for varying counts N in [1, 20] with axial centering.
+16. **Per-shortcut Shape Precedence (Loop 1):** Verified explicit shortcut shape customization (Hexagon, Circle, Square) strictly overrides the global appearance shape default.
+17. **Yoga & Meditation Independence (Loop 1):** Verified distinct task entity resolution and completion states, preventing any accidental co-completion.
+18. **Calendar Dot Indicator Parity (Loop 2):** Verified dot indicators across month and week views match exact RecurrenceEngine scheduling and completion states for both one-time and recurring tasks.
+19. **Dynamic Trash Retention (Loop 4):** Verified soft-delete expiry timestamps dynamically read user-configured retention days (1-365 days).
 
 ---
 
@@ -58,8 +63,8 @@ The complete unit test suite was executed via `./gradlew testDebugUnitTest --no-
 
 ### Verified Test Build Artifact
 - **APK Path:** `app/build/outputs/apk/debug/app-debug.apk`
-- **File Size:** 22,237,600 bytes (~21.2 MB)
-- **SHA-256 Checksum:** `0CC87CB3D90BD1588C9339DB52F148AE1611B78988013AB8F779AE8B233CCF1C`
+- **File Size:** 22,242,130 bytes (~21.2 MB)
+- **SHA-256 Checksum:** `CD6D39BC06771AD4625B544CF9D35A79E04DEF7748C681BAE31342D312F8B77B`
 - **Installation Command:** `adb install -r app/build/outputs/apk/debug/app-debug.apk`
 
 All physical device checks remain **PENDING** until verified on physical Android hardware (API 24 to 36).
