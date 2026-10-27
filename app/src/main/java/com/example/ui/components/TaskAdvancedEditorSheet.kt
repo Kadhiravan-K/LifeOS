@@ -167,7 +167,7 @@ fun TaskAdvancedEditorSheet(
     var showTimePicker by remember { mutableStateOf(false) }
     var showDeadlineDatePicker by remember { mutableStateOf(false) }
     var showDeadlineTimePicker by remember { mutableStateOf(false) }
-    var showDurationUnitMenu by remember { mutableStateOf(false) }
+
     var showRecurrenceMenu by remember { mutableStateOf(false) }
     var showCustomRecurrenceDialog by remember { mutableStateOf(false) }
     var showAddReminderDialog by remember { mutableStateOf(false) }
@@ -184,17 +184,7 @@ fun TaskAdvancedEditorSheet(
         initialSelectedDateMillis = System.currentTimeMillis()
     )
 
-    val timePickerState = rememberTimePickerState(
-        initialHour = draftDueTime.split(":").getOrNull(0)?.toIntOrNull() ?: 9,
-        initialMinute = draftDueTime.split(":").getOrNull(1)?.toIntOrNull() ?: 0,
-        is24Hour = false
-    )
 
-    val deadlineTimePickerState = rememberTimePickerState(
-        initialHour = draftDeadlineTime?.split(":")?.getOrNull(0)?.toIntOrNull() ?: 17,
-        initialMinute = draftDeadlineTime?.split(":")?.getOrNull(1)?.toIntOrNull() ?: 0,
-        is24Hour = false
-    )
 
     // Projected Duration calculation
     val projectedEnd by remember(dueDateIso, draftDueTime, isAllDay, durationAmount, durationUnit) {
@@ -326,7 +316,7 @@ fun TaskAdvancedEditorSheet(
                             onDismiss()
                         }
                     },
-                    enabled = title.isNotBlank(),
+                    enabled = title.isNotBlank() && (schedulingMode != SchedulingMode.DURATION || durationAmount > 0),
                     modifier = Modifier.testTag("adv_editor_save_btn")
                 ) {
                     Text("Save")
@@ -757,100 +747,13 @@ fun TaskAdvancedEditorSheet(
                 Column(modifier = Modifier.padding(14.dp)) {
                     if (schedulingMode == SchedulingMode.DURATION) {
                         // MODE A: Custom Duration with custom units
-                        Text("Expected Duration", style = MaterialTheme.typography.labelSmall)
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = if (durationAmount > 0) durationAmount.toString() else "",
-                                onValueChange = { str ->
-                                    val n = str.filter { it.isDigit() }.toIntOrNull()
-                                    if (n != null && n in 1..9999) {
-                                        durationAmount = n
-                                    } else if (str.isEmpty()) {
-                                        durationAmount = 1
-                                    }
-                                },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                singleLine = true,
-                                modifier = Modifier
-                                    .width(85.dp)
-                                    .testTag("adv_duration_amount_input")
-                            )
-
-                            Box(modifier = Modifier.weight(1f)) {
-                                Surface(
-                                    onClick = { showDurationUnitMenu = true },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.surface,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 14.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = if (durationAmount == 1) durationUnit.singularName.replaceFirstChar { it.uppercase() } else durationUnit.displayName.replaceFirstChar { it.uppercase() },
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                        Text("▼", fontSize = 10.sp)
-                                    }
-                                }
-
-                                DropdownMenu(
-                                    expanded = showDurationUnitMenu,
-                                    onDismissRequest = { showDurationUnitMenu = false }
-                                ) {
-                                    DurationUnit.entries.forEach { u ->
-                                        DropdownMenuItem(
-                                            text = { Text(u.displayName.replaceFirstChar { it.uppercase() }) },
-                                            onClick = {
-                                                durationUnit = u
-                                                showDurationUnitMenu = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Preset shortcuts
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            listOf(
-                                Triple(15, DurationUnit.MINUTES, "15m"),
-                                Triple(30, DurationUnit.MINUTES, "30m"),
-                                Triple(1, DurationUnit.HOURS, "1h"),
-                                Triple(2, DurationUnit.HOURS, "2h"),
-                                Triple(1, DurationUnit.DAYS, "1d"),
-                                Triple(1, DurationUnit.WEEKS, "1w"),
-                                Triple(1, DurationUnit.MONTHS, "1mo"),
-                                Triple(1, DurationUnit.QUARTERS, "1q"),
-                                Triple(1, DurationUnit.YEARS, "1y")
-                            ).forEach { (amt, u, label) ->
-                                FilterChip(
-                                    selected = durationAmount == amt && durationUnit == u,
-                                    onClick = {
-                                        durationAmount = amt
-                                        durationUnit = u
-                                    },
-                                    label = { Text(label, fontSize = 11.sp) }
-                                )
-                            }
-                        }
+                        DurationInput(
+                            durationAmount = durationAmount,
+                            durationUnit = durationUnit,
+                            onDurationAmountChanged = { durationAmount = it },
+                            onDurationUnitChanged = { durationUnit = it },
+                            modifier = Modifier.fillMaxWidth()
+                        )
 
                         // Calendar-aware projected end display
                         Spacer(modifier = Modifier.height(10.dp))
@@ -1350,51 +1253,27 @@ fun TaskAdvancedEditorSheet(
 
     // Time Picker Modal Dialog
     if (showTimePicker) {
-        AlertDialog(
-            onDismissRequest = { showTimePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    val h = timePickerState.hour.toString().padStart(2, '0')
-                    val m = timePickerState.minute.toString().padStart(2, '0')
-                    draftDueTime = "$h:$m"
-                    showTimePicker = false
-                }) {
-                    Text("OK")
-                }
+        LifeTimePickerDialog(
+            initialTime = draftDueTime,
+            onConfirm = {
+                draftDueTime = it
+                showTimePicker = false
             },
-            dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) {
-                    Text("Cancel")
-                }
-            },
-            text = {
-                TimePicker(state = timePickerState)
-            }
+            onDismiss = { showTimePicker = false },
+            title = "Select Start Time"
         )
     }
 
     // Deadline Time Picker Modal Dialog
     if (showDeadlineTimePicker) {
-        AlertDialog(
-            onDismissRequest = { showDeadlineTimePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    val h = deadlineTimePickerState.hour.toString().padStart(2, '0')
-                    val m = deadlineTimePickerState.minute.toString().padStart(2, '0')
-                    draftDeadlineTime = "$h:$m"
-                    showDeadlineTimePicker = false
-                }) {
-                    Text("OK")
-                }
+        LifeTimePickerDialog(
+            initialTime = draftDeadlineTime ?: "17:00",
+            onConfirm = {
+                draftDeadlineTime = it
+                showDeadlineTimePicker = false
             },
-            dismissButton = {
-                TextButton(onClick = { showDeadlineTimePicker = false }) {
-                    Text("Cancel")
-                }
-            },
-            text = {
-                TimePicker(state = deadlineTimePickerState)
-            }
+            onDismiss = { showDeadlineTimePicker = false },
+            title = "Select Deadline Time"
         )
     }
 

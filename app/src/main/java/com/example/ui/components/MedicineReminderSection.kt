@@ -32,6 +32,10 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -129,6 +133,8 @@ fun MedicineReminderSection(
         mutableStateOf(initialMedication?.scheduleConfig?.fixedTimes ?: listOf("08:00", "14:00", "20:00"))
     }
     var newTimeInput by remember { mutableStateOf("12:00") }
+    var showFixedTimePicker by remember { mutableStateOf(false) }
+    var showAnchorTimePicker by remember { mutableStateOf(false) }
 
     // Repeating Intervals state
     var intervalHours by remember {
@@ -612,6 +618,14 @@ fun MedicineReminderSection(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("Add", fontSize = 12.sp)
                             }
+                            OutlinedButton(
+                                onClick = { showFixedTimePicker = true },
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Pick", fontSize = 12.sp)
+                            }
                         }
                     }
 
@@ -644,12 +658,21 @@ fun MedicineReminderSection(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = "Anchor Start Time", fontSize = 12.sp)
-                            OutlinedTextField(
-                                value = intervalAnchorTime,
-                                onValueChange = { intervalAnchorTime = it },
-                                singleLine = true,
-                                modifier = Modifier.width(100.dp)
-                            )
+                            Surface(
+                                onClick = { showAnchorTimePicker = true },
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.defaultMinSize(minHeight = 36.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(intervalAnchorTime, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(6.dp))

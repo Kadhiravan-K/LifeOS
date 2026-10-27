@@ -70,11 +70,7 @@ fun CustomReminderDialog(
         mutableStateOf(if (schedulingMode == SchedulingMode.DEADLINE) "DEADLINE" else "START_TIME")
     }
 
-    val timePickerState = rememberTimePickerState(
-        initialHour = 9,
-        initialMinute = 0,
-        is24Hour = false
-    )
+
 
     val presets = listOf(
         0 to if (referenceType == "DEADLINE") "At deadline" else "At time of task",
@@ -364,26 +360,14 @@ fun CustomReminderDialog(
     )
 
     if (showTimePicker) {
-        AlertDialog(
-            onDismissRequest = { showTimePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    val h = timePickerState.hour.toString().padStart(2, '0')
-                    val m = timePickerState.minute.toString().padStart(2, '0')
-                    specificTime = "$h:$m"
-                    showTimePicker = false
-                }) {
-                    Text("OK")
-                }
+        LifeTimePickerDialog(
+            initialTime = specificTime,
+            onConfirm = {
+                specificTime = it
+                showTimePicker = false
             },
-            dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) {
-                    Text("Cancel")
-                }
-            },
-            text = {
-                TimePicker(state = timePickerState)
-            }
+            onDismiss = { showTimePicker = false },
+            title = "Select Reminder Time"
         )
     }
 }

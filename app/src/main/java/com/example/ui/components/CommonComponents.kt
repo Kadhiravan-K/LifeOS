@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -128,11 +129,11 @@ fun CategoryChip(
         border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, border) else null,
         modifier = Modifier
             .testTag("category_chip_${categoryName.replace(" ", "_").lowercase()}")
-            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
+            .then(if (onClick != null) Modifier.defaultMinSize(minHeight = 40.dp).clickable { onClick() } else Modifier)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
         ) {
             Text(text = categoryItem.emoji, fontSize = 12.sp)
             Spacer(modifier = Modifier.width(4.dp))

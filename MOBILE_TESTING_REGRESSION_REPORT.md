@@ -1,10 +1,10 @@
 # LifeOS Release 2 — Mobile Testing Regression Report
 
-**Document Version:** 1.4.0<br>
+**Document Version:** 1.5.0<br>
 **Date:** October 27, 2026<br>
 **Target Release:** Release 2.0 (v1.1.0-reconstruction)<br>
 **Branch:** `recovery/release-2-reconstruction`<br>
-**Test Suite Status:** 112 Passed / 0 Failed / 0 Errors / 0 Skipped<br>
+**Test Suite Status:** 122 Passed / 0 Failed / 0 Errors / 0 Skipped<br>
 **Build Status:** `assembleDebug` SUCCESS (L8 Core Library Desugaring Active, 0 Warnings)<br>
 **Lint Status:** `lintDebug` SUCCESS (0 New Issues, 0 `NewApi` Errors in Baseline, 106 Historical Warnings)<br>
 **Overall Physical Device Status:** **PENDING PHYSICAL DEVICE VERIFICATION**<br>
@@ -32,8 +32,9 @@ The complete unit test suite was executed via `./gradlew testDebugUnitTest --no-
 | `SubscriptionUnitTest` | 11 | 11 | 0 | 0 | 0 | **PASSED** |
 | `TrackerUnitTest` | 10 | 10 | 0 | 0 | 0 | **PASSED** |
 | `LifeOSDomainUnitTest` | 36 | 36 | 0 | 0 | 0 | **PASSED** |
+| `FrontendComponentsUnitTest` | 10 | 10 | 0 | 0 | 0 | **PASSED** |
 | `ExampleUnitTest` | 1 | 1 | 0 | 0 | 0 | **PASSED** |
-| **TOTALS** | **112** | **112** | **0** | **0** | **0** | **100% PASS** |
+| **TOTALS** | **122** | **122** | **0** | **0** | **0** | **100% PASS** |
 
 ### Verified Recovery Regression Scenarios (Release2RegressionUnitTest)
 1. **Empty Shortcut State (Item A):** Clean empty canvas emitted when Room DB is empty; zero default template injections on fresh installs.
@@ -57,8 +58,8 @@ The complete unit test suite was executed via `./gradlew testDebugUnitTest --no-
 
 ### Verified Test Build Artifact
 - **APK Path:** `app/build/outputs/apk/debug/app-debug.apk`
-- **File Size:** 21,280,092 bytes (~20.29 MB)
-- **SHA-256 Checksum:** `0BBA53092EF80BD8CBA6A59AA619E49A5C0C5FD9F3D20991D9D117A9491CBDD0`
+- **File Size:** 22,205,534 bytes (~21.18 MB)
+- **SHA-256 Checksum:** `9D04DEFCD94585A3B58847917E98D5AA47E728A5C2090D35561AFC3A02A0374D`
 - **Installation Command:** `adb install -r app/build/outputs/apk/debug/app-debug.apk`
 
 All physical device checks remain **PENDING** until verified on physical Android hardware (API 24 to 36).
