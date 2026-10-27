@@ -4,7 +4,7 @@
 **Date:** October 27, 2026<br>
 **Target Release:** Release 2.0 (v1.1.0-reconstruction)<br>
 **Branch:** `recovery/release-2-reconstruction`<br>
-**Test Suite Status:** 127 Passed / 0 Failed / 0 Errors / 0 Skipped<br>
+**Test Suite Status:** 139 Passed / 0 Failed / 0 Errors / 0 Skipped<br>
 **Build Status:** `assembleDebug` SUCCESS (L8 Core Library Desugaring Active, 0 Warnings)<br>
 **Lint Status:** `lintDebug` SUCCESS (0 New Issues, 0 `NewApi` Errors in Baseline, 106 Historical Warnings)<br>
 **Overall Physical Device Status:** **PENDING PHYSICAL DEVICE VERIFICATION**<br>
@@ -32,9 +32,10 @@ The complete unit test suite was executed via `./gradlew testDebugUnitTest --no-
 | `SubscriptionUnitTest` | 11 | 11 | 0 | 0 | 0 | **PASSED** |
 | `TrackerUnitTest` | 10 | 10 | 0 | 0 | 0 | **PASSED** |
 | `LifeOSDomainUnitTest` | 36 | 36 | 0 | 0 | 0 | **PASSED** |
-| `FrontendComponentsUnitTest` | 10 | 10 | 0 | 0 | 0 | **PASSED** |
+| `FrontendComponentsUnitTest` | 16 | 16 | 0 | 0 | 0 | **PASSED** |
+| `ComponentCatalogUnitTest` | 6 | 6 | 0 | 0 | 0 | **PASSED** |
 | `ExampleUnitTest` | 1 | 1 | 0 | 0 | 0 | **PASSED** |
-| **TOTALS** | **127** | **127** | **0** | **0** | **0** | **100% PASS** |
+| **TOTALS** | **139** | **139** | **0** | **0** | **0** | **100% PASS** |
 
 ### Verified Recovery Regression Scenarios (Release2RegressionUnitTest)
 1. **Empty Shortcut State (Item A):** Clean empty canvas emitted when Room DB is empty; zero default template injections on fresh installs.

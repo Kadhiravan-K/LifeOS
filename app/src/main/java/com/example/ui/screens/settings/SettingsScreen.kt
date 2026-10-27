@@ -50,6 +50,7 @@ import androidx.compose.material.icons.filled.Hexagon
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Medication
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Palette
@@ -132,7 +133,8 @@ enum class SettingsSubpage {
     PRODUCTIVITY,
     GAMIFICATION,
     DATA_STORAGE,
-    LEGAL_PRIVACY
+    LEGAL_PRIVACY,
+    USER_MANUAL
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -178,6 +180,12 @@ fun SettingsScreen(
         SettingsSubpage.TRACKERS_SUBSCRIPTIONS -> {
             TrackersSubscriptionsScreen(
                 viewModel = viewModel,
+                onNavigateBack = { currentSubpage = SettingsSubpage.HUB }
+            )
+            return
+        }
+        SettingsSubpage.USER_MANUAL -> {
+            com.example.ui.screens.manual.UserManualScreen(
                 onNavigateBack = { currentSubpage = SettingsSubpage.HUB }
             )
             return
@@ -1353,6 +1361,16 @@ private fun SettingsHubView(
             title = "Legal & Privacy",
             subtitle = "Terms & Conditions, Privacy Policy, 100% offline-first pledge",
             onClick = { onNavigateToSubpage(SettingsSubpage.LEGAL_PRIVACY) }
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        SettingsNavigationCard(
+            icon = Icons.Default.MenuBook,
+            title = "User Manual & UI Components",
+            subtitle = "Feature documentation and interactive Reusable Frontend UI Components library (36 components)",
+            onClick = { onNavigateToSubpage(SettingsSubpage.USER_MANUAL) },
+            highlighted = true
         )
 
         Spacer(modifier = Modifier.height(20.dp))

@@ -52,6 +52,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.model.ColorOrderingMode
@@ -323,6 +324,64 @@ fun TodoistColorPickerSheet(
                     }
                 }
             }
+        }
+    }
+}
+
+
+/**
+ * Compact circular or rounded color dot indicator with subtle contrast border.
+ */
+@Composable
+fun ColorDot(
+    color: Color,
+    modifier: Modifier = Modifier,
+    size: Dp = 12.dp,
+    borderWidth: Dp = 1.dp,
+    borderColor: Color = Color.White.copy(alpha = 0.25f),
+    shape: androidx.compose.ui.graphics.Shape = CircleShape
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(shape)
+            .background(color)
+            .border(borderWidth, borderColor, shape)
+    )
+}
+
+/**
+ * Pill-shaped color badge showing color dot indicator, name label, and optional hex text.
+ */
+@Composable
+fun ColorBadge(
+    color: Color,
+    label: String,
+    modifier: Modifier = Modifier,
+    hexCode: String? = null
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(color.copy(alpha = 0.15f))
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        ColorDot(color = color, size = 10.dp)
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = color
+        )
+        if (hexCode != null) {
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = hexCode,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

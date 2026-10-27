@@ -1,5 +1,9 @@
 package com.example.ui.components
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.PlayCircle
 import com.example.domain.model.DurationUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -101,5 +105,75 @@ class FrontendComponentsUnitTest {
         assertEquals(45, simulateInput("45mins"))
         assertEquals(9999, simulateInput("9999"))
         assertEquals(0, simulateInput("100000"))
+    }
+
+    @Test
+    fun durationSteppers_incrementAndDecrementAccurately() {
+        fun step(amount: Int, isIncrement: Boolean, unit: DurationUnit): Int {
+            val stepSize = if (unit == DurationUnit.MINUTES) 5 else 1
+            return if (isIncrement) (amount + stepSize).coerceIn(0, 9999)
+            else (amount - stepSize).coerceAtLeast(0)
+        }
+
+        assertEquals(20, step(15, isIncrement = true, DurationUnit.MINUTES))
+        assertEquals(10, step(15, isIncrement = false, DurationUnit.MINUTES))
+        assertEquals(0, step(3, isIncrement = false, DurationUnit.MINUTES))
+        assertEquals(2, step(1, isIncrement = true, DurationUnit.HOURS))
+        assertEquals(0, step(1, isIncrement = false, DurationUnit.HOURS))
+    }
+
+    @Test
+    fun urlAutoPrefixing_formatsHttpsProperly() {
+        fun formatUrl(raw: String): String {
+            val trimmed = raw.trim()
+            return if (!trimmed.contains("://")) "https://$trimmed" else trimmed
+        }
+
+        assertEquals("https://zoom.us/j/123456", formatUrl("zoom.us/j/123456"))
+        assertEquals("https://maps.google.com", formatUrl("https://maps.google.com"))
+        assertEquals("http://local.test", formatUrl("http://local.test"))
+    }
+
+    @Test
+    fun detectLinkIcon_identifiesServiceTypes() {
+        assertEquals(Icons.Default.Place, detectLinkIcon("https://maps.google.com/place/xyz"))
+        assertEquals(Icons.Default.Place, detectLinkIcon("https://goo.gl/maps/123"))
+        assertEquals(Icons.Default.PlayCircle, detectLinkIcon("https://youtube.com/watch?v=123"))
+        assertEquals(Icons.Default.PlayCircle, detectLinkIcon("https://youtu.be/123"))
+        assertEquals(Icons.Default.Language, detectLinkIcon("https://github.com/Kadhiravan-K/LifeOS"))
+    }
+
+    @Test
+    fun masterEmojiCatalog_categoriesAndSearchWorkCleanly() {
+        assertTrue(MasterEmojiCatalog.isNotEmpty())
+        val categories = MasterEmojiCatalog.map { it.category }.toSet()
+        assertTrue(categories.contains("Smileys"))
+        assertTrue(categories.contains("Activities"))
+        assertTrue(categories.contains("Objects"))
+        assertTrue(categories.contains("Health"))
+        assertTrue(categories.contains("Finance"))
+
+        // Search test
+        val runMatches = MasterEmojiCatalog.filter { it.keywords.contains("cardio") }
+        assertTrue(runMatches.any { it.emoji == "🏃" })
+
+        val waterMatches = MasterEmojiCatalog.filter { it.keywords.contains("hydrate") }
+        assertTrue(waterMatches.any { it.emoji == "💧" })
+
+        val financeMatches = MasterEmojiCatalog.filter { it.keywords.contains("crypto") }
+        assertTrue(financeMatches.any { it.emoji == "🪙" })
+    }
+
+    @Test
+    fun safetyDialogConfirmationPhrase_matchesCaseInsensitively() {
+        fun isMatching(typed: String, required: String): Boolean {
+            return typed.trim().equals(required.trim(), ignoreCase = true)
+        }
+
+        assertTrue(isMatching("DELETE", "DELETE"))
+        assertTrue(isMatching("delete", "DELETE"))
+        assertTrue(isMatching(" Delete ", "DELETE"))
+        assertFalse(isMatching("del", "DELETE"))
+        assertFalse(isMatching("", "DELETE"))
     }
 }
