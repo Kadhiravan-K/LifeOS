@@ -28,7 +28,10 @@ android {
         load(FileInputStream(keystorePropsFile))
       }
       val keyPath = props.getProperty("storeFile") ?: "${rootDir}/release.keystore"
-      val keyFile = file(keyPath)
+      val keyFile = run {
+        val candidate = file(keyPath)
+        if (candidate.exists()) candidate else rootProject.file(keyPath)
+      }
       if (keyFile.exists()) {
         create("release") {
           storeFile = keyFile
@@ -39,7 +42,10 @@ android {
       }
     } else {
       val releaseKeyPath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/release.keystore"
-      val releaseKeyFile = file(releaseKeyPath)
+      val releaseKeyFile = run {
+        val candidate = file(releaseKeyPath)
+        if (candidate.exists()) candidate else rootProject.file(releaseKeyPath)
+      }
       val storePass = System.getenv("STORE_PASSWORD")
       if (releaseKeyFile.exists() && storePass != null) {
         create("release") {
