@@ -81,6 +81,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import com.example.domain.recurrence.RecurrenceEngine
+import com.example.widgets.WidgetRefreshCoordinator
 
 data class DashboardUiState(
     val isLoading: Boolean = true,
@@ -147,7 +151,8 @@ data class CalendarUiState(
     val conflictsOnSelectedDate: List<ScheduleConflict> = emptyList(),
     val selectedCategoryFilter: String? = null,
     val selectedPriorityFilter: TaskPriority? = null,
-    val firstDayOfWeek: String = "MONDAY"
+    val firstDayOfWeek: String = "MONDAY",
+    val datesWithTasks: Set<String> = emptySet()
 )
 
 data class HabitsUiState(
@@ -204,6 +209,7 @@ class LifeViewModel(
         }
 
     init {
+        WidgetRefreshCoordinator.init(getApplication())
         viewModelScope.launch {
             while (isActive) {
                 delay(30_000L)
@@ -780,10 +786,24 @@ class LifeViewModel(
                         it.title.contains(shortcut.title, ignoreCase = true)
                     }
                     val todayLog = challenge.logs[todayIso]
-                    val isDone = rule != null && (todayLog?.completedRuleIds?.contains(rule.id) == true)
+                    val isRuleDone = rule != null && (todayLog?.completedRuleIds?.contains(rule.id) == true)
+                    val matchedFallbackTask = if (!isRuleDone && rule == null) {
+                        todayTaskList.find { it.id.toString() == shortcut.targetId }
+                            ?: todayTaskList.find { it.title.equals(shortcut.targetId, ignoreCase = true) }
+                            ?: todayTaskList.find { it.title.equals(shortcut.title, ignoreCase = true) }
+                            ?: allTaskList.find { it.id.toString() == shortcut.targetId }
+                            ?: allTaskList.find { it.title.equals(shortcut.targetId, ignoreCase = true) }
+                            ?: allTaskList.find { it.title.equals(shortcut.title, ignoreCase = true) }
+                    } else null
+                    val isTaskDone = matchedFallbackTask != null && (
+                        matchedFallbackTask.isCompletedForDate ||
+                        matchedFallbackTask.isOneTimeCompleted ||
+                        matchedFallbackTask.completedDates.contains(todayIso)
+                    )
+                    val isDone = isRuleDone || isTaskDone
                     shortcut.copy(
                         isCompletedToday = isDone,
-                        subtitle = rule?.title ?: "",
+                        subtitle = rule?.title ?: matchedFallbackTask?.title ?: "",
                         isBinary = true,
                         projectColorHex = 0xFFF59E0BL
                     )
@@ -1067,7 +1087,10 @@ class LifeViewModel(
     }.flatMapLatest { (grids, threeDays, firstDay) ->
         val (title, monthGrid, weekGrid) = grids
         val selDate = _calendarSelectedDate.value
-        repository.getTasksForDateFlow(selDate).map { tasksOnDate ->
+        combine(
+            repository.getTasksForDateFlow(selDate),
+            repository.allTasksFlow
+        ) { tasksOnDate, allTasks ->
             val wakeUp = DateUtils.timeToMinutes(wakeUpTimeFlow.value).coerceAtLeast(330)
             val bedTime = DateUtils.timeToMinutes(bedTimeFlow.value).coerceAtLeast(1290)
 
@@ -1092,6 +1115,14 @@ class LifeViewModel(
                 filtered = filtered.filter { it.priority == _calendarPriorityFilter.value }
             }
 
+            val visibleDates = (monthGrid + weekGrid + threeDays + listOf(selDate)).filter { it.isNotBlank() }.toSet()
+            val activeTasks = allTasks.filter { !it.isArchived }
+            val datesWithTasks = visibleDates.filter { dateIso ->
+                activeTasks.any { task ->
+                    RecurrenceEngine.isTaskScheduledOnDate(task, dateIso)
+                }
+            }.toSet()
+
             CalendarUiState(
                 selectedDateIso = selDate,
                 currentMonthZeroIndexed = _calendarMonth.value,
@@ -1105,7 +1136,8 @@ class LifeViewModel(
                 conflictsOnSelectedDate = allConflicts.distinctBy { it.message },
                 selectedCategoryFilter = _calendarCategoryFilter.value,
                 selectedPriorityFilter = _calendarPriorityFilter.value,
-                firstDayOfWeek = firstDay
+                firstDayOfWeek = firstDay,
+                datesWithTasks = datesWithTasks
             )
         }
     }.stateIn(
@@ -1156,7 +1188,7 @@ class LifeViewModel(
                     soundType = if (allDone) FeedbackSoundType.ALL_DONE else completionSoundTypeFlow.value
                 )
             }
-            com.example.widgets.QuickRemindersWidgetProvider.notifyDataChanged(getApplication())
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -1167,6 +1199,7 @@ class LifeViewModel(
     fun toggleSubtask(taskId: Long, subtaskId: String) {
         viewModelScope.launch {
             repository.toggleSubtask(taskId, subtaskId)
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -1232,6 +1265,7 @@ class LifeViewModel(
             } else {
                 NotificationHelper.cancelTaskAlarm(getApplication(), savedId, dueDateIso)
             }
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -1239,6 +1273,7 @@ class LifeViewModel(
         viewModelScope.launch {
             NotificationHelper.cancelTaskAlarm(getApplication(), taskId)
             repository.deleteTask(taskId)
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -1657,6 +1692,7 @@ class LifeViewModel(
             } else {
                 NotificationHelper.cancelTaskAlarm(getApplication(), savedId, fullTask.dueDateIso)
             }
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -1679,6 +1715,7 @@ class LifeViewModel(
                     soundType = completionSoundTypeFlow.value
                 )
             }
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -1704,12 +1741,14 @@ class LifeViewModel(
             } else {
                 repository.updateHabit(habit)
             }
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
     fun deleteHabit(habitId: Long) {
         viewModelScope.launch {
             repository.deleteHabit(habitId)
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -1739,12 +1778,14 @@ class LifeViewModel(
                     soundType = if (allRulesDone) FeedbackSoundType.ALL_DONE else completionSoundTypeFlow.value
                 )
             }
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
     fun restartChallenge(startDateIso: String = todayIso) {
         viewModelScope.launch {
             repository.restartChallenge(startDateIso)
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -1760,12 +1801,14 @@ class LifeViewModel(
                     soundType = FeedbackSoundType.WATER
                 )
             }
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
     fun resetWater() {
         viewModelScope.launch {
             repository.resetWater(todayIso)
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -1888,114 +1931,119 @@ class LifeViewModel(
         _isHoneycombEditMode.value = enabled
     }
 
+    private val shortcutClickMutex = Mutex()
+    private var lastShortcutClickTime = 0L
+
     fun toggleHoneycombShortcut(shortcut: HoneycombShortcut) {
+        val now = System.currentTimeMillis()
+        if (now - lastShortcutClickTime < 250) {
+            return
+        }
+        lastShortcutClickTime = now
+
         viewModelScope.launch {
-            when (shortcut.type) {
-                ShortcutType.TASK -> {
-                    val taskId = shortcut.targetId.toLongOrNull()
-                    var targetTask = if (taskId != null) {
-                        repository.getTaskById(taskId)
-                    } else {
-                        val all = allTasks.value
-                        all.find { it.id.toString() == shortcut.targetId }
-                            ?: all.find { it.title.equals(shortcut.targetId, ignoreCase = true) }
-                            ?: all.find { it.title.equals(shortcut.title, ignoreCase = true) }
-                            ?: all.find {
-                                val words = it.title.split(Regex("[^A-Za-z0-9]")).filter { w -> w.isNotBlank() }
-                                words.any { w -> w.equals(shortcut.targetId, ignoreCase = true) || w.equals(shortcut.title, ignoreCase = true) }
-                            }
-                    }
-                    if (targetTask != null && shortcut.targetId != targetTask.id.toString()) {
-                        repository.updateHoneycombShortcut(shortcut.copy(targetId = targetTask.id.toString()))
-                    }
-                    if (targetTask == null) {
-                        // Auto-create task for today so the button immediately works and persists!
-                        val newTaskId = repository.insertTask(
-                            TaskItem(
+            shortcutClickMutex.withLock {
+                when (shortcut.type) {
+                    ShortcutType.TASK -> {
+                        val taskId = shortcut.targetId.toLongOrNull()
+                        var targetTask = if (taskId != null) {
+                            repository.getTaskById(taskId)
+                        } else {
+                            val all = allTasks.value
+                            all.find { it.id.toString() == shortcut.targetId }
+                                ?: all.find { it.title.equals(shortcut.targetId, ignoreCase = true) }
+                                ?: all.find { it.title.equals(shortcut.title, ignoreCase = true) }
+                                ?: all.find {
+                                    val words = it.title.split(Regex("[^A-Za-z0-9]")).filter { w -> w.isNotBlank() }
+                                    words.any { w -> w.equals(shortcut.targetId, ignoreCase = true) || w.equals(shortcut.title, ignoreCase = true) }
+                                }
+                        }
+                        if (targetTask == null) {
+                            // Safely retrieve or create canonical routine task (no duplicate tasks, 0-min duration)
+                            targetTask = repository.getOrCreateTaskForShortcut(
                                 title = shortcut.title,
-                                dueDateIso = todayIso,
+                                emoji = shortcut.emoji,
                                 category = "Routines",
-                                priority = TaskPriority.MEDIUM,
-                                emoji = shortcut.emoji
+                                recurrence = RecurrenceType.DAILY
                             )
-                        )
-                        repository.updateHoneycombShortcut(shortcut.copy(targetId = newTaskId.toString()))
-                        targetTask = repository.getTaskById(newTaskId)
+                        }
+                        if (shortcut.targetId != targetTask.id.toString()) {
+                            repository.updateHoneycombShortcut(shortcut.copy(targetId = targetTask.id.toString()))
+                        }
+                        toggleTaskCompletion(targetTask.id, todayIso)
                     }
-                    if (targetTask != null) {
+                    ShortcutType.HABIT -> {
+                        val habitId = shortcut.targetId.toLongOrNull()
+                        var targetHabit = if (habitId != null) {
+                            repository.getHabitById(habitId)
+                        } else {
+                            val allH = habits.value
+                            allH.find { it.id.toString() == shortcut.targetId }
+                                ?: allH.find { it.title.equals(shortcut.targetId, ignoreCase = true) }
+                                ?: allH.find { it.title.equals(shortcut.title, ignoreCase = true) }
+                                ?: allH.find {
+                                    val words = it.title.split(Regex("[^A-Za-z0-9]")).filter { w -> w.isNotBlank() }
+                                    words.any { w -> w.equals(shortcut.targetId, ignoreCase = true) || w.equals(shortcut.title, ignoreCase = true) }
+                                }
+                        }
+                        if (targetHabit == null) {
+                            val newHabitId = repository.insertHabit(
+                                HabitItem(
+                                    title = shortcut.title,
+                                    emoji = shortcut.emoji,
+                                    colorHex = shortcut.customColorHex ?: 0xFF3B82F6L
+                                )
+                            )
+                            targetHabit = repository.getHabitById(newHabitId)
+                        }
+                        if (targetHabit != null) {
+                            if (shortcut.targetId != targetHabit.id.toString()) {
+                                repository.updateHoneycombShortcut(shortcut.copy(targetId = targetHabit.id.toString()))
+                            }
+                            toggleHabit(targetHabit.id, todayIso)
+                        }
+                    }
+                    ShortcutType.CHALLENGE_RULE -> {
+                        val rule = challengeState.value.rules.find {
+                            it.id == shortcut.targetId ||
+                            it.title.equals(shortcut.targetId, ignoreCase = true) ||
+                            it.title.contains(shortcut.targetId, ignoreCase = true) ||
+                            it.title.equals(shortcut.title, ignoreCase = true) ||
+                            it.title.contains(shortcut.title, ignoreCase = true)
+                        }
+                        if (rule != null) {
+                            toggleChallengeRule(rule.id, todayIso)
+                        } else {
+                            // Fallback to task deduplication & daily routine toggle
+                            val targetTask = repository.getOrCreateTaskForShortcut(
+                                title = shortcut.title,
+                                emoji = shortcut.emoji,
+                                category = "Routines",
+                                recurrence = RecurrenceType.DAILY
+                            )
+                            if (shortcut.targetId != targetTask.id.toString()) {
+                                repository.updateHoneycombShortcut(shortcut.copy(targetId = targetTask.id.toString()))
+                            }
+                            toggleTaskCompletion(targetTask.id, todayIso)
+                        }
+                    }
+                    ShortcutType.WATER -> {
+                        addWater(250)
+                    }
+                    ShortcutType.CUSTOM -> {
+                        val targetTask = repository.getOrCreateTaskForShortcut(
+                            title = shortcut.title,
+                            emoji = shortcut.emoji,
+                            category = "Routines",
+                            recurrence = RecurrenceType.DAILY
+                        )
+                        if (shortcut.targetId != targetTask.id.toString()) {
+                            repository.updateHoneycombShortcut(shortcut.copy(targetId = targetTask.id.toString()))
+                        }
                         toggleTaskCompletion(targetTask.id, todayIso)
                     }
                 }
-                ShortcutType.HABIT -> {
-                    val habitId = shortcut.targetId.toLongOrNull()
-                    var targetHabit = if (habitId != null) {
-                        repository.getHabitById(habitId)
-                    } else {
-                        val allH = habits.value
-                        allH.find { it.id.toString() == shortcut.targetId }
-                            ?: allH.find { it.title.equals(shortcut.targetId, ignoreCase = true) }
-                            ?: allH.find { it.title.equals(shortcut.title, ignoreCase = true) }
-                            ?: allH.find {
-                                val words = it.title.split(Regex("[^A-Za-z0-9]")).filter { w -> w.isNotBlank() }
-                                words.any { w -> w.equals(shortcut.targetId, ignoreCase = true) || w.equals(shortcut.title, ignoreCase = true) }
-                            }
-                    }
-                    if (targetHabit != null && shortcut.targetId != targetHabit.id.toString()) {
-                        repository.updateHoneycombShortcut(shortcut.copy(targetId = targetHabit.id.toString()))
-                    }
-                    if (targetHabit == null) {
-                        val newHabitId = repository.insertHabit(
-                            HabitItem(
-                                title = shortcut.title,
-                                emoji = shortcut.emoji,
-                                colorHex = shortcut.customColorHex ?: 0xFF3B82F6L
-                            )
-                        )
-                        repository.updateHoneycombShortcut(shortcut.copy(targetId = newHabitId.toString()))
-                        targetHabit = repository.getHabitById(newHabitId)
-                    }
-                    if (targetHabit != null) {
-                        toggleHabit(targetHabit.id, todayIso)
-                    }
-                }
-                ShortcutType.CHALLENGE_RULE -> {
-                    val rule = challengeState.value.rules.find {
-                        it.id == shortcut.targetId ||
-                        it.title.equals(shortcut.targetId, ignoreCase = true) ||
-                        it.title.contains(shortcut.targetId, ignoreCase = true) ||
-                        it.title.equals(shortcut.title, ignoreCase = true) ||
-                        it.title.contains(shortcut.title, ignoreCase = true)
-                    }
-                    if (rule != null) {
-                        toggleChallengeRule(rule.id, todayIso)
-                    } else {
-                        val newTaskId = repository.insertTask(
-                            TaskItem(
-                                title = shortcut.title,
-                                dueDateIso = todayIso,
-                                category = "Challenge",
-                                priority = TaskPriority.HIGH,
-                                emoji = shortcut.emoji
-                            )
-                        )
-                        toggleTaskCompletion(newTaskId, todayIso)
-                    }
-                }
-                ShortcutType.WATER -> {
-                    addWater(250)
-                }
-                ShortcutType.CUSTOM -> {
-                    val newTaskId = repository.insertTask(
-                        TaskItem(
-                            title = shortcut.title,
-                            dueDateIso = todayIso,
-                            category = "Routines",
-                            priority = TaskPriority.MEDIUM,
-                            emoji = shortcut.emoji
-                        )
-                    )
-                    toggleTaskCompletion(newTaskId, todayIso)
-                }
+                WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
             }
         }
     }
@@ -2003,6 +2051,7 @@ class LifeViewModel(
     fun reorderHoneycombShortcuts(newList: List<HoneycombShortcut>) {
         viewModelScope.launch {
             repository.saveHoneycombShortcutsOrder(newList)
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -2013,6 +2062,7 @@ class LifeViewModel(
             val s2 = list.find { it.id == id2 } ?: return@launch
             repository.updateShortcutCoords(s1.id, s2.coordQ, s2.coordR, s2.orderIndex)
             repository.updateShortcutCoords(s2.id, s1.coordQ, s1.coordR, s1.orderIndex)
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -2027,6 +2077,7 @@ class LifeViewModel(
             } else {
                 repository.updateShortcutCoords(item.id, targetQ, targetR, item.orderIndex)
             }
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -2040,6 +2091,7 @@ class LifeViewModel(
                     val item = currentList.removeAt(index)
                     currentList.add(targetIndex, item)
                     repository.saveHoneycombShortcutsOrder(currentList)
+                    WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
                 }
             }
         }
@@ -2075,12 +2127,14 @@ class LifeViewModel(
                     coordR = finalR
                 )
             )
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
     fun removeHoneycombShortcut(shortcutId: Long) {
         viewModelScope.launch {
             repository.deleteHoneycombShortcut(shortcutId)
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -2088,6 +2142,7 @@ class LifeViewModel(
         viewModelScope.launch {
             val item = resolvedHoneycombShortcuts.value.find { it.id == shortcutId } ?: return@launch
             repository.updateHoneycombShortcut(item.copy(emoji = newEmoji))
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -2095,28 +2150,28 @@ class LifeViewModel(
         viewModelScope.launch {
             val source = if (newColorHex != null) "CUSTOM" else "THEME_DEFAULT"
             repository.updateShortcutColorSource(shortcutId, source, newColorHex)
-            com.example.widgets.QuickRemindersWidgetProvider.notifyDataChanged(getApplication())
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
     fun updateHoneycombShortcutShape(shortcutId: Long, shape: String) {
         viewModelScope.launch {
             repository.updateShortcutShape(shortcutId, shape)
-            com.example.widgets.QuickRemindersWidgetProvider.notifyDataChanged(getApplication())
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
     fun updateHoneycombShortcutColorSource(shortcutId: Long, colorSource: String, customColorHex: Long?) {
         viewModelScope.launch {
             repository.updateShortcutColorSource(shortcutId, colorSource, customColorHex)
-            com.example.widgets.QuickRemindersWidgetProvider.notifyDataChanged(getApplication())
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
     fun updateShortcutCustomTileName(shortcutId: Long, customTileName: String?) {
         viewModelScope.launch {
             repository.updateShortcutCustomTileName(shortcutId, customTileName)
-            com.example.widgets.QuickRemindersWidgetProvider.notifyDataChanged(getApplication())
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -2124,6 +2179,7 @@ class LifeViewModel(
         viewModelScope.launch {
             repository.resetHoneycombShortcutsToDefault()
             _isHoneycombEditMode.value = false
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
@@ -2139,6 +2195,7 @@ class LifeViewModel(
         viewModelScope.launch {
             preferences.setDashboardShape(shape)
             repository.updateAllShortcutShapes(shape.name)
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
     fun setHoneycombShape(shape: DashboardShape) = setGlobalQrShape(shape)
@@ -2286,6 +2343,7 @@ class LifeViewModel(
     ) {
         viewModelScope.launch {
             val summary = repository.installTemplate(template, selectedTaskIndices, selectedHabitIndices)
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
             onResult(summary)
         }
     }
@@ -2324,12 +2382,14 @@ class LifeViewModel(
     fun applyHoneycombTemplate(template: HoneycombLayoutTemplate) {
         viewModelScope.launch {
             repository.applyHoneycombTemplate(template)
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
     fun updateShortcutCoords(id: Long, q: Int, r: Int, orderIndex: Int) {
         viewModelScope.launch {
             repository.updateShortcutCoords(id, q, r, orderIndex)
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 

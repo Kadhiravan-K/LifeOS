@@ -233,6 +233,102 @@ class LifeRepository(
         taskReminderDao.insertReminders(entities)
     }
 
+    /**
+     * Atomically retrieves or creates a TaskItem associated with a Quick Reminder / Honeycomb shortcut.
+     * Guarantees zero duplicate task creation, 0-minute duration (no planning interference),
+     * and daily recurrence check-in behavior.
+     */
+    suspend fun getOrCreateTaskForShortcut(
+        title: String,
+        emoji: String = "🔥",
+        category: String = "Routines",
+        recurrence: RecurrenceType = RecurrenceType.DAILY
+    ): TaskItem {
+        val cleanTitle = title.trim()
+        val allTasks = taskDao.getAllTasksList()
+        val existing = allTasks.find {
+            !it.isArchived && (
+                it.title.equals(cleanTitle, ignoreCase = true) ||
+                it.title.contains(cleanTitle, ignoreCase = true) ||
+                cleanTitle.contains(it.title, ignoreCase = true)
+            )
+        }
+        if (existing != null) {
+            return getTaskById(existing.id) ?: existing.toDomainModel()
+        }
+
+        val todayIso = DateUtils.todayString()
+        val newTaskId = insertTask(
+            TaskItem(
+                title = cleanTitle,
+                emoji = emoji,
+                description = "Daily Quick Reminder Routine",
+                category = category,
+                priority = TaskPriority.HIGH,
+                dueDateIso = todayIso,
+                durationMinutes = 0,
+                durationAmount = 0,
+                schedulingMode = SchedulingMode.DURATION,
+                isAllDay = true,
+                recurrenceType = recurrence,
+                isQuickReminder = true,
+                createdAt = System.currentTimeMillis()
+            )
+        )
+        return getTaskById(newTaskId) ?: TaskItem(
+            id = newTaskId,
+            title = cleanTitle,
+            emoji = emoji,
+            category = category,
+            priority = TaskPriority.HIGH,
+            dueDateIso = todayIso,
+            durationMinutes = 0,
+            isAllDay = true,
+            recurrenceType = recurrence
+        )
+    }
+
+    /**
+     * Finds existing duplicate tasks created for Discipline or Discipline Check.
+     */
+    suspend fun getDuplicateDisciplineTasks(): List<TaskItem> {
+        val allEntities = taskDao.getAllTasksList()
+        val disciplineEntities = allEntities.filter {
+            !it.isArchived && (
+                it.title.equals("Discipline", ignoreCase = true) ||
+                it.title.equals("Discipline Check", ignoreCase = true) ||
+                it.title.startsWith("Discipline", ignoreCase = true)
+            )
+        }
+        return disciplineEntities.map { entity ->
+            getTaskById(entity.id) ?: entity.toDomainModel()
+        }
+    }
+
+    /**
+     * Safely deduplicates Discipline tasks, keeping the specified task or the earliest created one.
+     * Preserves user data and removes spurious duplicate task records.
+     */
+    suspend fun cleanupDuplicateDisciplineTasks(keepTaskId: Long? = null): Int {
+        val duplicates = getDuplicateDisciplineTasks()
+        if (duplicates.size <= 1) return 0
+
+        val targetToKeep = if (keepTaskId != null) {
+            duplicates.find { it.id == keepTaskId } ?: duplicates.minByOrNull { it.id }!!
+        } else {
+            duplicates.maxByOrNull { it.completedDates.size } ?: duplicates.minByOrNull { it.id }!!
+        }
+
+        var deletedCount = 0
+        duplicates.forEach { task ->
+            if (task.id != targetToKeep.id) {
+                deleteTask(task.id)
+                deletedCount++
+            }
+        }
+        return deletedCount
+    }
+
     // --- Phase 3A Project Operations ---
     suspend fun insertProject(project: ProjectItem): Long {
         return projectDao.insertProject(project.toEntity())
@@ -1896,10 +1992,29 @@ class LifeRepository(
                 val alreadyExists = existingShortcuts.any { it.title.equals(scDef.title, ignoreCase = true) }
                 if (!alreadyExists && existingShortcuts.size + shortcutsAdded < 19) {
                     val nextOrder = existingShortcuts.size + shortcutsAdded
+                    val resolvedTargetId = when (scDef.type) {
+                        ShortcutType.TASK -> {
+                            val allT = taskDao.getAllTasksList()
+                            val matched = allT.find {
+                                it.title.equals(scDef.title, ignoreCase = true) ||
+                                it.title.contains(scDef.title, ignoreCase = true)
+                            }
+                            matched?.id?.toString() ?: scDef.targetId
+                        }
+                        ShortcutType.HABIT -> {
+                            val allH = habitDao.getAllHabitsList()
+                            val matched = allH.find {
+                                it.title.equals(scDef.title, ignoreCase = true) ||
+                                it.title.contains(scDef.title, ignoreCase = true)
+                            }
+                            matched?.id?.toString() ?: scDef.targetId
+                        }
+                        else -> scDef.targetId
+                    }
                     honeycombShortcutDao.insertShortcut(
                         HoneycombShortcutEntity(
                             type = scDef.type.name,
-                            targetId = scDef.targetId,
+                            targetId = resolvedTargetId,
                             title = scDef.title,
                             emoji = scDef.emoji,
                             customColorHex = scDef.customColorHex,

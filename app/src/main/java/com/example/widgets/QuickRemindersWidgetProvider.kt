@@ -14,7 +14,10 @@ import com.example.MainActivity
 import com.example.R
 import com.example.data.local.AppDatabase
 import com.example.data.preferences.UserPreferences
+import com.example.data.repository.JsonMappers
 import com.example.data.repository.LifeRepository
+import com.example.domain.model.ChallengeRule
+import com.example.domain.model.RecurrenceType
 import com.example.ui.theme.engine.LocalPremiumEntitlementRepository
 import com.example.utils.DateUtils
 import kotlinx.coroutines.CoroutineScope
@@ -117,38 +120,62 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
             CoroutineScope(Dispatchers.IO).launch {
                 when (type) {
                     "TASK" -> {
-                        if (taskId != -1L) {
-                            repository.toggleTaskCompletion(taskId, todayIso)
-                            notifyDataChanged(context)
+                        val validTaskId = if (taskId != -1L) {
+                            taskId
                         } else {
-                            val openIntent = Intent(context, MainActivity::class.java).apply {
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                            val candidateId = targetId.toLongOrNull()
+                            if (candidateId != null) {
+                                candidateId
+                            } else {
+                                val task = repository.getOrCreateTaskForShortcut(
+                                    title = targetId.ifBlank { "Discipline" },
+                                    emoji = "🔥",
+                                    category = "Routines",
+                                    recurrence = RecurrenceType.DAILY
+                                )
+                                task.id
                             }
-                            context.startActivity(openIntent)
                         }
+                        repository.toggleTaskCompletion(validTaskId, todayIso)
+                        WidgetRefreshCoordinator.notifyAllWidgetsChanged(context)
                     }
                     "HABIT" -> {
                         val habitId = targetId.toLongOrNull()
                         if (habitId != null) {
                             repository.toggleHabitCompletion(habitId, todayIso)
-                            notifyDataChanged(context)
+                            WidgetRefreshCoordinator.notifyAllWidgetsChanged(context)
                         } else {
                             val habits = db.habitDao().getAllHabitsList()
                             val matched = habits.find { it.title.equals(targetId, ignoreCase = true) }
                             if (matched != null) {
                                 repository.toggleHabitCompletion(matched.id, todayIso)
-                                notifyDataChanged(context)
+                                WidgetRefreshCoordinator.notifyAllWidgetsChanged(context)
                             }
                         }
                     }
                     "WATER" -> {
                         repository.addWater(250, todayIso)
-                        notifyDataChanged(context)
+                        WidgetRefreshCoordinator.notifyAllWidgetsChanged(context)
                     }
                     "CHALLENGE_RULE" -> {
-                        if (targetId.isNotBlank()) {
-                            repository.toggleChallengeRule(targetId, todayIso)
-                            notifyDataChanged(context)
+                        val activeChallenge = db.challengeDao().getActiveChallenge()
+                        val rules = activeChallenge?.let { JsonMappers.parseChallengeRules(it.rulesJson) } ?: emptyList()
+                        val matchedRule = rules.find {
+                            it.id == targetId || it.title.equals(targetId, ignoreCase = true)
+                        }
+                        if (matchedRule != null) {
+                            repository.toggleChallengeRule(matchedRule.id, todayIso)
+                            WidgetRefreshCoordinator.notifyAllWidgetsChanged(context)
+                        } else {
+                            // Fallback to task deduplication & daily routine toggle
+                            val task = repository.getOrCreateTaskForShortcut(
+                                title = targetId.ifBlank { "Discipline" },
+                                emoji = "🔥",
+                                category = "Routines",
+                                recurrence = RecurrenceType.DAILY
+                            )
+                            repository.toggleTaskCompletion(task.id, todayIso)
+                            WidgetRefreshCoordinator.notifyAllWidgetsChanged(context)
                         }
                     }
                     else -> {

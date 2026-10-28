@@ -1,10 +1,10 @@
 # LifeOS Release 2 — Mobile Testing Regression Report
 
-**Document Version:** 2.0.0<br>
+**Document Version:** 2.1.0<br>
 **Date:** October 28, 2026<br>
 **Target Release:** Release 2.0 (v1.1.0-reconstruction)<br>
 **Branch:** `recovery/release-2-reconstruction`<br>
-**Test Suite Status:** 172 Passed / 0 Failed / 0 Errors / 0 Skipped<br>
+**Test Suite Status:** 182 Passed / 0 Failed / 0 Errors / 0 Skipped<br>
 **Build Status:** `assembleDebug` & `assembleRelease` SUCCESS (L8 Core Library Desugaring Active, 0 Warnings)<br>
 **Lint Status:** `lintDebug` & `lintVitalRelease` SUCCESS (0 Errors)<br>
 **Overall Physical Device Status:** **PENDING PHYSICAL DEVICE VERIFICATION**<br>
@@ -217,6 +217,30 @@ All physical device checks remain **PENDING** until verified on physical Android
 
 ---
 
+## 10. Mobile Testing Batch 04 — Honeycomb Layout, Widget Sync, Discipline & Recurrence Results
+
+### Defect Resolution Summary
+
+| Issue ID | Title | Priority | Root Cause | Fix Implemented | Automated Tests | Physical Device Status |
+|---|---|---|---|---|---|---|
+| **BATCH04-WID-01** | Matching Honeycomb Layouts | P1 | RemoteViews ListView had `dividerHeight="3dp"` + row padding 4dp = 7dp vertical gap; tile shapes were 113dp wide with `fitCenter` on 180x180 bitmaps creating ~53dp horizontal gaps; `getLoadingView()` returning `null` triggered Android's default "Loading..." text placeholder. | Redesigned `widget_qr_row_3.xml` and `widget_qr_row_2.xml` with compact honeycomb weights (Row 3: 0.4 / 1.0 / 1.0 / 1.0 / 0.4; Row 2: 0.9 / 1.0 / 1.0 / 0.9), 74dp height, 1dp padding; increased tile bitmap resolution to 200x200 with 4f padding in `QuickRemindersWidgetHelper`; added `widget_qr_loading.xml` with zero-height layout eliminating "Loading..." placeholder; replaced `<View>` spacers with RemoteViews-compliant `<FrameLayout>`. | **PASS** (`Batch04MobileTestingRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **BATCH04-WID-02** | Real-Time App QR ↔ Widget Synchronization | P0 | `QuickRemindersWidgetProvider.notifyDataChanged` was only called on widget task toggling, never when shortcuts were inserted, removed, reordered, edited in App QR, or when templates were installed. | Created centralized `WidgetRefreshCoordinator` and wired it into all App QR mutations (`toggleHoneycombShortcut`, `addHoneycombShortcut`, `removeHoneycombShortcut`, `updateHoneycombShortcutIcon`, `updateHoneycombShortcutColor`, `updateHoneycombShortcutShape`, `reorderHoneycombShortcuts`, `swapHoneycombShortcuts`, `moveHoneycombShortcutToCoord`, `resetHoneycombLayoutToDefault`, `applyHoneycombTemplate`, `saveTaskItem`, `deleteTask`, `toggleHabit`, `addWater`, `toggleChallengeRule`, `installTemplate`). Broadcasts in `QuickRemindersWidgetProvider` update Room and refresh all widgets. | **PASS** (`Batch04MobileTestingRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **BATCH04-QR-03** | Discipline QR Idempotency & Zero Duplicate Tasks | P0 (Data Integrity) | In `LifeViewModel.toggleHoneycombShortcut`, unlinked `CHALLENGE_RULE` fallback inserted a new TaskItem on every single tap without checking if an existing task existed, and never persisted the newly created task ID to the shortcut's `targetId`. Concurrent rapid taps lacked a mutex, inserting multiple duplicate tasks. Default `durationMinutes = 30` interfered with calendar planning. | Implemented `repository.getOrCreateTaskForShortcut(...)` for atomic task lookup and insertion with `durationMinutes = 0, isAllDay = true, category = "Routines", recurrenceType = RecurrenceType.DAILY`. Added 250ms debounce and coroutine `Mutex` serialization in `toggleHoneycombShortcut`. Persisted resolved task ID to Room `shortcut.targetId`. Added `getDuplicateDisciplineTasks()` and `cleanupDuplicateDisciplineTasks()`. Resolved fallback rule completion in both App QR and widget. | **PASS** (`Batch04MobileTestingRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **BATCH04-TPL-04** | Standalone Quick Hydration Tracker Template | P1 | Hydration tracking was embedded in complex multi-task bundles; no single-purpose hydration tracker template existed for instant 1-tap QR/widget setup. | Created dedicated `template_quick_hydration_tracker` (Category: `HEALTH_HYDRATION`, emoji: "💧") with exactly 1 `WATER` shortcut (`ShortcutType.WATER`, title: "Drink Water"), standard `Health` project, and zero unrelated discipline/cleaning/reading tasks. Added `bundle_quick_hydration_tracker` to `TemplateCatalog.allBundles`. | **PASS** (`Batch04MobileTestingRegressionUnitTest`, `LifeOSDomainUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **BATCH04-CAL-05** | Daily Recurring Task Calendar Dots | P1 | In `CalendarScreen.kt`, `datesWithTasks` included `!RecurrenceEngine.isCompletedOnDate(task, dateIso)`, which erased dots from the calendar grid as soon as a daily task was completed. Dots were also computed in local `remember` from `viewModel.allTasks` instead of reactive StateFlow. | Removed `!isCompletedOnDate` filter so scheduled tasks retain their dots regardless of completion state. Added `datesWithTasks: Set<String>` to `CalendarUiState` computed reactively in ViewModel from `repository.allTasksFlow` across all visible grid dates. Verified daily recurring task scheduled Oct 25..31 displays dots on all 7 dates, no dots on Oct 24 or Nov 01, and retains dot when completed on Oct 26. | **PASS** (`Batch04MobileTestingRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+
+### Automated Pipeline Verification
+- `./gradlew compileDebugKotlin --no-configuration-cache`: **SUCCESS**
+- `./gradlew testDebugUnitTest --no-configuration-cache`: **SUCCESS** (182/182 tests passed, 0 failures)
+- `./gradlew compileDebugAndroidTestKotlin --no-configuration-cache`: **SUCCESS**
+- `./gradlew lintDebug lintVitalRelease --no-configuration-cache`: **SUCCESS** (0 errors)
+- `./gradlew assembleDebug assembleRelease --no-configuration-cache`: **SUCCESS**
+  - `app-debug.apk`: 23,938,490 bytes, SHA-256: `A508C51DA702E0712D570D3D9395007FE4F0EFBB824EA9CF9DE04D0C706964B8`
+  - `app-release-unsigned.apk`: 15,019,072 bytes, SHA-256: `7C437117C82C55F3D0C7A8B578CFF3CA1BDB8769B973577FDB2EFAA47285B8F7`
+
+
+---
+
 ## 9. Release 2 Final Preparations — Logo, Dev Test Bundle & Interactive Previews
 
 ### Summary of Scope & Implementations
@@ -235,5 +259,29 @@ All physical device checks remain **PENDING** until verified on physical Android
 - `./gradlew assembleDebug assembleRelease --no-configuration-cache`: **SUCCESS**
   - `app-debug.apk`: 23,273,470 bytes, SHA-256: `BA65104A7AA58BC8D5721706C648090BB0F3490A8F9675C719CD1143A526FD49`
   - `app-release-unsigned.apk`: 15,018,660 bytes, SHA-256: `851B138BBCBDB3061DAAC04992D6B1F627C18C1B0F70924234477E1DC3FB7306`
+
+---
+
+## 10. Mobile Testing Batch 04 — Honeycomb Layout, Widget Sync, Discipline & Recurrence Results
+
+### Defect Resolution Summary
+
+| Issue ID | Title | Priority | Root Cause | Fix Implemented | Automated Tests | Physical Device Status |
+|---|---|---|---|---|---|---|
+| **BATCH04-WID-01** | Matching Honeycomb Layouts | P1 | RemoteViews ListView had `dividerHeight="3dp"` + row padding 4dp = 7dp vertical gap; tile shapes were 113dp wide with `fitCenter` on 180x180 bitmaps creating ~53dp horizontal gaps; `getLoadingView()` returning `null` triggered Android's default "Loading..." text placeholder. | Redesigned `widget_qr_row_3.xml` and `widget_qr_row_2.xml` with compact honeycomb weights (Row 3: 0.4 / 1.0 / 1.0 / 1.0 / 0.4; Row 2: 0.9 / 1.0 / 1.0 / 0.9), 74dp height, 1dp padding; increased tile bitmap resolution to 200x200 with 4f padding in `QuickRemindersWidgetHelper`; added `widget_qr_loading.xml` with zero-height layout eliminating "Loading..." placeholder; replaced `<View>` spacers with RemoteViews-compliant `<FrameLayout>`. | **PASS** (`Batch04MobileTestingRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **BATCH04-WID-02** | Real-Time App QR ↔ Widget Synchronization | P0 | `QuickRemindersWidgetProvider.notifyDataChanged` was only called on widget task toggling, never when shortcuts were inserted, removed, reordered, edited in App QR, or when templates were installed. | Created centralized `WidgetRefreshCoordinator` and wired it into all App QR mutations (`toggleHoneycombShortcut`, `addHoneycombShortcut`, `removeHoneycombShortcut`, `updateHoneycombShortcutIcon`, `updateHoneycombShortcutColor`, `updateHoneycombShortcutShape`, `reorderHoneycombShortcuts`, `swapHoneycombShortcuts`, `moveHoneycombShortcutToCoord`, `resetHoneycombLayoutToDefault`, `applyHoneycombTemplate`, `saveTaskItem`, `deleteTask`, `toggleHabit`, `addWater`, `toggleChallengeRule`, `installTemplate`). Broadcasts in `QuickRemindersWidgetProvider` update Room and refresh all widgets. | **PASS** (`Batch04MobileTestingRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **BATCH04-QR-03** | Discipline QR Idempotency & Zero Duplicate Tasks | P0 (Data Integrity) | In `LifeViewModel.toggleHoneycombShortcut`, unlinked `CHALLENGE_RULE` fallback inserted a new TaskItem on every single tap without checking if an existing task existed, and never persisted the newly created task ID to the shortcut's `targetId`. Concurrent rapid taps lacked a mutex, inserting multiple duplicate tasks. Default `durationMinutes = 30` interfered with calendar planning. | Implemented `repository.getOrCreateTaskForShortcut(...)` for atomic task lookup and insertion with `durationMinutes = 0, isAllDay = true, category = "Routines", recurrenceType = RecurrenceType.DAILY`. Added 250ms debounce and coroutine `Mutex` serialization in `toggleHoneycombShortcut`. Persisted resolved task ID to Room `shortcut.targetId`. Added `getDuplicateDisciplineTasks()` and `cleanupDuplicateDisciplineTasks()`. Resolved fallback rule completion in both App QR and widget. | **PASS** (`Batch04MobileTestingRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **BATCH04-TPL-04** | Standalone Quick Hydration Tracker Template | P1 | Hydration tracking was embedded in complex multi-task bundles; no single-purpose hydration tracker template existed for instant 1-tap QR/widget setup. | Created dedicated `template_quick_hydration_tracker` (Category: `HEALTH_HYDRATION`, emoji: "💧") with exactly 1 `WATER` shortcut (`ShortcutType.WATER`, title: "Drink Water"), standard `Health` project, and zero unrelated discipline/cleaning/reading tasks. Added `bundle_quick_hydration_tracker` to `TemplateCatalog.allBundles`. | **PASS** (`Batch04MobileTestingRegressionUnitTest`, `LifeOSDomainUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **BATCH04-CAL-05** | Daily Recurring Task Calendar Dots | P1 | In `CalendarScreen.kt`, `datesWithTasks` included `!RecurrenceEngine.isCompletedOnDate(task, dateIso)`, which erased dots from the calendar grid as soon as a daily task was completed. Dots were also computed in local `remember` from `viewModel.allTasks` instead of reactive StateFlow. | Removed `!isCompletedOnDate` filter so scheduled tasks retain their dots regardless of completion state. Added `datesWithTasks: Set<String>` to `CalendarUiState` computed reactively in ViewModel from `repository.allTasksFlow` across all visible grid dates. Verified daily recurring task scheduled Oct 25..31 displays dots on all 7 dates, no dots on Oct 24 or Nov 01, and retains dot when completed on Oct 26. | **PASS** (`Batch04MobileTestingRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+
+### Automated Pipeline Verification
+- `./gradlew compileDebugKotlin --no-configuration-cache`: **SUCCESS**
+- `./gradlew testDebugUnitTest --no-configuration-cache`: **SUCCESS** (182/182 tests passed, 0 failures)
+- `./gradlew compileDebugAndroidTestKotlin --no-configuration-cache`: **SUCCESS**
+- `./gradlew lintDebug lintVitalRelease --no-configuration-cache`: **SUCCESS** (0 errors)
+- `./gradlew assembleDebug assembleRelease --no-configuration-cache`: **SUCCESS**
+  - `app-debug.apk`: 23,938,490 bytes, SHA-256: `A508C51DA702E0712D570D3D9395007FE4F0EFBB824EA9CF9DE04D0C706964B8`
+  - `app-release-unsigned.apk`: 15,019,072 bytes, SHA-256: `7C437117C82C55F3D0C7A8B578CFF3CA1BDB8769B973577FDB2EFAA47285B8F7`
+
 
 

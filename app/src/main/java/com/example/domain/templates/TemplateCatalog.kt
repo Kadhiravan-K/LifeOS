@@ -1410,6 +1410,16 @@ object TemplateCatalog {
                     recurrenceType = RecurrenceType.DAILY,
                     projectName = "Home",
                     labels = listOf("Home", "Safety", "Verification")
+                ),
+                TemplateTaskDef(
+                    title = "Discipline Check",
+                    description = "Daily discipline verification check-in",
+                    category = "Routines",
+                    priority = TaskPriority.HIGH,
+                    durationMinutes = 0,
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Daily Habits",
+                    labels = listOf("Discipline", "Routine")
                 )
             ),
             habits = listOf(
@@ -1418,10 +1428,10 @@ object TemplateCatalog {
                 TemplateHabitDef("Code Quality: Zero-Warning Build", "💻", "Verify Git SHA parity, unit test execution, and release integrity", "21:00", 0xFF9C27B0)
             ),
             shortcuts = listOf(
-                TemplateShortcutDef(ShortcutType.TASK, "101", "Critical Smoke Test", "🧪", 0, 0),
-                TemplateShortcutDef(ShortcutType.HABIT, "102", "Hydration QA", "💧", 1, 0),
-                TemplateShortcutDef(ShortcutType.WATER, "103", "Drink Water", "🌊", 0, 1),
-                TemplateShortcutDef(ShortcutType.CHALLENGE_RULE, "104", "Discipline Check", "🔥", -1, 1)
+                TemplateShortcutDef(ShortcutType.TASK, "critical_smoke_test", "Critical Smoke Test", "🧪", 0, 0),
+                TemplateShortcutDef(ShortcutType.HABIT, "hydration_qa", "Hydration QA", "💧", 1, 0),
+                TemplateShortcutDef(ShortcutType.WATER, "drink_water", "Drink Water", "🌊", 0, 1),
+                TemplateShortcutDef(ShortcutType.TASK, "discipline_check", "Discipline Check", "🔥", -1, 1)
             ),
             projects = listOf(
                 StandardProjects.OFFICE,
@@ -1433,6 +1443,53 @@ object TemplateCatalog {
                 StandardProjects.HOME
             ),
             tags = listOf("dev", "test", "qa", "acceptance", "verification", "smoke")
+        ),
+
+        // 18. Quick Hydration Tracker
+        LifeTemplate(
+            id = "template_quick_hydration_tracker",
+            version = 1,
+            title = "Quick Hydration Tracker",
+            description = "Focused hydration tracker that sets up a 1-tap water logging shortcut on your App QR and home screen widget.",
+            category = TemplateCategory.HEALTH_HYDRATION,
+            emoji = "💧",
+            tasks = listOf(
+                TemplateTaskDef(
+                    title = "Daily Water Goal (2500ml)",
+                    description = "Stay consistently hydrated throughout the day with 250ml intervals",
+                    category = "Health",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "08:00",
+                    durationMinutes = 0,
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Health",
+                    labels = listOf("Hydration", "Water", "Health")
+                )
+            ),
+            habits = listOf(
+                TemplateHabitDef(
+                    title = "Optimal Daily Hydration",
+                    emoji = "💧",
+                    description = "Log 2500ml total water intake every single day",
+                    reminderTime = "09:00",
+                    colorHex = 0xFF0288D1
+                )
+            ),
+            shortcuts = listOf(
+                TemplateShortcutDef(
+                    type = ShortcutType.WATER,
+                    targetId = "water_quick",
+                    title = "Drink Water",
+                    emoji = "💧",
+                    coordQ = 0,
+                    coordR = 0,
+                    customColorHex = 0xFF0288D1
+                )
+            ),
+            projects = listOf(
+                StandardProjects.HEALTH
+            ),
+            tags = listOf("hydration", "water", "health", "tracker", "qr", "widget")
         )
     )
 
@@ -1542,6 +1599,14 @@ object TemplateCatalog {
             emoji = "🧪",
             templateIds = listOf("template_dev_test"),
             bonusXp = 100
+        ),
+        TemplateBundle(
+            id = "bundle_quick_hydration_tracker",
+            title = "Quick Hydration Tracker",
+            description = "Single-purpose hydration logging: instant 1-tap water logging tile for App QR and home screen widgets.",
+            emoji = "💧",
+            templateIds = listOf("template_quick_hydration_tracker"),
+            bonusXp = 50
         )
     )
 

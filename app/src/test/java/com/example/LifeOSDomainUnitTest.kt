@@ -706,11 +706,11 @@ class LifeOSDomainUnitTest {
     @Test
     fun `test template catalog contains 15 templates across all categories and valid definitions`() {
         val templates = TemplateCatalog.list
-        assertEquals(21, templates.size)
+        assertEquals(22, templates.size)
 
         // Ensure IDs are unique
         val ids = templates.map { it.id }.toSet()
-        assertEquals(21, ids.size)
+        assertEquals(22, ids.size)
 
         // Ensure all categories are covered
         val categories = templates.map { it.category }.toSet()
@@ -771,7 +771,7 @@ class LifeOSDomainUnitTest {
 
     @Test
     fun `test template bundles and special collections catalog`() {
-        assertEquals(13, TemplateCatalog.allBundles.size)
+        assertEquals(14, TemplateCatalog.allBundles.size)
         assertEquals(4, TemplateCatalog.allSpecialCollections.size)
 
         // Ensure all bundle template IDs resolve to real templates

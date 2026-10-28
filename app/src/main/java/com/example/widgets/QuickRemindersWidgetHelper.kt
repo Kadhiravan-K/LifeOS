@@ -17,8 +17,8 @@ object QuickRemindersWidgetHelper {
      * - SQUARE (modern rounded rect)
      */
     fun generateTileBitmap(
-        widthPx: Int = 180,
-        heightPx: Int = 180,
+        widthPx: Int = 200,
+        heightPx: Int = 200,
         shape: String = "HEXAGON",
         colorArgb: Int = 0xFF3B82F6.toInt(),
         isCompleted: Boolean = false
@@ -40,7 +40,7 @@ object QuickRemindersWidgetHelper {
 
         val cx = widthPx / 2f
         val cy = heightPx / 2f
-        val padding = 8f
+        val padding = 4f
         val r = (heightPx / 2f) - padding
 
         when (shape.uppercase()) {

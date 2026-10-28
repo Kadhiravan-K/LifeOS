@@ -118,14 +118,17 @@ fun CalendarScreen(
             .filter { it.isNotBlank() }
             .toSet()
     }
-    val datesWithTasks = remember(allTasksList, visibleDates) {
-        val activeTasks = allTasksList.filter { !it.isArchived }
-        visibleDates.filter { dateIso ->
-            activeTasks.any { task ->
-                RecurrenceEngine.isTaskScheduledOnDate(task, dateIso) &&
-                    !RecurrenceEngine.isCompletedOnDate(task, dateIso)
-            }
-        }.toSet()
+    val datesWithTasks = if (uiState.datesWithTasks.isNotEmpty()) {
+        uiState.datesWithTasks
+    } else {
+        remember(allTasksList, visibleDates) {
+            val activeTasks = allTasksList.filter { !it.isArchived }
+            visibleDates.filter { dateIso ->
+                activeTasks.any { task ->
+                    RecurrenceEngine.isTaskScheduledOnDate(task, dateIso)
+                }
+            }.toSet()
+        }
     }
 
     Scaffold(

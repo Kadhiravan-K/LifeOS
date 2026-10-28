@@ -153,8 +153,24 @@ internal class QuickRemindersRemoteViewsFactory(
                         }
                         "CHALLENGE_RULE" -> {
                             typeDefaultColor = 0xFFF59E0BL
-                            isCompleted = todayChallengeLog?.completedRuleIds?.contains(sc.targetId) == true ||
+                            val ruleCompleted = todayChallengeLog?.completedRuleIds?.contains(sc.targetId) == true ||
                                           todayChallengeLog?.completedRuleIds?.contains(sc.title) == true
+                            if (ruleCompleted) {
+                                isCompleted = true
+                            } else {
+                                // Fallback: check if backed by a Task entity (e.g. Discipline Check daily routine)
+                                val matchedTask = tasks.find {
+                                    it.id.toString() == sc.targetId ||
+                                    it.title.equals(sc.targetId, ignoreCase = true) ||
+                                    it.title.equals(sc.title, ignoreCase = true) ||
+                                    it.title.contains(sc.title, ignoreCase = true)
+                                }
+                                if (matchedTask != null) {
+                                    taskId = matchedTask.id
+                                    isCompleted = matchedTask.isOneTimeCompleted ||
+                                                  matchedTask.completedDatesJson.contains(todayIso)
+                                }
+                            }
                         }
                         else -> {
                             typeDefaultColor = 0xFF8B5CF6L
@@ -217,8 +233,8 @@ internal class QuickRemindersRemoteViewsFactory(
                 rv.setTextViewText(titleIds[i], item.title)
 
                 val bitmap = QuickRemindersWidgetHelper.generateTileBitmap(
-                    widthPx = 180,
-                    heightPx = 180,
+                    widthPx = 200,
+                    heightPx = 200,
                     shape = item.shape,
                     colorArgb = item.colorArgb,
                     isCompleted = item.isCompleted
@@ -246,7 +262,9 @@ internal class QuickRemindersRemoteViewsFactory(
         return rv
     }
 
-    override fun getLoadingView(): RemoteViews? = null
+    override fun getLoadingView(): RemoteViews {
+        return RemoteViews(context.packageName, R.layout.widget_qr_loading)
+    }
 
     override fun getViewTypeCount(): Int = 2
 

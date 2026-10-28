@@ -5,14 +5,20 @@
     android:baselineAligned="false"
     android:gravity="center"
     android:orientation="horizontal"
-    android:paddingTop="2dp"
-    android:paddingBottom="2dp">
+    android:paddingTop="1dp"
+    android:paddingBottom="1dp">
+
+    <!-- Left spacer for centered compact honeycomb layout -->
+    <FrameLayout
+        android:layout_width="0dp"
+        android:layout_height="74dp"
+        android:layout_weight="0.4" />
 
     <!-- Tile 0 -->
     <RelativeLayout
         android:id="@+id/tile_0_container"
         android:layout_width="0dp"
-        android:layout_height="72dp"
+        android:layout_height="74dp"
         android:layout_weight="1"
         android:gravity="center"
         android:padding="2dp">
@@ -29,7 +35,7 @@
             android:layout_height="match_parent"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="3dp">
+            android:padding="2dp">
 
             <TextView
                 android:id="@+id/tile_0_emoji"
@@ -37,7 +43,7 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:text="⚡"
-                android:textSize="18sp" />
+                android:textSize="20sp" />
 
             <TextView
                 android:id="@+id/tile_0_title"
@@ -48,7 +54,7 @@
                 android:maxLines="1"
                 android:text="Tile"
                 android:textColor="#FFFFFF"
-                android:textSize="9sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -68,7 +74,7 @@
     <RelativeLayout
         android:id="@+id/tile_1_container"
         android:layout_width="0dp"
-        android:layout_height="72dp"
+        android:layout_height="74dp"
         android:layout_weight="1"
         android:gravity="center"
         android:padding="2dp">
@@ -85,7 +91,7 @@
             android:layout_height="match_parent"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="3dp">
+            android:padding="2dp">
 
             <TextView
                 android:id="@+id/tile_1_emoji"
@@ -93,7 +99,7 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:text="⚡"
-                android:textSize="18sp" />
+                android:textSize="20sp" />
 
             <TextView
                 android:id="@+id/tile_1_title"
@@ -104,7 +110,7 @@
                 android:maxLines="1"
                 android:text="Tile"
                 android:textColor="#FFFFFF"
-                android:textSize="9sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -124,7 +130,7 @@
     <RelativeLayout
         android:id="@+id/tile_2_container"
         android:layout_width="0dp"
-        android:layout_height="72dp"
+        android:layout_height="74dp"
         android:layout_weight="1"
         android:gravity="center"
         android:padding="2dp">
@@ -141,7 +147,7 @@
             android:layout_height="match_parent"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="3dp">
+            android:padding="2dp">
 
             <TextView
                 android:id="@+id/tile_2_emoji"
@@ -149,7 +155,7 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:text="⚡"
-                android:textSize="18sp" />
+                android:textSize="20sp" />
 
             <TextView
                 android:id="@+id/tile_2_title"
@@ -160,7 +166,7 @@
                 android:maxLines="1"
                 android:text="Tile"
                 android:textColor="#FFFFFF"
-                android:textSize="9sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -175,4 +181,10 @@
             android:src="@android:drawable/checkbox_on_background"
             android:visibility="gone" />
     </RelativeLayout>
+
+    <!-- Right spacer for centered compact honeycomb layout -->
+    <FrameLayout
+        android:layout_width="0dp"
+        android:layout_height="74dp"
+        android:layout_weight="0.4" />
 </LinearLayout>

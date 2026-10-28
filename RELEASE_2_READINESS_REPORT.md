@@ -1,13 +1,13 @@
 # LifeOS — Release 2 Readiness Report
 
-**Document Version:** 2.9.0<br>
+**Document Version:** 2.10.0<br>
 **Date:** October 28, 2026<br>
 **Auditor / Lead Engineer:** Antigravity AI<br>
 **Repository:** `https://github.com/Kadhiravan-K/LifeOS`<br>
 **Working Branch:** `recovery/release-2-reconstruction`<br>
 **Base Commit:** `ef2ecab7e8c5e3c7b2398fd97c2cbfa68646d085`<br>
 **Target Release Candidate:** Release 2 (Build 2)<br>
-**Automated Verification Status:** **100% PASS (172/172 Unit, SQLite Migration & Component Tests, 0 Lint Errors, Desugaring L8 Active, APK Assembled)**<br>
+**Automated Verification Status:** **100% PASS (182/182 Unit, SQLite Migration & Component Tests, 0 Lint Errors, Desugaring L8 Active, APK Assembled)**<br>
 **Classification:** **GO FOR PHYSICAL-DEVICE TESTING**<br>
 **Production Release Recommendation:** **NO-GO (HOLD — AWAITING PHYSICAL DEVICE ACCEPTANCE & USER APPROVAL)**<br>
 
@@ -220,16 +220,34 @@ The following tests are marked **PENDING** awaiting physical Android hardware ve
 
 ---
 
-## 14. Version 2 Production Release-Readiness Verification Checklist
+## 14. Mobile Testing Batch 04 — Honeycomb Layout, Widget Sync, Discipline & Recurrence Results
+
+### Defect Resolution Summary
+
+| Issue ID | Title | Priority | Root Cause | Fix Implemented | Automated Tests | Physical Device Status |
+|---|---|---|---|---|---|---|
+| **BATCH04-WID-01** | Matching Honeycomb Layouts | P1 | RemoteViews ListView had `dividerHeight="3dp"` + row padding 4dp = 7dp vertical gap; tile shapes were 113dp wide with `fitCenter` on 180x180 bitmaps creating ~53dp horizontal gaps; `getLoadingView()` returning `null` triggered Android's default "Loading..." text placeholder. | Redesigned `widget_qr_row_3.xml` and `widget_qr_row_2.xml` with compact honeycomb weights (Row 3: 0.4 / 1.0 / 1.0 / 1.0 / 0.4; Row 2: 0.9 / 1.0 / 1.0 / 0.9), 74dp height, 1dp padding; increased tile bitmap resolution to 200x200 with 4f padding in `QuickRemindersWidgetHelper`; added `widget_qr_loading.xml` with zero-height layout eliminating "Loading..." placeholder; replaced `<View>` spacers with RemoteViews-compliant `<FrameLayout>`. | **PASS** (`Batch04MobileTestingRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **BATCH04-WID-02** | Real-Time App QR ↔ Widget Synchronization | P0 | `QuickRemindersWidgetProvider.notifyDataChanged` was only called on widget task toggling, never when shortcuts were inserted, removed, reordered, edited in App QR, or when templates were installed. | Created centralized `WidgetRefreshCoordinator` and wired it into all App QR mutations (`toggleHoneycombShortcut`, `addHoneycombShortcut`, `removeHoneycombShortcut`, `updateHoneycombShortcutIcon`, `updateHoneycombShortcutColor`, `updateHoneycombShortcutShape`, `reorderHoneycombShortcuts`, `swapHoneycombShortcuts`, `moveHoneycombShortcutToCoord`, `resetHoneycombLayoutToDefault`, `applyHoneycombTemplate`, `saveTaskItem`, `deleteTask`, `toggleHabit`, `addWater`, `toggleChallengeRule`, `installTemplate`). Broadcasts in `QuickRemindersWidgetProvider` update Room and refresh all widgets. | **PASS** (`Batch04MobileTestingRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **BATCH04-QR-03** | Discipline QR Idempotency & Zero Duplicate Tasks | P0 (Data Integrity) | In `LifeViewModel.toggleHoneycombShortcut`, unlinked `CHALLENGE_RULE` fallback inserted a new TaskItem on every single tap without checking if an existing task existed, and never persisted the newly created task ID to the shortcut's `targetId`. Concurrent rapid taps lacked a mutex, inserting multiple duplicate tasks. Default `durationMinutes = 30` interfered with calendar planning. | Implemented `repository.getOrCreateTaskForShortcut(...)` for atomic task lookup and insertion with `durationMinutes = 0, isAllDay = true, category = "Routines", recurrenceType = RecurrenceType.DAILY`. Added 250ms debounce and coroutine `Mutex` serialization in `toggleHoneycombShortcut`. Persisted resolved task ID to Room `shortcut.targetId`. Added `getDuplicateDisciplineTasks()` and `cleanupDuplicateDisciplineTasks()`. Resolved fallback rule completion in both App QR and widget. | **PASS** (`Batch04MobileTestingRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **BATCH04-TPL-04** | Standalone Quick Hydration Tracker Template | P1 | Hydration tracking was embedded in complex multi-task bundles; no single-purpose hydration tracker template existed for instant 1-tap QR/widget setup. | Created dedicated `template_quick_hydration_tracker` (Category: `HEALTH_HYDRATION`, emoji: "💧") with exactly 1 `WATER` shortcut (`ShortcutType.WATER`, title: "Drink Water"), standard `Health` project, and zero unrelated discipline/cleaning/reading tasks. Added `bundle_quick_hydration_tracker` to `TemplateCatalog.allBundles`. | **PASS** (`Batch04MobileTestingRegressionUnitTest`, `LifeOSDomainUnitTest`) | **PENDING — DEVICE REQUIRED** |
+| **BATCH04-CAL-05** | Daily Recurring Task Calendar Dots | P1 | In `CalendarScreen.kt`, `datesWithTasks` included `!RecurrenceEngine.isCompletedOnDate(task, dateIso)`, which erased dots from the calendar grid as soon as a daily task was completed. Dots were also computed in local `remember` from `viewModel.allTasks` instead of reactive StateFlow. | Removed `!isCompletedOnDate` filter so scheduled tasks retain their dots regardless of completion state. Added `datesWithTasks: Set<String>` to `CalendarUiState` computed reactively in ViewModel from `repository.allTasksFlow` across all visible grid dates. Verified daily recurring task scheduled Oct 25..31 displays dots on all 7 dates, no dots on Oct 24 or Nov 01, and retains dot when completed on Oct 26. | **PASS** (`Batch04MobileTestingRegressionUnitTest`) | **PENDING — DEVICE REQUIRED** |
+
+- **Unit Tests:** 182/182 passed (+10 new tests in `Batch04MobileTestingRegressionUnitTest`).
+- **Lint:** 0 errors.
+
+---
+
+## 15. Version 2 Production Release-Readiness Verification Checklist
 
 | Verification Category | Requirement | Current Status | Evidence / Notes |
 | :--- | :--- | :---: | :--- |
-| **1. Critical Mobile Issues** | All reported issues across mobile testing batches resolved. | **PASS** | 14/14 defects resolved across Batch 01 (HOME-01..03), Batch 02 (TASK-01..02, CAL-01), Batch 03 (SET-01..07, WID-01), plus Release 2 Logo, Dev Test Bundle, and 36 Component Previews. |
-| **2. Automated Test Suite** | 100% test pass rate across all test classes, 0 failures, 0 errors. | **PASS** | 172/172 unit tests passing; AndroidTest compilation cleanly builds. |
+| **1. Critical Mobile Issues** | All reported issues across mobile testing batches resolved. | **PASS** | 19/19 defects resolved across Batch 01 (HOME-01..03), Batch 02 (TASK-01..02, CAL-01), Batch 03 (SET-01..07, WID-01), Batch 04 (WID-01, WID-02, QR-03, TPL-04, CAL-05), plus Release 2 Logo, Dev Test Bundle, and 36 Component Previews. |
+| **2. Automated Test Suite** | 100% test pass rate across all test classes, 0 failures, 0 errors. | **PASS** | 182/182 unit tests passing; AndroidTest compilation cleanly builds. |
 | **3. Physical-Device Testing** | Physical execution of PD-01 through PD-09 on authorized Android hardware. | **PENDING** | Device check pending physical device connection and authorization. |
-| **4. Database & User Data** | Room schema continuity and preservation of existing user data across upgrades. | **PASS** | Schema v10 with migrations 1->2 through 9->10 verified via `RoomMigrationRobolectricUnitTest`. Existing user databases preserved without data wipe. |
-| **5. Widgets & Reminders** | Launcher Quick Reminders widget geometry, tap dispatch, and alarm notifications. | **PASS (Automated)** / **PENDING (Physical)** | Axial hex math, row staggering, and PendingIntent isolation verified via unit tests; physical launcher rendering awaits hardware check. |
+| **4. Database & User Data** | Room schema continuity and preservation of existing user data across upgrades. | **PASS** | Schema v10 with migrations 1->2 through 9->10 verified via `RoomMigrationRobolectricUnitTest`. Existing user databases preserved without data wipe. Deduplication cleanup helper available without destructive loss. |
+| **5. Widgets & Reminders** | Launcher Quick Reminders widget geometry, tap dispatch, and alarm notifications. | **PASS (Automated)** / **PENDING (Physical)** | Axial hex math, row staggering, PendingIntent isolation, and real-time bi-directional sync coordinator verified via unit tests; physical launcher rendering awaits hardware check. |
 | **6. Versioning & Signing** | Application ID, version codes, and keystore security preserved. | **PASS** | `versionCode = 2`, `versionName = "1.1.0"`, package `com.aistudio.lifeos.vtrqkx`. Private keystores strictly withheld from Git. Release built in unsigned format. |
-| **7. Release Notes & Checksums** | Release notes prepared with verified SHA-256 build checksums. | **PASS** | Debug APK: `BA65104A...` (23.27 MB), Release APK: `851B138B...` (15.02 MB). Comprehensive release notes documented. |
+| **7. Release Notes & Checksums** | Release notes prepared with verified SHA-256 build checksums. | **PASS** | Debug APK: `A508C51D...` (23.94 MB), Release APK: `7C437117...` (15.02 MB). Comprehensive release notes documented. |
 | **OVERALL RECOMMENDATION** | Final approval to merge, tag, and publish LifeOS Version 2. | **NO-GO (HOLD)** | Codebase and automated pipeline are 100% verified. Publication held pending physical device acceptance and explicit user authorization. |
+
 
