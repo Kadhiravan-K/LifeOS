@@ -268,7 +268,13 @@ internal class QuickRemindersRemoteViewsFactory(
 
     override fun getViewTypeCount(): Int = 2
 
-    override fun getItemId(position: Int): Long = position.toLong()
+    /**
+     * RC-8 fix: Returns the shortcutId of the first item in the row for stable ID semantics.
+     * Using position as ID was incorrect since position changes when data is reordered.
+     */
+    override fun getItemId(position: Int): Long {
+        return widgetRows.getOrNull(position)?.items?.firstOrNull()?.shortcutId ?: position.toLong()
+    }
 
     override fun hasStableIds(): Boolean = true
 }
