@@ -33,6 +33,9 @@ import com.example.utils.DateUtils
 import com.example.ui.theme.engine.ThemeDefinition
 import com.example.ui.theme.engine.ThemeId
 import com.example.ui.theme.engine.ThemeRegistry
+import com.example.ui.theme.engine.AnimationSpeed
+import com.example.ui.theme.engine.CustomColorPalette
+import com.example.ui.theme.engine.IndependentThemeCustomization
 import com.example.ui.theme.engine.PremiumEntitlementRepository
 import com.example.ui.theme.engine.LocalPremiumEntitlementRepository
 import com.example.domain.model.PlanItem
@@ -365,6 +368,32 @@ class LifeViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = "default"
+    )
+
+    val animationSpeedMultiplierFlow: StateFlow<Float> = preferences.animationSpeedMultiplier.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 1.0f
+    )
+
+    val animationSpeedFlow: StateFlow<AnimationSpeed> = preferences.animationSpeedMultiplier
+        .map { AnimationSpeed.fromMultiplier(it) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = AnimationSpeed.NORMAL
+        )
+
+    val customColorsEnabledFlow: StateFlow<Boolean> = preferences.customColorsEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val independentThemeCustomizationFlow: StateFlow<IndependentThemeCustomization> = preferences.independentThemeCustomization.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = IndependentThemeCustomization()
     )
 
     // Legal Consent Flows (Requirement #22)
@@ -1865,6 +1894,36 @@ class LifeViewModel(
 
     fun isThemeUnlocked(themeId: ThemeId): Boolean {
         return entitlementRepo.isThemeUnlocked(themeId, isPremiumActive.value)
+    }
+
+    fun setAnimationSpeed(speed: AnimationSpeed) {
+        viewModelScope.launch {
+            preferences.setAnimationSpeedMultiplier(speed.multiplier)
+        }
+    }
+
+    fun setAnimationSpeedMultiplier(multiplier: Float) {
+        viewModelScope.launch {
+            preferences.setAnimationSpeedMultiplier(multiplier)
+        }
+    }
+
+    fun setCustomColorsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setCustomColorsEnabled(enabled)
+        }
+    }
+
+    fun updateCustomColor(isLightMode: Boolean, slot: String, colorHex: Long?) {
+        viewModelScope.launch {
+            preferences.updateCustomColor(isLightMode, slot, colorHex)
+        }
+    }
+
+    fun resetCustomColors(isLightMode: Boolean? = null) {
+        viewModelScope.launch {
+            preferences.resetCustomPalette(isLightMode)
+        }
     }
 
     fun updateWaterGoal(goalMl: Int) {

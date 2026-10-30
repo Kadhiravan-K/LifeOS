@@ -75,10 +75,14 @@ class MainActivity : ComponentActivity() {
             }
 
             val isLegalConsentComplete by viewModel.isLegalConsentComplete.collectAsStateWithLifecycle()
+            val animationSpeed by viewModel.animationSpeedFlow.collectAsStateWithLifecycle()
+            val themeCustomization by viewModel.independentThemeCustomizationFlow.collectAsStateWithLifecycle()
 
             com.example.ui.theme.engine.LifeOSThemeProvider(
                 theme = activeThemeDef,
-                isLightMode = !isDark
+                isLightMode = !isDark,
+                animationSpeed = animationSpeed,
+                customization = themeCustomization
             ) {
                 com.example.ui.theme.engine.ThemedAtmosphereBackground {
                     if (!isLegalConsentComplete) {

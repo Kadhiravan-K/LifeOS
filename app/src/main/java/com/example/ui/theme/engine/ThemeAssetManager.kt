@@ -260,4 +260,64 @@ object ThemeAssetManager {
             }
         }
     }
+
+    /**
+     * Draws a rotating Glass Prismatic Refraction crystal with specular dispersion rays.
+     */
+    fun drawPrismRefraction(
+        scope: DrawScope,
+        center: Offset,
+        radius: Float,
+        rotationDegrees: Float,
+        primaryCyan: Color,
+        secondaryViolet: Color
+    ) {
+        scope.apply {
+            // Outer specular ring
+            drawCircle(
+                color = Color.White.copy(alpha = 0.35f),
+                radius = radius,
+                center = center,
+                style = Stroke(width = 1.5f)
+            )
+
+            // Refractive hexagon prism
+            rotate(rotationDegrees, pivot = center) {
+                val hexPath = Path()
+                for (i in 0 until 6) {
+                    val angle = Math.toRadians((i * 60.0))
+                    val px = center.x + radius * 0.75f * cos(angle).toFloat()
+                    val py = center.y + radius * 0.75f * sin(angle).toFloat()
+                    if (i == 0) hexPath.moveTo(px, py) else hexPath.lineTo(px, py)
+                }
+                hexPath.close()
+
+                drawPath(
+                    path = hexPath,
+                    color = primaryCyan.copy(alpha = 0.7f),
+                    style = Stroke(width = 2f)
+                )
+
+                // Refraction spokes
+                for (i in 0 until 6) {
+                    val angle = Math.toRadians((i * 60.0))
+                    val px = center.x + radius * 0.75f * cos(angle).toFloat()
+                    val py = center.y + radius * 0.75f * sin(angle).toFloat()
+                    drawLine(
+                        color = secondaryViolet.copy(alpha = 0.5f),
+                        start = center,
+                        end = Offset(px, py),
+                        strokeWidth = 1.2f
+                    )
+                }
+            }
+
+            // Central specular lens node
+            drawCircle(
+                color = Color.White.copy(alpha = 0.85f),
+                radius = radius * 0.18f,
+                center = center
+            )
+        }
+    }
 }

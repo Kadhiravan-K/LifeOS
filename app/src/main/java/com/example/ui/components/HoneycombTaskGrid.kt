@@ -648,6 +648,14 @@ fun HoneycombCell(
                         style = Stroke(width = 1f)
                     )
                 }
+                com.example.ui.theme.engine.HoneycombEngravingType.PRISM -> {
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.3f),
+                        radius = r * 0.78f,
+                        center = Offset(cx, cy),
+                        style = Stroke(width = 1f)
+                    )
+                }
                 com.example.ui.theme.engine.HoneycombEngravingType.MINIMAL -> {}
             }
 

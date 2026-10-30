@@ -5,7 +5,8 @@ enum class HoneycombEngravingType {
     RUNE,
     CIRCUIT,
     COMPASS_BADGE,
-    ORBITAL
+    ORBITAL,
+    PRISM
 }
 
 data class ThemeDefinition(

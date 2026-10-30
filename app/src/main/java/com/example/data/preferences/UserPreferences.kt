@@ -3,6 +3,7 @@ package com.example.data.preferences
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -10,6 +11,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.example.domain.legal.LegalConsentManager
 import com.example.domain.legal.LegalDocuments
 import com.example.domain.model.DashboardShape
+import com.example.ui.theme.engine.CustomColorPalette
+import com.example.ui.theme.engine.IndependentThemeCustomization
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -97,6 +100,26 @@ class UserPreferences(private val context: Context) {
         val KEY_ACCEPTED_TERMS_VERSION = stringPreferencesKey("accepted_terms_version")
         val KEY_ACCEPTED_PRIVACY_VERSION = stringPreferencesKey("accepted_privacy_version")
         val KEY_TERMS_ACCEPTED_TIMESTAMP = longPreferencesKey("terms_accepted_timestamp")
+
+        // Release 3 Phase 2 Preferences (#4, #23)
+        val KEY_ANIMATION_SPEED_MULTIPLIER = floatPreferencesKey("animation_speed_multiplier")
+        val KEY_CUSTOM_COLORS_ENABLED = booleanPreferencesKey("custom_colors_enabled")
+
+        // Light mode custom colors (Stored as Long ARGB)
+        val KEY_CUSTOM_LIGHT_PRIMARY = longPreferencesKey("custom_light_primary")
+        val KEY_CUSTOM_LIGHT_SECONDARY = longPreferencesKey("custom_light_secondary")
+        val KEY_CUSTOM_LIGHT_ACCENT = longPreferencesKey("custom_light_accent")
+        val KEY_CUSTOM_LIGHT_CARD = longPreferencesKey("custom_light_card")
+        val KEY_CUSTOM_LIGHT_SURFACE = longPreferencesKey("custom_light_surface")
+        val KEY_CUSTOM_LIGHT_BACKGROUND = longPreferencesKey("custom_light_background")
+
+        // Dark mode custom colors (Stored as Long ARGB)
+        val KEY_CUSTOM_DARK_PRIMARY = longPreferencesKey("custom_dark_primary")
+        val KEY_CUSTOM_DARK_SECONDARY = longPreferencesKey("custom_dark_secondary")
+        val KEY_CUSTOM_DARK_ACCENT = longPreferencesKey("custom_dark_accent")
+        val KEY_CUSTOM_DARK_CARD = longPreferencesKey("custom_dark_card")
+        val KEY_CUSTOM_DARK_SURFACE = longPreferencesKey("custom_dark_surface")
+        val KEY_CUSTOM_DARK_BACKGROUND = longPreferencesKey("custom_dark_background")
     }
 
     // Legal Consent Flows
@@ -133,6 +156,36 @@ class UserPreferences(private val context: Context) {
 
     val activeThemeId: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[KEY_ACTIVE_THEME_ID] ?: "default"
+    }
+
+    val animationSpeedMultiplier: Flow<Float> = context.dataStore.data.map { preferences ->
+        preferences[KEY_ANIMATION_SPEED_MULTIPLIER] ?: 1.0f
+    }
+
+    val customColorsEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_CUSTOM_COLORS_ENABLED] ?: false
+    }
+
+    val independentThemeCustomization: Flow<IndependentThemeCustomization> = context.dataStore.data.map { preferences ->
+        IndependentThemeCustomization(
+            isEnabled = preferences[KEY_CUSTOM_COLORS_ENABLED] ?: false,
+            lightPalette = CustomColorPalette(
+                primaryHex = preferences[KEY_CUSTOM_LIGHT_PRIMARY],
+                secondaryHex = preferences[KEY_CUSTOM_LIGHT_SECONDARY],
+                accentHex = preferences[KEY_CUSTOM_LIGHT_ACCENT],
+                cardHex = preferences[KEY_CUSTOM_LIGHT_CARD],
+                surfaceHex = preferences[KEY_CUSTOM_LIGHT_SURFACE],
+                backgroundHex = preferences[KEY_CUSTOM_LIGHT_BACKGROUND]
+            ),
+            darkPalette = CustomColorPalette(
+                primaryHex = preferences[KEY_CUSTOM_DARK_PRIMARY],
+                secondaryHex = preferences[KEY_CUSTOM_DARK_SECONDARY],
+                accentHex = preferences[KEY_CUSTOM_DARK_ACCENT],
+                cardHex = preferences[KEY_CUSTOM_DARK_CARD],
+                surfaceHex = preferences[KEY_CUSTOM_DARK_SURFACE],
+                backgroundHex = preferences[KEY_CUSTOM_DARK_BACKGROUND]
+            )
+        )
     }
 
     val waterGoalMl: Flow<Int> = context.dataStore.data.map { preferences ->
@@ -589,6 +642,60 @@ class UserPreferences(private val context: Context) {
             preferences[KEY_ACCEPTED_TERMS_VERSION] = termsVersion
             preferences[KEY_ACCEPTED_PRIVACY_VERSION] = privacyVersion
             preferences[KEY_TERMS_ACCEPTED_TIMESTAMP] = timestamp
+        }
+    }
+
+    suspend fun setAnimationSpeedMultiplier(multiplier: Float) {
+        context.dataStore.edit { it[KEY_ANIMATION_SPEED_MULTIPLIER] = multiplier }
+    }
+
+    suspend fun setCustomColorsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_CUSTOM_COLORS_ENABLED] = enabled }
+    }
+
+    suspend fun updateCustomColor(
+        isLightMode: Boolean,
+        slot: String,
+        colorHex: Long?
+    ) {
+        context.dataStore.edit { prefs ->
+            val key = when (slot.lowercase()) {
+                "primary" -> if (isLightMode) KEY_CUSTOM_LIGHT_PRIMARY else KEY_CUSTOM_DARK_PRIMARY
+                "secondary" -> if (isLightMode) KEY_CUSTOM_LIGHT_SECONDARY else KEY_CUSTOM_DARK_SECONDARY
+                "accent" -> if (isLightMode) KEY_CUSTOM_LIGHT_ACCENT else KEY_CUSTOM_DARK_ACCENT
+                "card" -> if (isLightMode) KEY_CUSTOM_LIGHT_CARD else KEY_CUSTOM_DARK_CARD
+                "surface" -> if (isLightMode) KEY_CUSTOM_LIGHT_SURFACE else KEY_CUSTOM_DARK_SURFACE
+                "background" -> if (isLightMode) KEY_CUSTOM_LIGHT_BACKGROUND else KEY_CUSTOM_DARK_BACKGROUND
+                else -> null
+            }
+            if (key != null) {
+                if (colorHex != null) {
+                    prefs[key] = colorHex
+                } else {
+                    prefs.remove(key)
+                }
+            }
+        }
+    }
+
+    suspend fun resetCustomPalette(isLightMode: Boolean? = null) {
+        context.dataStore.edit { prefs ->
+            if (isLightMode == null || isLightMode) {
+                prefs.remove(KEY_CUSTOM_LIGHT_PRIMARY)
+                prefs.remove(KEY_CUSTOM_LIGHT_SECONDARY)
+                prefs.remove(KEY_CUSTOM_LIGHT_ACCENT)
+                prefs.remove(KEY_CUSTOM_LIGHT_CARD)
+                prefs.remove(KEY_CUSTOM_LIGHT_SURFACE)
+                prefs.remove(KEY_CUSTOM_LIGHT_BACKGROUND)
+            }
+            if (isLightMode == null || !isLightMode) {
+                prefs.remove(KEY_CUSTOM_DARK_PRIMARY)
+                prefs.remove(KEY_CUSTOM_DARK_SECONDARY)
+                prefs.remove(KEY_CUSTOM_DARK_ACCENT)
+                prefs.remove(KEY_CUSTOM_DARK_CARD)
+                prefs.remove(KEY_CUSTOM_DARK_SURFACE)
+                prefs.remove(KEY_CUSTOM_DARK_BACKGROUND)
+            }
         }
     }
 

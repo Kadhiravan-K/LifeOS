@@ -139,6 +139,7 @@ fun ThemedLoadingIndicator(
     size: Dp = 64.dp
 ) {
     val theme = LocalLifeTheme.current
+    val speed = LocalLifeAnimationSpeed.current
 
     if (theme.id == ThemeId.DEFAULT) {
         CircularProgressIndicator(
@@ -149,12 +150,32 @@ fun ThemedLoadingIndicator(
         return
     }
 
+    if (speed == AnimationSpeed.OFF) {
+        // Safe static rendering when animation speed is Off
+        Canvas(modifier = modifier.size(size)) {
+            val centerOffset = Offset(size.toPx() / 2f, size.toPx() / 2f)
+            val radius = (size.toPx() / 2f) * 0.85f
+            when (theme.id) {
+                ThemeId.ARCANE_ACADEMY -> ThemeAssetManager.drawArcaneSigil(this, centerOffset, radius, 0f, theme.colors.primary, theme.colors.secondary)
+                ThemeId.CYBER_NEXUS -> ThemeAssetManager.drawCyberGrid(this, size.toPx(), size.toPx(), 0.5f, theme.colors.primary, theme.colors.outline)
+                ThemeId.ADVENTURE_REALM -> ThemeAssetManager.drawFantasyCompass(this, centerOffset, radius, 0f, theme.colors.primary, theme.colors.secondary)
+                ThemeId.COSMIC_EXPLORER -> ThemeAssetManager.drawCosmicOrbits(this, centerOffset, radius, 0.5f, theme.colors.primary, theme.colors.secondary)
+                ThemeId.GLASS -> ThemeAssetManager.drawPrismRefraction(this, centerOffset, radius, 0f, theme.colors.primary, theme.colors.secondary)
+                ThemeId.DEFAULT -> {}
+            }
+        }
+        return
+    }
+
+    val rotationDuration = speed.calculateDuration(2400)
+    val scanDuration = speed.calculateDuration(1800)
+
     val infiniteTransition = rememberInfiniteTransition(label = "theme_loading")
     val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2400, easing = LinearEasing),
+            animation = tween(durationMillis = rotationDuration, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "rotation"
@@ -164,7 +185,7 @@ fun ThemedLoadingIndicator(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1800, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = scanDuration, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "scan_progress"
@@ -213,6 +234,16 @@ fun ThemedLoadingIndicator(
                     orbitProgress = scanProgress,
                     starColor = theme.colors.primary,
                     nebulaColor = theme.colors.secondary
+                )
+            }
+            ThemeId.GLASS -> {
+                ThemeAssetManager.drawPrismRefraction(
+                    scope = this,
+                    center = centerOffset,
+                    radius = radius,
+                    rotationDegrees = rotation,
+                    primaryCyan = theme.colors.primary,
+                    secondaryViolet = theme.colors.secondary
                 )
             }
             ThemeId.DEFAULT -> {}

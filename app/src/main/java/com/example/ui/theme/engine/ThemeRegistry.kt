@@ -299,12 +299,68 @@ object ThemeRegistry {
         honeycombEngraving = HoneycombEngravingType.ORBITAL
     )
 
+    val GLASS_THEME = ThemeDefinition(
+        id = ThemeId.GLASS,
+        name = "Glassmorphism",
+        subtitle = "Frosted Specular Elegance",
+        description = "Translucent frosted surfaces, layered glass panels, specular edge reflections, and subtle refractive prismatic motifs.",
+        isPremium = true,
+        colors = ThemeColors(
+            primary = Color(0xFF38BDF8), // Specular cyan
+            onPrimary = Color(0xFF0F172A),
+            secondary = Color(0xFF818CF8), // Prismatic violet
+            onSecondary = Color(0xFF0F172A),
+            accent = Color(0xFF34D399), // Mint frost
+            background = Color(0xFF080C14), // Deep obsidian frost
+            surface = Color(0x80131E32), // Translucent frosted surface
+            surfaceVariant = Color(0x991E293B), // Translucent raised layer
+            onBackground = Color(0xFFF1F5F9),
+            onSurface = Color(0xFFF8FAFC),
+            onSurfaceVariant = Color(0xFFCBD5E1),
+            outline = Color(0x40FFFFFF), // Specular white highlight
+            glowColor = Color(0x4038BDF8),
+            gradientPrimary = listOf(Color(0xFF0EA5E9), Color(0xFF818CF8)),
+            gradientSurface = listOf(Color(0x661E293B), Color(0x330F172A)),
+            honeycombBorder = Color(0x8038BDF8),
+            honeycombDefaultFill = Color(0xFF0EA5E9),
+            badgeBackground = Color(0x66334155),
+            isDarkPalette = true
+        ),
+        typography = ThemeTypography.createDefault(FontFamily.SansSerif),
+        shapes = ThemeShapes(
+            cardShape = RoundedCornerShape(20.dp),
+            buttonShape = RoundedCornerShape(14.dp),
+            chipShape = RoundedCornerShape(10.dp),
+            dialogShape = RoundedCornerShape(24.dp),
+            borderWidth = 1.dp,
+            cornerRadiusDp = 20.dp,
+            isAngularCyber = false,
+            isGlass = true
+        ),
+        motion = ThemeMotion(
+            animationDurationMs = 260,
+            enableParticleEffects = true,
+            enableAtmosphereGlow = true,
+            bounceStiffness = 280f
+        ),
+        decoration = ThemeDecoration(
+            motifEmoji = "💎",
+            tagline = "Clarity through translucent focus",
+            taskSectionTitle = "Focus Panes",
+            habitsSectionTitle = "Refractive Habit Streaks",
+            challengeSectionTitle = "75-Day Prism Mastery",
+            honeycombTitle = "💎 Prism QR — Quick Reminders"
+        ),
+        honeycombEngraving = HoneycombEngravingType.PRISM
+    )
+
     val allThemes: List<ThemeDefinition> = listOf(
         DEFAULT_THEME,
         ARCANE_ACADEMY,
         CYBER_NEXUS,
         ADVENTURE_REALM,
-        COSMIC_EXPLORER
+        COSMIC_EXPLORER,
+        GLASS_THEME
     )
 
     fun getTheme(id: ThemeId): ThemeDefinition {

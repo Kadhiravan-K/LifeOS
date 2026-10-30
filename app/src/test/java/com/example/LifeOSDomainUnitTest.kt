@@ -491,7 +491,7 @@ class LifeOSDomainUnitTest {
     @Test
     fun `test theme registry contains all five complete theme definitions`() {
         val themes = ThemeRegistry.allThemes
-        assertEquals(5, themes.size)
+        assertEquals(6, themes.size)
 
         val defaultTheme = ThemeRegistry.getTheme(ThemeId.DEFAULT)
         assertEquals("LifeOS Minimal", defaultTheme.name)
@@ -521,6 +521,12 @@ class LifeOSDomainUnitTest {
         assertTrue(cosmic.isPremium)
         assertEquals(HoneycombEngravingType.ORBITAL, cosmic.honeycombEngraving)
         assertEquals("Mission Directives", cosmic.decoration.taskSectionTitle)
+
+        val glass = ThemeRegistry.getTheme(ThemeId.GLASS)
+        assertEquals("Glassmorphism", glass.name)
+        assertTrue(glass.isPremium)
+        assertEquals(HoneycombEngravingType.PRISM, glass.honeycombEngraving)
+        assertEquals("Focus Panes", glass.decoration.taskSectionTitle)
     }
 
     @Test

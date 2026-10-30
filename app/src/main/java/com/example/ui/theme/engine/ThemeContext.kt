@@ -32,20 +32,51 @@ import com.example.ui.theme.Typography
 
 val LocalLifeTheme = staticCompositionLocalOf { ThemeRegistry.DEFAULT_THEME }
 val LocalLifeAnimationSpeed = staticCompositionLocalOf { AnimationSpeed.NORMAL }
+val LocalLifeCustomization = staticCompositionLocalOf { IndependentThemeCustomization() }
+
+/**
+ * Creates a copy of ThemeDefinition with overridden colors from a CustomColorPalette.
+ */
+fun ThemeDefinition.withCustomPalette(palette: CustomColorPalette): ThemeDefinition {
+    if (!palette.isCustomized) return this
+    val newColors = colors.copy(
+        primary = palette.getPrimaryColor(colors.primary),
+        secondary = palette.getSecondaryColor(colors.secondary),
+        accent = palette.getAccentColor(colors.accent),
+        background = palette.getBackgroundColor(colors.background),
+        surface = palette.getSurfaceColor(colors.surface),
+        surfaceVariant = palette.cardHex?.let { Color(it) } ?: colors.surfaceVariant
+    )
+    return this.copy(colors = newColors)
+}
 
 /**
  * Maps a ThemeDefinition to Material 3 ColorScheme to maintain 100% interoperability with all M3 components.
  */
-fun ThemeDefinition.toMaterial3ColorScheme(isLightMode: Boolean = false): ColorScheme {
+fun ThemeDefinition.toMaterial3ColorScheme(
+    isLightMode: Boolean = false,
+    customPalette: CustomColorPalette? = null
+): ColorScheme {
+    val effectiveTheme = if (customPalette != null && customPalette.isCustomized) {
+        withCustomPalette(customPalette)
+    } else this
+
     if (id == ThemeId.DEFAULT && isLightMode) {
+        val basePrimary = customPalette?.getPrimaryColor(PrimaryLight) ?: PrimaryLight
+        val baseSecondary = customPalette?.getSecondaryColor(SecondaryLight) ?: SecondaryLight
+        val baseTertiary = customPalette?.getAccentColor(AccentAmberLight) ?: AccentAmberLight
+        val baseBg = customPalette?.getBackgroundColor(SlateBackgroundLight) ?: SlateBackgroundLight
+        val baseSurface = customPalette?.getSurfaceColor(SlateSurfaceLight) ?: SlateSurfaceLight
+        val baseSurfaceVariant = customPalette?.cardHex?.let { Color(it) } ?: SlateSurfaceVariantLight
+
         return lightColorScheme(
-            primary = PrimaryLight,
+            primary = basePrimary,
             onPrimary = OnPrimaryLight,
-            secondary = SecondaryLight,
-            tertiary = AccentAmberLight,
-            background = SlateBackgroundLight,
-            surface = SlateSurfaceLight,
-            surfaceVariant = SlateSurfaceVariantLight,
+            secondary = baseSecondary,
+            tertiary = baseTertiary,
+            background = baseBg,
+            surface = baseSurface,
+            surfaceVariant = baseSurfaceVariant,
             onBackground = OnSurfaceLight,
             onSurface = OnSurfaceLight,
             onSurfaceVariant = OnSurfaceVariantLight,
@@ -54,14 +85,21 @@ fun ThemeDefinition.toMaterial3ColorScheme(isLightMode: Boolean = false): ColorS
     }
 
     if (id == ThemeId.DEFAULT) {
+        val basePrimary = customPalette?.getPrimaryColor(PrimaryDark) ?: PrimaryDark
+        val baseSecondary = customPalette?.getSecondaryColor(SecondaryDark) ?: SecondaryDark
+        val baseTertiary = customPalette?.getAccentColor(AccentAmberDark) ?: AccentAmberDark
+        val baseBg = customPalette?.getBackgroundColor(SlateBackgroundDark) ?: SlateBackgroundDark
+        val baseSurface = customPalette?.getSurfaceColor(SlateSurfaceDark) ?: SlateSurfaceDark
+        val baseSurfaceVariant = customPalette?.cardHex?.let { Color(it) } ?: SlateSurfaceVariantDark
+
         return darkColorScheme(
-            primary = PrimaryDark,
+            primary = basePrimary,
             onPrimary = OnPrimaryDark,
-            secondary = SecondaryDark,
-            tertiary = AccentAmberDark,
-            background = SlateBackgroundDark,
-            surface = SlateSurfaceDark,
-            surfaceVariant = SlateSurfaceVariantDark,
+            secondary = baseSecondary,
+            tertiary = baseTertiary,
+            background = baseBg,
+            surface = baseSurface,
+            surfaceVariant = baseSurfaceVariant,
             onBackground = OnSurfaceDark,
             onSurface = OnSurfaceDark,
             onSurfaceVariant = OnSurfaceVariantDark,
@@ -71,17 +109,17 @@ fun ThemeDefinition.toMaterial3ColorScheme(isLightMode: Boolean = false): ColorS
 
     // Immersive themes map their bespoke color palettes into M3 tokens
     return darkColorScheme(
-        primary = colors.primary,
-        onPrimary = colors.onPrimary,
-        secondary = colors.secondary,
-        tertiary = colors.accent,
-        background = colors.background,
-        surface = colors.surface,
-        surfaceVariant = colors.surfaceVariant,
-        onBackground = colors.onBackground,
-        onSurface = colors.onSurface,
-        onSurfaceVariant = colors.onSurfaceVariant,
-        outline = colors.outline
+        primary = effectiveTheme.colors.primary,
+        onPrimary = effectiveTheme.colors.onPrimary,
+        secondary = effectiveTheme.colors.secondary,
+        tertiary = effectiveTheme.colors.accent,
+        background = effectiveTheme.colors.background,
+        surface = effectiveTheme.colors.surface,
+        surfaceVariant = effectiveTheme.colors.surfaceVariant,
+        onBackground = effectiveTheme.colors.onBackground,
+        onSurface = effectiveTheme.colors.onSurface,
+        onSurfaceVariant = effectiveTheme.colors.onSurfaceVariant,
+        outline = effectiveTheme.colors.outline
     )
 }
 
@@ -90,13 +128,21 @@ fun LifeOSThemeProvider(
     theme: ThemeDefinition,
     isLightMode: Boolean = false,
     animationSpeed: AnimationSpeed = AnimationSpeed.NORMAL,
+    customization: IndependentThemeCustomization = IndependentThemeCustomization(),
     content: @Composable () -> Unit
 ) {
-    val m3ColorScheme = theme.toMaterial3ColorScheme(isLightMode = isLightMode)
+    val activePalette = if (customization.isEnabled) customization.getActivePalette(isLightMode) else null
+    val effectiveTheme = if (activePalette != null && activePalette.isCustomized) {
+        theme.withCustomPalette(activePalette)
+    } else {
+        theme
+    }
+    val m3ColorScheme = effectiveTheme.toMaterial3ColorScheme(isLightMode = isLightMode, customPalette = activePalette)
 
     CompositionLocalProvider(
-        LocalLifeTheme provides theme,
-        LocalLifeAnimationSpeed provides animationSpeed
+        LocalLifeTheme provides effectiveTheme,
+        LocalLifeAnimationSpeed provides animationSpeed,
+        LocalLifeCustomization provides customization
     ) {
         MaterialTheme(
             colorScheme = m3ColorScheme,
