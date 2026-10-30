@@ -383,17 +383,25 @@ flowchart TD
 
 ---
 
-## 9. Recommended First Implementation Batch (After Token Reset)
+## 9. Implementation Status: Phase 1 / Batch 01 (Completed)
 
-When authorized to begin Release 3 implementation, execute **Batch 01 (Foundation Fixes & Immediate Wins)**:
+Phase 1 / Batch 01 implementation has been completed on branch `fix/release3-phase1-batch01`:
 
-1. **Step 1:** Merge `fix/widget-permanent-stabilization` (`2b4d0ee`) into the Release 3 baseline branch.
-2. **Step 2 (Fix #14):** Patch `installTemplate()` in `LifeRepository.kt` to enforce `colorSource = "CUSTOM"` on shortcuts with hex values, and link task IDs with newly created project IDs.
-3. **Step 3 (Fix #15):** Fix selection mode header 'X' action in `TasksScreen.kt` and `LifeViewModel.kt` to ensure complete checkbox state synchronization.
-4. **Step 4 (Win #22):** Add the active streak indicator to the Home Dashboard header composable.
-5. **Step 5 (Win #12):** Add interactive action buttons to `UserManualScreen.kt`.
+| Req # | Feature / Defect | Implementation Details | Status |
+|---|---|---|---|
+| **#14** | Template Imports Color & Project Retention | Fixed `TemplateShortcutDef` parameter ordering (`coordQ`, `coordR` before `customColorHex`) to resolve positional coordinate mapping. Patched `LifeRepository.kt:installTemplate()` to enforce `colorSource = "CUSTOM"` when valid hex is present, resolve and map newly created task IDs to `targetId`, and preserve linked `projectId` color references. | **RESOLVED & TESTED** |
+| **#15** | Tasks Selection Mode Checkboxes & Cancel Button | Updated `TasksScreen.kt` with Android `BackHandler` to dismiss selection mode, added an explicit "Cancel" button to the Bulk Actions bar, updated header Close action to invoke `viewModel.clearSelection()`, and removed touch-clipping size constraints on `TaskGridCard` checkboxes with dedicated test tags. | **RESOLVED & TESTED** |
+| **#16** | Widget QR Padding, Hydration Action & Honeycomb Grid | Verified integration of interlocking 10-tile honeycomb grid (4 rows: 3+2+3+2) with 12dp vertical row overlap, rounded pointy-top hexagon clipping, direct Room database action binding, and immediate in-place widget refresh for hydration (+250ml) and task/habit toggles. | **VERIFIED & INTEGRATED** |
 
-*Rationale:* This delivers immediate user-facing value, stabilizes existing functionality, and requires ZERO Room migrations, leaving the database clean for the comprehensive Profile Isolation architecture in Batch 02.
+### Automated Verification Results
+- **Unit Test Suite:** 32 Gradle test tasks passed (`BUILD SUCCESSFUL in 1m 47s`).
+- **Regression Suite:** `Release3Phase1Batch01UnitTest` with 11 comprehensive test cases passed covering Requirements #14, #15, and #16.
+- **Widget Unit Suite:** `WidgetStabilizationUnitTest` passed 15 tests.
+- **Compilation & Packaging:** `assembleDebug` completed (`app-debug.apk`, 23.9 MB).
+
+### Physical Device Verification & Remaining Risks
+- **Physical Device Status:** Pending physical hardware connectivity verification.
+- **Remaining Risks:** Highly customized third-party Android OEM launchers (e.g. MIUI, ColorOS) may impose custom widget canvas paddings. The static 10-tile `RelativeLayout` with density-independent centering minimizes this risk compared to scrollable RemoteViews.
 
 ---
 

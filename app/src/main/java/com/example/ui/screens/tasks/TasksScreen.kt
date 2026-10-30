@@ -1,5 +1,6 @@
 package com.example.ui.screens.tasks
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
@@ -139,6 +140,10 @@ fun TasksScreen(
 
     val filterOptions = listOf("Inbox", "Today", "Upcoming", "Projects", "Labels", "All", "Completed", "Archived")
 
+    BackHandler(enabled = uiState.isSelectionMode) {
+        viewModel.clearSelection()
+    }
+
     Scaffold(
         floatingActionButton = {
             if (!uiState.isSelectionMode) {
@@ -195,12 +200,18 @@ fun TasksScreen(
                     }
 
                     IconButton(
-                        onClick = { viewModel.toggleSelectionMode() },
+                        onClick = {
+                            if (uiState.isSelectionMode) {
+                                viewModel.clearSelection()
+                            } else {
+                                viewModel.toggleSelectionMode(true)
+                            }
+                        },
                         modifier = Modifier.testTag("toggle_selection_mode_button")
                     ) {
                         Icon(
                             imageVector = if (uiState.isSelectionMode) Icons.Default.Close else Icons.Default.SelectAll,
-                            contentDescription = "Selection Mode"
+                            contentDescription = if (uiState.isSelectionMode) "Cancel Selection" else "Selection Mode"
                         )
                     }
 
@@ -251,10 +262,19 @@ fun TasksScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        val allFilteredSelected = uiState.filteredTasks.isNotEmpty() &&
-                            uiState.filteredTasks.all { uiState.selectedTaskIds.contains(it.id) }
-                        TextButton(onClick = { viewModel.selectAllFilteredTasks() }) {
-                            Text(if (allFilteredSelected) "Deselect All" else "Select All", fontSize = 12.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(
+                                onClick = { viewModel.clearSelection() },
+                                modifier = Modifier.testTag("cancel_selection_button")
+                            ) {
+                                Text("Cancel", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                            val allFilteredSelected = uiState.filteredTasks.isNotEmpty() &&
+                                uiState.filteredTasks.all { uiState.selectedTaskIds.contains(it.id) }
+                            TextButton(onClick = { viewModel.selectAllFilteredTasks() }) {
+                                Text(if (allFilteredSelected) "Deselect All" else "Select All", fontSize = 12.sp)
+                            }
                         }
                         Row {
                             IconButton(

@@ -60,9 +60,12 @@ data class TemplateShortcutDef(
     val targetId: String,
     val title: String,
     val emoji: String,
-    val customColorHex: Long? = null,
     val coordQ: Int = 0,
-    val coordR: Int = 0
+    val coordR: Int = 0,
+    val customColorHex: Long? = null,
+    val colorSource: String? = null,
+    val shape: String = "HEXAGON",
+    val projectName: String? = null
 )
 
 data class TemplateProjectDef(

@@ -202,7 +202,9 @@ fun TaskCard(
                     Checkbox(
                         checked = isSelected,
                         onCheckedChange = { onSelectToggle() },
-                        modifier = Modifier.padding(end = 8.dp)
+                        modifier = Modifier
+                            .testTag("task_selection_checkbox_${task.id}")
+                            .padding(end = 8.dp)
                     )
                 }
 
@@ -644,9 +646,10 @@ fun TaskGridCard(
                         Checkbox(
                             checked = isSelected,
                             onCheckedChange = { onSelectToggle() },
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier
+                                .testTag("task_grid_selection_checkbox_${task.id}")
+                                .padding(end = 4.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
                     } else if (task.emoji.isNotBlank()) {
                         Text(text = task.emoji, fontSize = 16.sp)
                         Spacer(modifier = Modifier.width(4.dp))

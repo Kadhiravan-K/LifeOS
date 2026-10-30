@@ -1992,32 +1992,91 @@ class LifeRepository(
                 val alreadyExists = existingShortcuts.any { it.title.equals(scDef.title, ignoreCase = true) }
                 if (!alreadyExists && existingShortcuts.size + shortcutsAdded < 19) {
                     val nextOrder = existingShortcuts.size + shortcutsAdded
-                    val resolvedTargetId = when (scDef.type) {
+                    var resolvedTargetId = scDef.targetId
+                    var projectColorLong: Long? = null
+                    var isLinkedToProject = false
+
+                    when (scDef.type) {
                         ShortcutType.TASK -> {
                             val allT = taskDao.getAllTasksList()
-                            val matched = allT.find {
-                                it.title.equals(scDef.title, ignoreCase = true) ||
-                                it.title.contains(scDef.title, ignoreCase = true)
+                            val matched = allT.find { it.id.toString() == scDef.targetId }
+                                ?: allT.find { it.title.equals(scDef.targetId, ignoreCase = true) }
+                                ?: allT.find { it.title.equals(scDef.title, ignoreCase = true) }
+                                ?: allT.find { it.title.contains(scDef.targetId, ignoreCase = true) }
+                                ?: allT.find { it.title.contains(scDef.title, ignoreCase = true) }
+                                ?: allT.find {
+                                    val words = it.title.split(Regex("[^A-Za-z0-9]")).filter { w -> w.isNotBlank() }
+                                    words.any { w -> w.equals(scDef.targetId, ignoreCase = true) || w.equals(scDef.title, ignoreCase = true) }
+                                }
+                            if (matched != null) {
+                                resolvedTargetId = matched.id.toString()
+                                if (matched.projectId != null) {
+                                    val project = projectDao.getProjectById(matched.projectId)
+                                    if (project != null) {
+                                        projectColorLong = TodoistColorPalette.getColorLong(project.colorId)
+                                        isLinkedToProject = true
+                                    }
+                                }
                             }
-                            matched?.id?.toString() ?: scDef.targetId
                         }
                         ShortcutType.HABIT -> {
                             val allH = habitDao.getAllHabitsList()
-                            val matched = allH.find {
-                                it.title.equals(scDef.title, ignoreCase = true) ||
-                                it.title.contains(scDef.title, ignoreCase = true)
+                            val matched = allH.find { it.id.toString() == scDef.targetId }
+                                ?: allH.find { it.title.equals(scDef.targetId, ignoreCase = true) }
+                                ?: allH.find { it.title.equals(scDef.title, ignoreCase = true) }
+                                ?: allH.find { it.title.contains(scDef.targetId, ignoreCase = true) }
+                                ?: allH.find { it.title.contains(scDef.title, ignoreCase = true) }
+                            if (matched != null) {
+                                resolvedTargetId = matched.id.toString()
                             }
-                            matched?.id?.toString() ?: scDef.targetId
                         }
-                        else -> scDef.targetId
+                        ShortcutType.CHALLENGE_RULE -> {
+                            val activeChallenge = challengeDao.getActiveChallenge()
+                            val rules = activeChallenge?.let { JsonMappers.parseChallengeRules(it.rulesJson) } ?: emptyList()
+                            val matchedRule = rules.find {
+                                it.id == scDef.targetId ||
+                                it.title.equals(scDef.targetId, ignoreCase = true) ||
+                                it.title.equals(scDef.title, ignoreCase = true)
+                            }
+                            if (matchedRule != null) {
+                                resolvedTargetId = matchedRule.id
+                            }
+                        }
+                        ShortcutType.WATER -> {
+                            resolvedTargetId = "water"
+                        }
+                        else -> {
+                            resolvedTargetId = scDef.targetId
+                        }
                     }
+
+                    val hasValidCustomColor = scDef.customColorHex != null && (scDef.customColorHex and 0xFF000000L) != 0L
+                    val resolvedColorSource = when {
+                        scDef.colorSource != null -> scDef.colorSource
+                        hasValidCustomColor -> "CUSTOM"
+                        isLinkedToProject -> "PROJECT"
+                        scDef.type == ShortcutType.WATER -> "CUSTOM"
+                        scDef.type == ShortcutType.CHALLENGE_RULE -> "CUSTOM"
+                        else -> "PROJECT"
+                    }
+
+                    val resolvedCustomColor = when {
+                        hasValidCustomColor -> scDef.customColorHex
+                        scDef.type == ShortcutType.WATER -> 0xFF3B82F6L
+                        scDef.type == ShortcutType.CHALLENGE_RULE -> 0xFFF59E0BL
+                        isLinkedToProject -> projectColorLong
+                        else -> null
+                    }
+
                     honeycombShortcutDao.insertShortcut(
                         HoneycombShortcutEntity(
                             type = scDef.type.name,
                             targetId = resolvedTargetId,
                             title = scDef.title,
                             emoji = scDef.emoji,
-                            customColorHex = scDef.customColorHex,
+                            customColorHex = resolvedCustomColor,
+                            colorSource = resolvedColorSource,
+                            shape = scDef.shape,
                             orderIndex = nextOrder,
                             coordQ = scDef.coordQ,
                             coordR = scDef.coordR
