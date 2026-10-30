@@ -22,6 +22,7 @@ import com.example.data.preferences.UserPreferences
 import com.example.data.repository.JsonMappers
 import com.example.data.repository.LifeRepository
 import com.example.domain.model.ChallengeDailyLog
+import com.example.domain.model.HabitItem
 import com.example.domain.model.RecurrenceType
 import com.example.domain.model.TodoistColorPalette
 import com.example.ui.theme.engine.LocalPremiumEntitlementRepository
@@ -33,55 +34,72 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
- * Quick Reminders home-screen widget provider — v2 static flat layout.
+ * Quick Reminders home-screen widget provider — v2 interlocking honeycomb layout.
  *
- * Architecture: Static RemoteViews grid (3+2+3 honeycomb) rendered directly,
- * replacing the old ListView / RemoteViewsService approach (RC-1 fix).
- * Data is loaded on IO dispatcher and bound to individual tile views by ID.
+ * Architecture: Static RemoteViews grid (3+2+3+2 honeycomb = 10 tiles) rendered directly,
+ * interlocking adjacent rows by 12dp with pointy-top rounded hexagons, mathematically
+ * matching the in-app QR HoneycombTaskGrid canvas.
+ *
+ * Data is loaded on the IO dispatcher and bound to individual tile views by ID.
+ * Clicks on tiles directly toggle the underlying Room database entities and immediately
+ * refresh both the launcher widget and in-app states.
  */
 class QuickRemindersWidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val ACTION_WIDGET_TOGGLE_TASK = "com.example.lifeos.ACTION_WIDGET_TOGGLE_TASK"
 
-        // Tile container IDs (8 tiles: 3+2+3 honeycomb)
+        // Row container IDs (4 interlocking rows: 3 + 2 + 3 + 2)
+        val rowIds = intArrayOf(
+            R.id.qr_row1,
+            R.id.qr_row2,
+            R.id.qr_row3,
+            R.id.qr_row4
+        )
+
+        // Tile container IDs (10 tiles: 3+2+3+2 honeycomb)
         val tileContainerIds = intArrayOf(
             R.id.qr_t0, R.id.qr_t1, R.id.qr_t2,
             R.id.qr_t3, R.id.qr_t4,
-            R.id.qr_t5, R.id.qr_t6, R.id.qr_t7
+            R.id.qr_t5, R.id.qr_t6, R.id.qr_t7,
+            R.id.qr_t8, R.id.qr_t9
         )
 
         // Shape ImageView IDs
         val tileShapeIds = intArrayOf(
             R.id.qr_t0_shape, R.id.qr_t1_shape, R.id.qr_t2_shape,
             R.id.qr_t3_shape, R.id.qr_t4_shape,
-            R.id.qr_t5_shape, R.id.qr_t6_shape, R.id.qr_t7_shape
+            R.id.qr_t5_shape, R.id.qr_t6_shape, R.id.qr_t7_shape,
+            R.id.qr_t8_shape, R.id.qr_t9_shape
         )
 
         // Emoji TextView IDs
         val tileEmojiIds = intArrayOf(
             R.id.qr_t0_emoji, R.id.qr_t1_emoji, R.id.qr_t2_emoji,
             R.id.qr_t3_emoji, R.id.qr_t4_emoji,
-            R.id.qr_t5_emoji, R.id.qr_t6_emoji, R.id.qr_t7_emoji
+            R.id.qr_t5_emoji, R.id.qr_t6_emoji, R.id.qr_t7_emoji,
+            R.id.qr_t8_emoji, R.id.qr_t9_emoji
         )
 
         // Title TextView IDs
         val tileTitleIds = intArrayOf(
             R.id.qr_t0_title, R.id.qr_t1_title, R.id.qr_t2_title,
             R.id.qr_t3_title, R.id.qr_t4_title,
-            R.id.qr_t5_title, R.id.qr_t6_title, R.id.qr_t7_title
+            R.id.qr_t5_title, R.id.qr_t6_title, R.id.qr_t7_title,
+            R.id.qr_t8_title, R.id.qr_t9_title
         )
 
         // Check ImageView IDs
         val tileCheckIds = intArrayOf(
             R.id.qr_t0_check, R.id.qr_t1_check, R.id.qr_t2_check,
             R.id.qr_t3_check, R.id.qr_t4_check,
-            R.id.qr_t5_check, R.id.qr_t6_check, R.id.qr_t7_check
+            R.id.qr_t5_check, R.id.qr_t6_check, R.id.qr_t7_check,
+            R.id.qr_t8_check, R.id.qr_t9_check
         )
 
         /**
          * Notifies all active widget instances to reload by broadcasting ACTION_APPWIDGET_UPDATE.
-         * This triggers a full onUpdate() cycle (RC-5 and RC-9 fix).
+         * This triggers a full onUpdate() cycle.
          */
         fun notifyDataChanged(context: Context) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
@@ -119,7 +137,7 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
 
     /**
      * Launches data load on IO thread, then calls appWidgetManager.updateAppWidget.
-     * Never blocks the main thread (RC-4 fix).
+     * Never blocks the main thread.
      */
     private fun updateAppWidget(
         context: Context,
@@ -133,13 +151,13 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
     }
 
     /**
-     * Builds the full static RemoteViews for the v2 flat honeycomb layout.
+     * Builds the full static RemoteViews for the interlocking honeycomb layout.
      * Loads all data from Room synchronously on the IO thread.
      */
     private suspend fun buildWidgetViews(context: Context, appWidgetId: Int): RemoteViews {
         val rv = RemoteViews(context.packageName, R.layout.widget_quick_reminders_v2)
 
-        // Header click → open app
+        // Header click → open app directly
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -157,20 +175,24 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
         val repository = LifeRepository(db, prefs, entitlementRepo)
         val todayIso = DateUtils.todayString()
 
-        val shortcuts = db.honeycombShortcutDao().getAllShortcutsList()
+        var shortcuts = db.honeycombShortcutDao().getAllShortcutsList()
+
+        // Auto-seed defaults if database shortcuts are empty so widget never stays blank
+        if (shortcuts.isEmpty()) {
+            try {
+                repository.seedDefaultHoneycombShortcuts()
+                shortcuts = db.honeycombShortcutDao().getAllShortcutsList()
+            } catch (_: Exception) {}
+        }
 
         if (shortcuts.isEmpty()) {
             rv.setViewVisibility(R.id.widget_empty_view, View.VISIBLE)
             rv.setViewVisibility(R.id.qr_row1, View.GONE)
             rv.setViewVisibility(R.id.qr_row2, View.GONE)
             rv.setViewVisibility(R.id.qr_row3, View.GONE)
+            rv.setViewVisibility(R.id.qr_row4, View.GONE)
             return rv
         }
-
-        rv.setViewVisibility(R.id.widget_empty_view, View.GONE)
-        rv.setViewVisibility(R.id.qr_row1, View.VISIBLE)
-        rv.setViewVisibility(R.id.qr_row2, View.VISIBLE)
-        rv.setViewVisibility(R.id.qr_row3, View.VISIBLE)
 
         // Load supporting data for completion state
         val tasks = db.taskDao().getAllTasksList()
@@ -182,24 +204,35 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
         val challengeLogs = activeChallenge?.let { JsonMappers.parseChallengeDailyLogs(it.dailyLogsJson) }
         val todayChallengeLog = challengeLogs?.get(todayIso)
 
-        // Build tile data list (max 8 tiles for 3+2+3 layout)
+        // Build tile data list (up to 10 tiles for 3+2+3+2 layout)
         val tileDataList = buildTileData(
             shortcuts, tasks, habits, waterLog, waterGoal,
             todayChallengeLog, projects, todayIso
         )
+        val tileCount = tileDataList.size
+
+        rv.setViewVisibility(R.id.widget_empty_view, if (tileCount == 0) View.VISIBLE else View.GONE)
+
+        // Staggered Row Visibility: dynamically collapse empty rows to keep the honeycomb tightly centered
+        rv.setViewVisibility(R.id.qr_row1, if (tileCount >= 1) View.VISIBLE else View.GONE)
+        rv.setViewVisibility(R.id.qr_row2, if (tileCount >= 4) View.VISIBLE else View.GONE)
+        rv.setViewVisibility(R.id.qr_row3, if (tileCount >= 6) View.VISIBLE else View.GONE)
+        rv.setViewVisibility(R.id.qr_row4, if (tileCount >= 9) View.VISIBLE else View.GONE)
 
         // Bind each tile slot
+        val tileSizeW = 144
+        val tileSizeH = 168
+
         for (i in tileContainerIds.indices) {
-            if (i < tileDataList.size) {
+            if (i < tileCount) {
                 val tile = tileDataList[i]
                 rv.setViewVisibility(tileContainerIds[i], View.VISIBLE)
                 rv.setTextViewText(tileEmojiIds[i], tile.emoji)
                 rv.setTextViewText(tileTitleIds[i], tile.title)
 
-                // Use cached bitmap (RC-4 fix)
-                val tileSizePx = 160
+                // Render crisp rounded hexagon matching in-app HoneycombTaskGrid
                 val bitmap = QuickRemindersWidgetHelper.getCachedTileBitmap(
-                    tileSizePx, tileSizePx, tile.shape, tile.colorArgb, tile.isCompleted
+                    tileSizeW, tileSizeH, tile.shape, tile.colorArgb, tile.isCompleted
                 )
                 rv.setImageViewBitmap(tileShapeIds[i], bitmap)
                 rv.setViewVisibility(
@@ -207,14 +240,15 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
                     if (tile.isCompleted) View.VISIBLE else View.GONE
                 )
 
-                // Individual PendingIntent per tile (no fill-in template needed)
+                // Individual PendingIntent per tile passing shortcutId for 100% linked execution
                 val toggleIntent = Intent(context, QuickRemindersWidgetProvider::class.java).apply {
                     action = ACTION_WIDGET_TOGGLE_TASK
+                    putExtra("extra_shortcut_id", tile.shortcutId)
                     putExtra("extra_type", tile.type)
                     putExtra("extra_task_id", tile.taskId ?: -1L)
                     putExtra("extra_target_id", tile.targetId)
-                    // Unique URI ensures each tile gets a distinct PendingIntent
-                    data = "lifeos://widget/qr/$appWidgetId/$i".toUri()
+                    putExtra("extra_widget_id", appWidgetId)
+                    data = "lifeos://widget/qr/$appWidgetId/$i/${tile.shortcutId}".toUri()
                 }
                 val togglePi = PendingIntent.getBroadcast(
                     context,
@@ -224,6 +258,7 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
                 )
                 rv.setOnClickPendingIntent(tileContainerIds[i], togglePi)
             } else {
+                // Invisible preserves honeycomb layout spacing for neighbor tiles
                 rv.setViewVisibility(tileContainerIds[i], View.INVISIBLE)
             }
         }
@@ -249,7 +284,7 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
     /**
      * Builds the ordered list of TileData from the shortcuts + supporting data.
      * Ordered by coordR (row) then coordQ (column), falling back to orderIndex.
-     * Max 8 tiles for the 3+2+3 layout.
+     * Max 10 tiles for the 3+2+3+2 layout.
      */
     private fun buildTileData(
         shortcuts: List<HoneycombShortcutEntity>,
@@ -266,7 +301,7 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
 
         val result = mutableListOf<TileData>()
         for (sc in sorted) {
-            if (result.size >= 8) break
+            if (result.size >= 10) break
 
             val displayTitle = if (!sc.customTileName.isNullOrBlank()) sc.customTileName else sc.title
             var taskId: Long? = null
@@ -364,9 +399,10 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action == ACTION_WIDGET_TOGGLE_TASK) {
-            val type = intent.getStringExtra("extra_type") ?: "TASK"
-            val taskId = intent.getLongExtra("extra_task_id", -1L)
-            val targetId = intent.getStringExtra("extra_target_id") ?: ""
+            val shortcutId = intent.getLongExtra("extra_shortcut_id", -1L)
+            val fallbackType = intent.getStringExtra("extra_type") ?: "TASK"
+            val fallbackTaskId = intent.getLongExtra("extra_task_id", -1L)
+            val fallbackTargetId = intent.getStringExtra("extra_target_id") ?: ""
 
             val db = AppDatabase.getInstance(context)
             val prefs = UserPreferences(context)
@@ -375,18 +411,26 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
             val todayIso = DateUtils.todayString()
 
             CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
-                when (type) {
+                val sc = if (shortcutId != -1L) {
+                    db.honeycombShortcutDao().getShortcutById(shortcutId)
+                } else null
+
+                val effectiveType = sc?.type ?: fallbackType
+                val effectiveTargetId = sc?.targetId ?: fallbackTargetId
+                val effectiveTitle = sc?.title ?: effectiveTargetId
+
+                when (effectiveType) {
                     "TASK" -> {
-                        val validTaskId = if (taskId != -1L) {
-                            taskId
+                        val validTaskId = if (fallbackTaskId != -1L) {
+                            fallbackTaskId
                         } else {
-                            val candidateId = targetId.toLongOrNull()
+                            val candidateId = effectiveTargetId.toLongOrNull()
                             if (candidateId != null) {
                                 candidateId
                             } else {
                                 val task = repository.getOrCreateTaskForShortcut(
-                                    title = targetId.ifBlank { "Discipline" },
-                                    emoji = "🔥",
+                                    title = effectiveTitle.ifBlank { "Discipline" },
+                                    emoji = sc?.emoji ?: "🔥",
                                     category = "Routines",
                                     recurrence = RecurrenceType.DAILY
                                 )
@@ -394,54 +438,76 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
                             }
                         }
                         repository.toggleTaskCompletion(validTaskId, todayIso)
-                        WidgetRefreshCoordinator.notifyAllWidgetsChanged(context)
                     }
                     "HABIT" -> {
-                        val habitId = targetId.toLongOrNull()
-                        if (habitId != null) {
-                            repository.toggleHabitCompletion(habitId, todayIso)
-                            WidgetRefreshCoordinator.notifyAllWidgetsChanged(context)
+                        val habitId = effectiveTargetId.toLongOrNull()
+                        val matchedHabitId = if (habitId != null) {
+                            habitId
                         } else {
                             val habits = db.habitDao().getAllHabitsList()
-                            val matched = habits.find { it.title.equals(targetId, ignoreCase = true) }
-                            if (matched != null) {
-                                repository.toggleHabitCompletion(matched.id, todayIso)
-                                WidgetRefreshCoordinator.notifyAllWidgetsChanged(context)
+                            val found = habits.find {
+                                it.id.toString() == effectiveTargetId ||
+                                it.title.equals(effectiveTargetId, ignoreCase = true) ||
+                                it.title.equals(effectiveTitle, ignoreCase = true)
                             }
+                            found?.id ?: repository.insertHabit(
+                                HabitItem(
+                                    title = effectiveTitle.ifBlank { "Routine Habit" },
+                                    emoji = sc?.emoji ?: "☀️",
+                                    colorHex = sc?.customColorHex ?: 0xFF10B981L
+                                )
+                            )
                         }
+                        repository.toggleHabitCompletion(matchedHabitId, todayIso)
                     }
                     "WATER" -> {
                         repository.addWater(250, todayIso)
-                        WidgetRefreshCoordinator.notifyAllWidgetsChanged(context)
                     }
                     "CHALLENGE_RULE" -> {
                         val activeChallenge = db.challengeDao().getActiveChallenge()
                         val rules = activeChallenge?.let { JsonMappers.parseChallengeRules(it.rulesJson) } ?: emptyList()
                         val matchedRule = rules.find {
-                            it.id == targetId || it.title.equals(targetId, ignoreCase = true)
+                            it.id == effectiveTargetId ||
+                            it.title.equals(effectiveTargetId, ignoreCase = true) ||
+                            it.title.equals(effectiveTitle, ignoreCase = true)
                         }
                         if (matchedRule != null) {
                             repository.toggleChallengeRule(matchedRule.id, todayIso)
-                            WidgetRefreshCoordinator.notifyAllWidgetsChanged(context)
                         } else {
                             // Fallback to task deduplication & daily routine toggle
                             val task = repository.getOrCreateTaskForShortcut(
-                                title = targetId.ifBlank { "Discipline" },
-                                emoji = "🔥",
+                                title = effectiveTitle.ifBlank { "Discipline" },
+                                emoji = sc?.emoji ?: "🔥",
                                 category = "Routines",
                                 recurrence = RecurrenceType.DAILY
                             )
                             repository.toggleTaskCompletion(task.id, todayIso)
-                            WidgetRefreshCoordinator.notifyAllWidgetsChanged(context)
                         }
                     }
                     else -> {
-                        val openIntent = Intent(context, MainActivity::class.java).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        }
-                        context.startActivity(openIntent)
+                        val task = repository.getOrCreateTaskForShortcut(
+                            title = effectiveTitle.ifBlank { "Discipline" },
+                            emoji = sc?.emoji ?: "✅",
+                            category = "Routines",
+                            recurrence = RecurrenceType.DAILY
+                        )
+                        repository.toggleTaskCompletion(task.id, todayIso)
                     }
                 }
+
+                // 1. Notify global coordinator for in-app and widget sync
+                WidgetRefreshCoordinator.notifyAllWidgetsChanged(context)
+
+                // 2. Immediately update all active widget instances in-place
+                try {
+                    val appWidgetManager = AppWidgetManager.getInstance(context)
+                    val thisWidget = ComponentName(context, QuickRemindersWidgetProvider::class.java)
+                    val widgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
+                    for (wId in widgetIds) {
+                        val updatedViews = buildWidgetViews(context, wId)
+                        appWidgetManager.updateAppWidget(wId, updatedViews)
+                    }
+                } catch (_: Exception) {}
             }
         }
     }

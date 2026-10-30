@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+    <!-- Clean White Circle Background matching in-app QR check badge -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M8,1 A7,7 0 1,1 7.99,1 Z" />
+    <!-- Vibrant Checkmark Path -->
+    <path
+        android:strokeColor="#10B981"
+        android:strokeWidth="2.0"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M4.5,8.2 L7.0,10.7 L11.5,5.8" />
+</vector>
