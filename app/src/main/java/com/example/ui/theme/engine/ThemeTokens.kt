@@ -78,8 +78,32 @@ data class ThemeShapes(
     val dialogShape: Shape = RoundedCornerShape(20.dp),
     val borderWidth: Dp = 1.dp,
     val cornerRadiusDp: Dp = 16.dp,
-    val isAngularCyber: Boolean = false
+    val isAngularCyber: Boolean = false,
+    val isGlass: Boolean = false
 )
+
+/**
+ * Global loading and transition animation speed preferences.
+ */
+enum class AnimationSpeed(val multiplier: Float, val label: String) {
+    OFF(0.0f, "Off (0×)"),
+    SLOW(0.5f, "0.5× (Slow)"),
+    NORMAL(1.0f, "1.0× (Normal)"),
+    FAST(1.5f, "1.5× (Fast)"),
+    VERY_FAST(2.0f, "2.0× (Very Fast)");
+
+    companion object {
+        fun fromMultiplier(multiplier: Float?): AnimationSpeed {
+            if (multiplier == null) return NORMAL
+            return entries.minByOrNull { kotlin.math.abs(it.multiplier - multiplier) } ?: NORMAL
+        }
+    }
+
+    fun calculateDuration(baseMs: Int): Int {
+        if (multiplier <= 0f) return 0
+        return (baseMs / multiplier).toInt()
+    }
+}
 
 /**
  * Motion parameters for physics springs and animation durations.
@@ -88,8 +112,14 @@ data class ThemeMotion(
     val animationDurationMs: Int = 300,
     val enableParticleEffects: Boolean = true,
     val enableAtmosphereGlow: Boolean = true,
-    val bounceStiffness: Float = 300f
-)
+    val bounceStiffness: Float = 300f,
+    val speedMultiplier: Float = 1.0f
+) {
+    fun getEffectiveDuration(baseMs: Int = animationDurationMs): Int {
+        if (speedMultiplier <= 0f) return 0
+        return (baseMs / speedMultiplier).toInt()
+    }
+}
 
 /**
  * Visual motifs and decorative tags for the theme.

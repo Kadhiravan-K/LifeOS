@@ -31,6 +31,7 @@ import com.example.ui.theme.SlateSurfaceVariantLight
 import com.example.ui.theme.Typography
 
 val LocalLifeTheme = staticCompositionLocalOf { ThemeRegistry.DEFAULT_THEME }
+val LocalLifeAnimationSpeed = staticCompositionLocalOf { AnimationSpeed.NORMAL }
 
 /**
  * Maps a ThemeDefinition to Material 3 ColorScheme to maintain 100% interoperability with all M3 components.
@@ -88,12 +89,14 @@ fun ThemeDefinition.toMaterial3ColorScheme(isLightMode: Boolean = false): ColorS
 fun LifeOSThemeProvider(
     theme: ThemeDefinition,
     isLightMode: Boolean = false,
+    animationSpeed: AnimationSpeed = AnimationSpeed.NORMAL,
     content: @Composable () -> Unit
 ) {
     val m3ColorScheme = theme.toMaterial3ColorScheme(isLightMode = isLightMode)
 
     CompositionLocalProvider(
-        LocalLifeTheme provides theme
+        LocalLifeTheme provides theme,
+        LocalLifeAnimationSpeed provides animationSpeed
     ) {
         MaterialTheme(
             colorScheme = m3ColorScheme,
