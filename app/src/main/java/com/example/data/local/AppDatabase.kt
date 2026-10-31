@@ -715,6 +715,76 @@ val MIGRATION_13_14 = object : Migration(13, 14) {
     }
 }
 
+val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // 1. glossary_packs
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `glossary_packs` (
+                `id` TEXT NOT NULL PRIMARY KEY,
+                `title` TEXT NOT NULL,
+                `description` TEXT NOT NULL,
+                `category` TEXT NOT NULL,
+                `version` INTEGER NOT NULL DEFAULT 1,
+                `author` TEXT NOT NULL DEFAULT 'LifeOS Community',
+                `itemCount` INTEGER NOT NULL DEFAULT 0,
+                `sha256` TEXT NOT NULL DEFAULT '',
+                `isInstalled` INTEGER NOT NULL DEFAULT 1,
+                `installedAt` INTEGER NOT NULL,
+                `sizeBytes` INTEGER NOT NULL DEFAULT 0
+            )
+        """.trimIndent())
+
+        // 2. glossary_items
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `glossary_items` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `packId` TEXT NOT NULL,
+                `term` TEXT NOT NULL,
+                `phonetic` TEXT,
+                `category` TEXT NOT NULL,
+                `definition` TEXT NOT NULL,
+                `detailedExplanation` TEXT NOT NULL DEFAULT '',
+                `examplesJson` TEXT NOT NULL DEFAULT '[]',
+                `relatedTermsJson` TEXT NOT NULL DEFAULT '[]',
+                `tagsJson` TEXT NOT NULL DEFAULT '[]',
+                `isBookmarked` INTEGER NOT NULL DEFAULT 0,
+                `createdAt` INTEGER NOT NULL,
+                FOREIGN KEY(`packId`) REFERENCES `glossary_packs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_glossary_items_packId` ON `glossary_items` (`packId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_glossary_items_term` ON `glossary_items` (`term`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_glossary_items_category` ON `glossary_items` (`category`)")
+
+        // Seed default core pack
+        db.execSQL("""
+            INSERT OR IGNORE INTO `glossary_packs` (`id`, `title`, `description`, `category`, `version`, `author`, `itemCount`, `sha256`, `isInstalled`, `installedAt`, `sizeBytes`)
+            VALUES ('lifeos_core', 'LifeOS Productivity & Systems Thinking', 'Essential mental models, focus principles, and time management paradigms.', 'Productivity', 1, 'LifeOS Core Architecture', 8, '', 1, 1730000000000, 4096)
+        """.trimIndent())
+
+        // Seed core sample terms
+        val terms = listOf(
+            Triple("Deep Work", "Focus", "Professional activities performed in a state of distraction-free concentration that push your cognitive capabilities to their limit."),
+            Triple("Time Blocking", "Planning", "A time management method that divides your day into dedicated blocks of time, each assigned to a specific task or group of tasks."),
+            Triple("Pareto Principle (80/20 Rule)", "Systems", "The principle stating that for many outcomes, roughly 80% of consequences come from 20% of causes."),
+            Triple("Parkinson's Law", "Productivity", "Work expands so as to fill the period of time available for its completion."),
+            Triple("Eisenhower Matrix", "Prioritization", "A decision framework that categorizes tasks into four quadrants based on urgency and importance."),
+            Triple("Habit Stacking", "Habits", "A strategy where you identify a current habit you already do each day and stack your new behavior onto it."),
+            Triple("Two-Minute Rule", "Execution", "If an action takes less than two minutes to complete, execute it immediately rather than deferring it."),
+            Triple("Flow State", "Neuroscience", "The optimal state of consciousness where you feel your best and perform your best, fully immersed in energized focus.")
+        )
+        for ((term, cat, def) in terms) {
+            val safeTerm = term.replace("'", "''")
+            val safeCat = cat.replace("'", "''")
+            val safeDef = def.replace("'", "''")
+            db.execSQL("""
+                INSERT OR IGNORE INTO `glossary_items` (`packId`, `term`, `phonetic`, `category`, `definition`, `detailedExplanation`, `examplesJson`, `relatedTermsJson`, `tagsJson`, `isBookmarked`, `createdAt`)
+                VALUES ('lifeos_core', '$safeTerm', NULL, '$safeCat', '$safeDef', '', '[]', '[]', '[]', 0, 1730000000000)
+            """.trimIndent())
+        }
+    }
+}
+
 @Database(
     entities = [
         ProfileEntity::class,
@@ -750,9 +820,11 @@ val MIGRATION_13_14 = object : Migration(13, 14) {
         com.example.data.local.entities.PriceHistoryEntity::class,
         com.example.data.local.entities.ProjectWorkspaceItemEntity::class,
         com.example.data.local.entities.ProjectWorkspaceViewEntity::class,
-        com.example.data.local.entities.ProjectCustomStatusEntity::class
+        com.example.data.local.entities.ProjectCustomStatusEntity::class,
+        com.example.data.local.entities.GlossaryPackEntity::class,
+        com.example.data.local.entities.GlossaryItemEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -773,6 +845,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun trackerDao(): com.example.data.local.dao.TrackerDao
     abstract fun subscriptionDao(): com.example.data.local.dao.SubscriptionDao
     abstract fun projectWorkspaceDao(): com.example.data.local.dao.ProjectWorkspaceDao
+    abstract fun glossaryDao(): com.example.data.local.dao.GlossaryDao
 
     companion object {
         @Volatile
@@ -814,7 +887,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_10_11,
                         MIGRATION_11_12,
                         MIGRATION_12_13,
-                        MIGRATION_13_14
+                        MIGRATION_13_14,
+                        MIGRATION_14_15
                     )
                     .build()
                 INSTANCE = instance

@@ -367,12 +367,16 @@ flowchart TD
   - Pinch-to-zoom on in-app QR canvas smoothly scales hexagons between 0.75x and 1.35x.
   - New launcher AppWidget displays live radar polygon with category scores.
 
-#### Phase 8: Downloadable Glossary Library
+#### Phase 8: Downloadable Glossary Library [COMPLETED & VERIFIED]
 - **Scope:** #2 (Downloadable content library).
 - **Dependencies:** Phase 1.
 - **Acceptance Criteria:**
-  - Offline Glossary reader UI.
-  - Safe import of verified JSON/SQLite glossary content packs from GitHub release assets.
+  - Offline Glossary reader UI (`GlossaryScreen.kt`) with category filtering, search, and bookmarking.
+  - Safe import of verified data-only JSON knowledge packs with SHA-256 checksum verification (100% offline-first, no dynamic dex/code execution).
+  - Room v15 migration (`glossary_packs`, `glossary_items` with CASCADE deletion).
+  - Preloaded starter pack (`lifeos_core` with 8 foundational productivity mental models).
+  - Full backup/restore support in `DataExportImportManager`.
+  - Registered as Component #57 in `ComponentCatalog` and tested via `Release3Phase8GlossaryUnitTest`.
 
 #### Phase 9: MCP Layer Prototype
 - **Scope:** #3 (Bidirectional MCP server/client).

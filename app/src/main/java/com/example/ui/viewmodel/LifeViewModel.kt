@@ -2978,6 +2978,43 @@ class LifeViewModel(
     fun getPriceHistory(subscriptionId: Long): Flow<List<PriceHistoryItem>> {
         return repository.getPriceHistoryFlow(subscriptionId)
     }
+
+    // --- Release 3 Phase 8: Downloadable Glossary Library (#2) ---
+    val allGlossaryPacks: StateFlow<List<com.example.domain.glossary.GlossaryPack>> = repository.allGlossaryPacksFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val allGlossaryTerms: StateFlow<List<com.example.domain.glossary.GlossaryTerm>> = repository.allGlossaryTermsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    fun toggleGlossaryBookmark(termId: Long, isBookmarked: Boolean) {
+        viewModelScope.launch {
+            repository.toggleGlossaryBookmark(termId, isBookmarked)
+        }
+    }
+
+    fun installGlossaryPack(
+        packJson: com.example.domain.glossary.GlossaryPackJson,
+        expectedSha256: String? = null,
+        rawContent: String? = null,
+        onResult: (Result<com.example.domain.glossary.GlossaryPack>) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val res = repository.installGlossaryPack(packJson, expectedSha256, rawContent)
+            onResult(res)
+        }
+    }
+
+    fun uninstallGlossaryPack(packId: String) {
+        viewModelScope.launch {
+            repository.uninstallGlossaryPack(packId)
+        }
+    }
 }
 
 class LifeViewModelFactory(

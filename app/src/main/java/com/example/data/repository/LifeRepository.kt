@@ -138,6 +138,7 @@ class LifeRepository(
     private val medicationDao = database.medicationDao()
     private val profileSurveyDao = database.profileSurveyDao()
     private val projectWorkspaceDao = database.projectWorkspaceDao()
+    private val glossaryDao = database.glossaryDao()
 
     // --- Release 3 Phase 5 Profile Isolation & Management (#9) ---
     val activeProfileIdFlow: Flow<Long> = preferences.activeProfileId
@@ -3218,6 +3219,54 @@ class LifeRepository(
                 subscriptionDao.updateSubscription(sub.copy(amount = newPrice, updatedAt = System.currentTimeMillis()))
             }
         }
+    }
+
+    // --- Release 3 Phase 8: Downloadable Glossary Library (#2) ---
+    val allGlossaryPacksFlow: Flow<List<com.example.domain.glossary.GlossaryPack>> = glossaryDao.getAllPacksFlow().map { list ->
+        list.map { com.example.domain.glossary.GlossaryModuleManager.run { it.toDomain() } }
+    }
+
+    val allGlossaryTermsFlow: Flow<List<com.example.domain.glossary.GlossaryTerm>> = glossaryDao.getAllItemsFlow().map { list ->
+        list.map { com.example.domain.glossary.GlossaryModuleManager.run { it.toDomain() } }
+    }
+
+    fun getGlossaryTermsForPack(packId: String): Flow<List<com.example.domain.glossary.GlossaryTerm>> {
+        return glossaryDao.getItemsForPackFlow(packId).map { list ->
+            list.map { com.example.domain.glossary.GlossaryModuleManager.run { it.toDomain() } }
+        }
+    }
+
+    fun searchGlossaryTerms(query: String): Flow<List<com.example.domain.glossary.GlossaryTerm>> {
+        return glossaryDao.searchItemsFlow(query).map { list ->
+            list.map { com.example.domain.glossary.GlossaryModuleManager.run { it.toDomain() } }
+        }
+    }
+
+    fun getBookmarkedGlossaryTerms(): Flow<List<com.example.domain.glossary.GlossaryTerm>> {
+        return glossaryDao.getBookmarkedItemsFlow().map { list ->
+            list.map { com.example.domain.glossary.GlossaryModuleManager.run { it.toDomain() } }
+        }
+    }
+
+    suspend fun toggleGlossaryBookmark(termId: Long, isBookmarked: Boolean) {
+        glossaryDao.toggleBookmark(termId, isBookmarked)
+    }
+
+    suspend fun installGlossaryPack(
+        packJson: com.example.domain.glossary.GlossaryPackJson,
+        expectedSha256: String? = null,
+        rawJsonContent: String? = null
+    ): Result<com.example.domain.glossary.GlossaryPack> {
+        return com.example.domain.glossary.GlossaryModuleManager.installPack(
+            dao = glossaryDao,
+            packJson = packJson,
+            expectedSha256 = expectedSha256,
+            rawJsonContent = rawJsonContent
+        )
+    }
+
+    suspend fun uninstallGlossaryPack(packId: String) {
+        com.example.domain.glossary.GlossaryModuleManager.uninstallPack(glossaryDao, packId)
     }
 }
 

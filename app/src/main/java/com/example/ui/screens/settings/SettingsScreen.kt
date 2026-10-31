@@ -64,6 +64,7 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Hexagon
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Notifications
@@ -149,7 +150,8 @@ enum class SettingsSubpage {
     GAMIFICATION,
     DATA_STORAGE,
     LEGAL_PRIVACY,
-    USER_MANUAL
+    USER_MANUAL,
+    GLOSSARY
 }
 
 data class SettingsSearchItem(
@@ -189,6 +191,7 @@ fun getSettingsSearchRegistry(
     SettingsSearchItem("Starter Productivity Templates", "Browse and import curated habit, task, and shortcut bundles", "Data & Storage", SettingsSubpage.DATA_STORAGE, listOf("templates", "bundles", "browse", "routines", "morning", "deep work", "bucket list", "packing", "wedding", "startup")),
     SettingsSearchItem("Terms & Conditions", "Review legal terms, offline pledge, and application licensing", "Legal & Privacy", SettingsSubpage.LEGAL_PRIVACY, listOf("terms", "conditions", "legal", "license", "eula")),
     SettingsSearchItem("Privacy Policy", "Offline-first privacy architecture, zero telemetry, local storage", "Legal & Privacy", SettingsSubpage.LEGAL_PRIVACY, listOf("privacy", "policy", "offline", "data", "security", "telemetry")),
+    SettingsSearchItem("Knowledge & Glossary Library", "Downloadable offline knowledge packs, productivity mental models & systems thinking", "Knowledge & Reference", SettingsSubpage.GLOSSARY, listOf("glossary", "library", "knowledge", "mental models", "terms", "dictionary", "definitions", "packs")),
     SettingsSearchItem("User Manual & UI Components Library", "Explore 36 reusable frontend UI components and documentation", "User Manual", SettingsSubpage.USER_MANUAL, listOf("manual", "help", "guide", "components", "frontend", "ui library", "documentation"))
 )
 
@@ -242,6 +245,13 @@ fun SettingsScreen(
         SettingsSubpage.USER_MANUAL -> {
             com.example.ui.screens.manual.UserManualScreen(
                 onNavigateBack = { currentSubpage = SettingsSubpage.HUB }
+            )
+            return
+        }
+        SettingsSubpage.GLOSSARY -> {
+            com.example.ui.screens.glossary.GlossaryScreen(
+                viewModel = viewModel,
+                onBack = { currentSubpage = SettingsSubpage.HUB }
             )
             return
         }
@@ -2171,6 +2181,16 @@ private fun SettingsHubView(
                 title = "Legal & Privacy",
                 subtitle = "Terms & Conditions, Privacy Policy, 100% offline-first pledge",
                 onClick = { onNavigateToSubpage(SettingsSubpage.LEGAL_PRIVACY) }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            SettingsNavigationCard(
+                icon = Icons.Default.LibraryBooks,
+                title = "Knowledge & Glossary Library",
+                subtitle = "Downloadable offline feature library, productivity mental models & systems thinking (#2)",
+                onClick = { onNavigateToSubpage(SettingsSubpage.GLOSSARY) },
+                highlighted = true
             )
 
             Spacer(modifier = Modifier.height(10.dp))

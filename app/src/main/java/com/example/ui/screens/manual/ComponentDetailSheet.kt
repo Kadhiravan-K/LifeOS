@@ -2122,6 +2122,26 @@ private fun RenderSurveyAndEntryLivePreview(componentId: String) {
             )
             com.example.ui.components.ProductivityRadarChart(data = sampleRadar)
         }
+
+        "glossary_reader_module" -> {
+            val sampleTerm = com.example.domain.glossary.GlossaryTerm(
+                id = 1,
+                packId = "lifeos_core",
+                term = "Deep Work",
+                phonetic = "/diːp wɜːk/",
+                category = "Focus",
+                definition = "Professional activities performed in a state of distraction-free concentration that push your cognitive capabilities to their limit.",
+                detailedExplanation = "Optimizes myelination around brain circuits for peak performance.",
+                examples = listOf("90 minutes focused coding with zero notifications."),
+                tags = listOf("focus", "deep-work", "productivity"),
+                isBookmarked = true
+            )
+            com.example.ui.screens.glossary.GlossaryTermCard(
+                term = sampleTerm,
+                onCardClick = {},
+                onToggleBookmark = {}
+            )
+        }
     }
 }
 

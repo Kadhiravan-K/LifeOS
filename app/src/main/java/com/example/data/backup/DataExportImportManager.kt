@@ -448,6 +448,48 @@ object DataExportImportManager {
         }
         root.put("project_custom_statuses", customStatusesArr)
 
+        // Export Glossary Packs & Items (#2)
+        val glossaryPacks = database.glossaryDao().getAllPacksList()
+        val glossaryPacksArr = JSONArray()
+        for (gp in glossaryPacks) {
+            val obj = JSONObject().apply {
+                put("id", gp.id)
+                put("title", gp.title)
+                put("description", gp.description)
+                put("category", gp.category)
+                put("version", gp.version)
+                put("author", gp.author)
+                put("itemCount", gp.itemCount)
+                put("sha256", gp.sha256)
+                put("isInstalled", gp.isInstalled)
+                put("installedAt", gp.installedAt)
+                put("sizeBytes", gp.sizeBytes)
+            }
+            glossaryPacksArr.put(obj)
+        }
+        root.put("glossary_packs", glossaryPacksArr)
+
+        val glossaryItems = database.glossaryDao().getAllItemsList()
+        val glossaryItemsArr = JSONArray()
+        for (gi in glossaryItems) {
+            val obj = JSONObject().apply {
+                put("id", gi.id)
+                put("packId", gi.packId)
+                put("term", gi.term)
+                put("phonetic", gi.phonetic ?: JSONObject.NULL)
+                put("category", gi.category)
+                put("definition", gi.definition)
+                put("detailedExplanation", gi.detailedExplanation)
+                put("examplesJson", gi.examplesJson)
+                put("relatedTermsJson", gi.relatedTermsJson)
+                put("tagsJson", gi.tagsJson)
+                put("isBookmarked", gi.isBookmarked)
+                put("createdAt", gi.createdAt)
+            }
+            glossaryItemsArr.put(obj)
+        }
+        root.put("glossary_items", glossaryItemsArr)
+
         return@withContext root.toString(2)
     }
 
@@ -876,6 +918,52 @@ object DataExportImportManager {
                     )
                     database.projectWorkspaceDao().insertCustomStatus(cs)
                 }
+            }
+
+            // Import Glossary Packs & Items (#2)
+            val glossaryPacksArr = root.optJSONArray("glossary_packs")
+            if (glossaryPacksArr != null) {
+                for (i in 0 until glossaryPacksArr.length()) {
+                    val obj = glossaryPacksArr.getJSONObject(i)
+                    val pack = com.example.data.local.entities.GlossaryPackEntity(
+                        id = obj.getString("id"),
+                        title = obj.getString("title"),
+                        description = obj.optString("description", ""),
+                        category = obj.optString("category", "General"),
+                        version = obj.optInt("version", 1),
+                        author = obj.optString("author", "LifeOS Community"),
+                        itemCount = obj.optInt("itemCount", 0),
+                        sha256 = obj.optString("sha256", ""),
+                        isInstalled = obj.optBoolean("isInstalled", true),
+                        installedAt = obj.optLong("installedAt", System.currentTimeMillis()),
+                        sizeBytes = obj.optLong("sizeBytes", 0L)
+                    )
+                    database.glossaryDao().insertPack(pack)
+                }
+            }
+
+            val glossaryItemsArr = root.optJSONArray("glossary_items")
+            if (glossaryItemsArr != null) {
+                val itemsList = mutableListOf<com.example.data.local.entities.GlossaryItemEntity>()
+                for (i in 0 until glossaryItemsArr.length()) {
+                    val obj = glossaryItemsArr.getJSONObject(i)
+                    val item = com.example.data.local.entities.GlossaryItemEntity(
+                        id = obj.optLong("id", 0L),
+                        packId = obj.getString("packId"),
+                        term = obj.getString("term"),
+                        phonetic = if (obj.has("phonetic") && !obj.isNull("phonetic")) obj.getString("phonetic") else null,
+                        category = obj.getString("category"),
+                        definition = obj.getString("definition"),
+                        detailedExplanation = obj.optString("detailedExplanation", ""),
+                        examplesJson = obj.optString("examplesJson", "[]"),
+                        relatedTermsJson = obj.optString("relatedTermsJson", "[]"),
+                        tagsJson = obj.optString("tagsJson", "[]"),
+                        isBookmarked = obj.optBoolean("isBookmarked", false),
+                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                    )
+                    itemsList.add(item)
+                }
+                database.glossaryDao().insertItems(itemsList)
             }
 
             true

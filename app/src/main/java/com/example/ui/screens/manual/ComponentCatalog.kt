@@ -1780,6 +1780,31 @@ ProductivityRadarChart(
 )
             """.trimIndent(),
             tags = listOf("analytics", "radar", "spider", "chart", "productivity", "focus", "habits", "wellness", "widget")
+        ),
+
+        // 57. Modular Offline Glossary Library (#2)
+        ComponentEntry(
+            id = "glossary_reader_module",
+            name = "Modular Offline Knowledge Glossary",
+            category = ComponentCategory.SPECIALIZED_LIFEOS,
+            status = ComponentStatus.EXISTING,
+            description = "Downloadable and importable offline knowledge library supporting validated JSON content packs, SHA-256 integrity verification, live multi-field search, bookmarking, and term detail dialogs.",
+            whenToUse = "Use for in-app mental model reference libraries, productivity definitions, and downloadable domain knowledge packs.",
+            sourceFile = "app/src/main/java/com/example/ui/screens/glossary/GlossaryScreen.kt",
+            composableName = "GlossaryScreen & GlossaryTermCard",
+            parameters = listOf(
+                ComponentParam("viewModel", "LifeViewModel", "LifeOS view model for reactive database operations"),
+                ComponentParam("onBack", "() -> Unit", "Callback when navigating back")
+            ),
+            usageLocations = listOf("SettingsScreen", "GlossaryScreen", "ComponentCatalog"),
+            reuseRecommendations = "Use GlossaryModuleManager to validate and import custom JSON knowledge packs with SHA-256 integrity checking.",
+            codeExample = """
+GlossaryScreen(
+    viewModel = viewModel,
+    onBack = { currentSubpage = SettingsSubpage.HUB }
+)
+            """.trimIndent(),
+            tags = listOf("glossary", "library", "knowledge", "offline", "downloadable", "terms", "dictionary", "modules")
         )
     )
 
