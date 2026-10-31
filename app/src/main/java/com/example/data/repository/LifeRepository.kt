@@ -130,6 +130,7 @@ class LifeRepository(
     private val trackerDao = database.trackerDao()
     private val subscriptionDao = database.subscriptionDao()
     private val medicationDao = database.medicationDao()
+    private val profileSurveyDao = database.profileSurveyDao()
 
     // --- Release 3 Phase 5 Profile Isolation & Management (#9) ---
     val activeProfileIdFlow: Flow<Long> = preferences.activeProfileId
@@ -171,6 +172,7 @@ class LifeRepository(
         }
         val deleted = profileDao.deleteCustomProfile(id)
         if (deleted > 0) {
+            profileSurveyDao.deleteSurveyForProfile(id)
             taskDao.deleteAllTasksForProfile(id)
             habitDao.deleteAllHabitsForProfile(id)
             honeycombShortcutDao.deleteAllShortcutsForProfile(id)
@@ -183,6 +185,45 @@ class LifeRepository(
             medicationDao.deleteAllMedicationsForProfile(id)
         }
         return deleted > 0
+    }
+
+    // --- Release 3 Phase 5 Batch 05C: Profile Survey (#19) ---
+    fun getSurveyForProfileFlow(profileId: Long): Flow<com.example.data.local.entities.ProfileSurveyEntity?> {
+        return profileSurveyDao.getSurveyForProfileFlow(profileId)
+    }
+
+    suspend fun getSurveyForProfile(profileId: Long): com.example.data.local.entities.ProfileSurveyEntity? {
+        return profileSurveyDao.getSurveyForProfile(profileId)
+    }
+
+    suspend fun saveSurvey(survey: com.example.data.local.entities.ProfileSurveyEntity): Long {
+        return profileSurveyDao.insertOrUpdateSurvey(survey)
+    }
+
+    suspend fun skipSurvey(profileId: Long): Long {
+        val existing = profileSurveyDao.getSurveyForProfile(profileId)
+        val skippedSurvey = existing?.copy(
+            isSkipped = true,
+            isCompleted = true,
+            updatedAt = System.currentTimeMillis()
+        ) ?: com.example.data.local.entities.ProfileSurveyEntity(
+            profileId = profileId,
+            isSkipped = true,
+            isCompleted = true,
+            completedAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis()
+        )
+        return profileSurveyDao.insertOrUpdateSurvey(skippedSurvey)
+    }
+
+    suspend fun updateProfile(profile: ProfileEntity) {
+        profileDao.updateProfile(profile)
+    }
+
+    suspend fun hasAnyExistingUserData(): Boolean {
+        return taskDao.getAllTasksList().isNotEmpty() ||
+                habitDao.getAllHabitsList().isNotEmpty() ||
+                projectDao.getAllProjectsList().isNotEmpty()
     }
 
     // --- Phase 3A Reactive Flows ---

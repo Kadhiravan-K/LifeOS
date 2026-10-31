@@ -92,7 +92,46 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     } else {
-                        MainScreen(viewModel = viewModel)
+                        // Release 3 Phase 5 Batch 05C: Entry Routing (#9, #19)
+                        val hasCompletedOnboarding by viewModel.hasCompletedOnboarding.collectAsStateWithLifecycle()
+                        val isAppEntryDismissed by viewModel.isAppEntrySelectorDismissed.collectAsStateWithLifecycle()
+                        val showOnStartup by viewModel.showProfileSelectorOnLaunchFlow.collectAsStateWithLifecycle()
+                        val allProfiles by viewModel.allProfilesFlow.collectAsStateWithLifecycle()
+                        val activeProfileId by viewModel.activeProfileIdFlow.collectAsStateWithLifecycle()
+
+                        if (!hasCompletedOnboarding) {
+                            com.example.ui.screens.onboarding.OnboardingSurveyScreen(
+                                profileId = activeProfileId,
+                                isEditMode = false,
+                                onComplete = { survey ->
+                                    viewModel.saveProfileSurvey(survey)
+                                },
+                                onSkipAll = {
+                                    viewModel.skipProfileSurvey(activeProfileId)
+                                }
+                            )
+                        } else if (showOnStartup && !isAppEntryDismissed) {
+                            com.example.ui.screens.profile.AppEntryProfileSelectorScreen(
+                                profiles = allProfiles,
+                                activeProfileId = activeProfileId,
+                                showOnStartupPreference = showOnStartup,
+                                onProfileSelected = { id ->
+                                    viewModel.switchProfile(id)
+                                },
+                                onEnterWorkspace = { id ->
+                                    viewModel.switchProfile(id)
+                                    viewModel.dismissAppEntryProfileSelector()
+                                },
+                                onCreateProfile = { name, emoji, colorHex, type ->
+                                    viewModel.createProfile(name, emoji, colorHex, type)
+                                },
+                                onToggleShowOnStartup = { show ->
+                                    viewModel.setShowProfileSelectorOnLaunch(show)
+                                }
+                            )
+                        } else {
+                            MainScreen(viewModel = viewModel)
+                        }
                     }
                 }
             }

@@ -615,9 +615,33 @@ val MIGRATION_10_11 = object : Migration(10, 11) {
     }
 }
 
+val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `profile_surveys` (
+                `profileId` INTEGER PRIMARY KEY NOT NULL,
+                `displayName` TEXT DEFAULT NULL,
+                `gender` TEXT DEFAULT NULL,
+                `sleepingTime` TEXT DEFAULT NULL,
+                `dailyWaterGoalMl` INTEGER DEFAULT NULL,
+                `discoverySource` TEXT DEFAULT NULL,
+                `discoverySocialPlatform` TEXT DEFAULT NULL,
+                `discoveryOtherDetail` TEXT DEFAULT NULL,
+                `isCompleted` INTEGER NOT NULL DEFAULT 0,
+                `isSkipped` INTEGER NOT NULL DEFAULT 0,
+                `completedAt` INTEGER NOT NULL DEFAULT 0,
+                `updatedAt` INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY(`profileId`) REFERENCES `profiles`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_profile_surveys_profileId` ON `profile_surveys` (`profileId`)")
+    }
+}
+
 @Database(
     entities = [
         ProfileEntity::class,
+        com.example.data.local.entities.ProfileSurveyEntity::class,
         TaskEntity::class,
         HabitEntity::class,
         ChallengeEntity::class,
@@ -648,11 +672,12 @@ val MIGRATION_10_11 = object : Migration(10, 11) {
         com.example.data.local.entities.SubscriptionPaymentEntity::class,
         com.example.data.local.entities.PriceHistoryEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun profileDao(): ProfileDao
+    abstract fun profileSurveyDao(): com.example.data.local.dao.ProfileSurveyDao
     abstract fun taskDao(): TaskDao
     abstract fun habitDao(): HabitDao
     abstract fun challengeDao(): ChallengeDao
@@ -689,7 +714,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_7_8,
                         MIGRATION_8_9,
                         MIGRATION_9_10,
-                        MIGRATION_10_11
+                        MIGRATION_10_11,
+                        MIGRATION_11_12
                     )
                     .build()
                 INSTANCE = instance

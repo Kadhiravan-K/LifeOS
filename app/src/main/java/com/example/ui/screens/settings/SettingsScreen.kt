@@ -14,7 +14,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Mood
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.foundation.text.KeyboardOptions
@@ -258,6 +260,7 @@ fun SettingsScreen(
     var showResetGamificationDialog by remember { mutableStateOf(false) }
     var showClearTemplatesDialog by remember { mutableStateOf(false) }
     var showProfileEmojiDialog by remember { mutableStateOf(false) }
+    var showSurveyDialog by remember { mutableStateOf(false) }
     var viewingLegalDoc by remember { mutableStateOf<String?>(null) }
 
     var tempWakeUp by remember { mutableStateOf(wakeUpTime) }
@@ -311,6 +314,11 @@ fun SettingsScreen(
     val acceptedTermsVersion by viewModel.acceptedTermsVersion.collectAsStateWithLifecycle()
     val acceptedPrivacyVersion by viewModel.acceptedPrivacyVersion.collectAsStateWithLifecycle()
     val termsAcceptedTimestamp by viewModel.termsAcceptedTimestamp.collectAsStateWithLifecycle()
+
+    val allProfiles by viewModel.allProfilesFlow.collectAsStateWithLifecycle()
+    val activeProfileId by viewModel.activeProfileIdFlow.collectAsStateWithLifecycle()
+    val currentSurvey by viewModel.currentProfileSurveyFlow.collectAsStateWithLifecycle()
+    val showOnStartup by viewModel.showProfileSelectorOnLaunchFlow.collectAsStateWithLifecycle()
 
     // Subpage renderer
     when (currentSubpage) {
@@ -378,6 +386,125 @@ fun SettingsScreen(
                                     Icon(Icons.Default.Edit, contentDescription = "Edit Name", tint = MaterialTheme.colorScheme.primary)
                                 }
                             }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Workspace Profile & Isolation (Requirement #9, #19)
+                val activeProfile = allProfiles.firstOrNull { it.id == activeProfileId }
+                    ?: allProfiles.firstOrNull()
+                    ?: com.example.data.local.entities.ProfileEntity.createDefaultPersonal()
+
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                    modifier = Modifier.fillMaxWidth().testTag("settings_workspace_card")
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(androidx.compose.ui.graphics.Color(activeProfile.colorHex).copy(alpha = 0.2f))
+                                        .border(1.5.dp, androidx.compose.ui.graphics.Color(activeProfile.colorHex), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(text = activeProfile.emoji, fontSize = 22.sp)
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "${activeProfile.name} Workspace",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp
+                                    )
+                                    Text(
+                                        text = when {
+                                            activeProfile.isDefault -> "Default Personal Workspace"
+                                            activeProfile.type == com.example.data.local.entities.ProfileEntity.TYPE_WORK -> "Work Workspace"
+                                            else -> "Custom Workspace"
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider()
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Onboarding Survey & Preferences",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = if (currentSurvey != null && currentSurvey?.isCompleted == true && currentSurvey?.isSkipped == false) {
+                                buildString {
+                                    append("• Gender: ${currentSurvey?.gender ?: "Unspecified"}\n")
+                                    append("• Target Bedtime: ${currentSurvey?.sleepingTime ?: "Unspecified"}\n")
+                                    append("• Daily Water Goal: ${currentSurvey?.dailyWaterGoalMl?.let { "$it ml" } ?: "Default (2000 ml)"}\n")
+                                    append("• Discovery: ${currentSurvey?.discoverySource ?: "Unspecified"}")
+                                }
+                            } else {
+                                "Survey is optional and not completed for this profile."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { showSurveyDialog = true },
+                                modifier = Modifier.weight(1f).testTag("settings_edit_survey_btn")
+                            ) {
+                                Text(if (currentSurvey?.isCompleted == true) "Edit Survey" else "Take Survey")
+                            }
+
+                            Button(
+                                onClick = { viewModel.openAppEntryProfileSelector() },
+                                modifier = Modifier.weight(1f).testTag("settings_switch_workspace_btn")
+                            ) {
+                                Text("Switch Workspace")
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.setShowProfileSelectorOnLaunch(!showOnStartup) }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = showOnStartup,
+                                onCheckedChange = { viewModel.setShowProfileSelectorOnLaunch(it) }
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Show workspace selector at startup",
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
                     }
                 }
@@ -1770,6 +1897,26 @@ fun SettingsScreen(
             },
             onDismiss = { showProfileEmojiDialog = false }
         )
+    }
+
+    if (showSurveyDialog) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showSurveyDialog = false },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            com.example.ui.screens.onboarding.OnboardingSurveyScreen(
+                profileId = activeProfileId,
+                initialSurvey = currentSurvey,
+                isEditMode = true,
+                onComplete = { survey ->
+                    viewModel.saveProfileSurvey(survey)
+                    showSurveyDialog = false
+                },
+                onSkipAll = {
+                    showSurveyDialog = false
+                }
+            )
+        }
     }
 
     if (showBackupRestoreDialog) {

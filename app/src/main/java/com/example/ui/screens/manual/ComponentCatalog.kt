@@ -1367,6 +1367,152 @@ HoneycombProfileTile(
 )
             """.trimIndent(),
             tags = listOf("profile", "tile", "card", "hex", "avatar", "workspace", "badge")
+        ),
+
+        // 43. App-Entry Honeycomb Profile Selector (#9)
+        ComponentEntry(
+            id = "app_entry_profile_selector",
+            name = "App-Entry Honeycomb Profile Selector",
+            category = ComponentCategory.NAVIGATION_LAYOUT,
+            status = ComponentStatus.EXISTING,
+            description = "Tactile fullscreen honeycomb workspace portal presented at app launch. Supports selecting isolated workspaces, auto-entering, and creating new workspaces.",
+            whenToUse = "Use during app entry or when returning to profile selection from Settings.",
+            sourceFile = "app/src/main/java/com/example/ui/screens/profile/AppEntryProfileSelectorScreen.kt",
+            composableName = "AppEntryProfileSelectorScreen",
+            parameters = listOf(
+                ComponentParam("profiles", "List<ProfileEntity>", "Available workspaces"),
+                ComponentParam("activeProfileId", "Long", "Persisted active profile ID"),
+                ComponentParam("showOnStartupPreference", "Boolean", "Whether to show at each startup"),
+                ComponentParam("onProfileSelected", "(Long) -> Unit", "Profile selection tap callback"),
+                ComponentParam("onEnterWorkspace", "(Long) -> Unit", "Enter workspace confirmation callback")
+            ),
+            usageLocations = listOf("MainActivity", "AppEntryProfileSelectorScreen"),
+            reuseRecommendations = "Guarantees zero flicker of other profiles and isolates workspaces completely.",
+            codeExample = """
+AppEntryProfileSelectorScreen(
+    profiles = allProfiles,
+    activeProfileId = activeProfileId,
+    showOnStartupPreference = showOnStartup,
+    onProfileSelected = { id -> viewModel.switchProfile(id) },
+    onEnterWorkspace = { id -> viewModel.switchProfile(id); viewModel.dismissAppEntryProfileSelector() }
+)
+            """.trimIndent(),
+            tags = listOf("profile", "entry", "workspace", "honeycomb", "selector", "portal", "cold start")
+        ),
+
+        // 44. Onboarding Survey Screen (#19)
+        ComponentEntry(
+            id = "onboarding_survey_screen",
+            name = "First-Run & New-Profile Onboarding Survey",
+            category = ComponentCategory.INPUTS_FORMS,
+            status = ComponentStatus.EXISTING,
+            description = "Optional, skippable 5-step onboarding wizard gathering user display name, demographic gender, sleeping habits, daily hydration goal, and discovery source without telemetry.",
+            whenToUse = "Use on fresh installs, new workspace profile creation, or profile settings editing.",
+            sourceFile = "app/src/main/java/com/example/ui/screens/onboarding/OnboardingSurveyScreen.kt",
+            composableName = "OnboardingSurveyScreen",
+            parameters = listOf(
+                ComponentParam("profileId", "Long", "Workspace profile ID"),
+                ComponentParam("initialSurvey", "ProfileSurveyEntity?", "Existing survey if in edit mode"),
+                ComponentParam("isEditMode", "Boolean", "Whether opened from Settings"),
+                ComponentParam("onComplete", "(ProfileSurveyEntity) -> Unit", "Completion callback with survey payload"),
+                ComponentParam("onSkipAll", "() -> Unit", "Skip all callback with zero synthetic answers")
+            ),
+            usageLocations = listOf("MainActivity", "SettingsScreen", "OnboardingSurveyScreen"),
+            reuseRecommendations = "Ensures zero telemetry: all data stays local to Room database v12.",
+            codeExample = """
+OnboardingSurveyScreen(
+    profileId = 1L,
+    isEditMode = false,
+    onComplete = { survey -> viewModel.saveProfileSurvey(survey) },
+    onSkipAll = { viewModel.skipProfileSurvey(1L) }
+)
+            """.trimIndent(),
+            tags = listOf("survey", "onboarding", "wizard", "questions", "profile", "local", "privacy")
+        ),
+
+        // 45. Survey Time Picker (#19)
+        ComponentEntry(
+            id = "survey_time_picker",
+            name = "Onboarding Sleeping Time Picker",
+            category = ComponentCategory.DATE_TIME,
+            status = ComponentStatus.EXISTING,
+            description = "Intuitive bedtime selection control offering standard presets (21:30 to 00:00) with active chips and bed icon indicator.",
+            whenToUse = "Use inside onboarding survey or settings quiet hours configuration.",
+            sourceFile = "app/src/main/java/com/example/ui/screens/onboarding/OnboardingSurveyScreen.kt",
+            composableName = "SleepingTimeStep",
+            parameters = listOf(
+                ComponentParam("sleepingTime", "String", "Selected bedtime format (HH:mm)"),
+                ComponentParam("onSleepingTimeSelected", "(String) -> Unit", "Bedtime selection callback")
+            ),
+            usageLocations = listOf("OnboardingSurveyScreen"),
+            reuseRecommendations = "Aligns with Settings quiet hours to automatically calm evening alerts.",
+            codeExample = """
+SleepingTimeStep(
+    sleepingTime = "22:00",
+    onSleepingTimeSelected = { time -> /* update */ }
+)
+            """.trimIndent(),
+            tags = listOf("time", "bedtime", "sleep", "survey", "chips", "picker")
+        ),
+
+        // 46. Survey Water Goal Stepper (#19)
+        ComponentEntry(
+            id = "survey_water_goal",
+            name = "Daily Water Goal Stepper & Input",
+            category = ComponentCategory.INPUTS_FORMS,
+            status = ComponentStatus.EXISTING,
+            description = "Validated numeric hydration input with sanity bounds (500ml - 6000ml) and quick preset buttons (1500ml, 2000ml, 2500ml, 3000ml).",
+            whenToUse = "Use inside onboarding survey and hydration settings.",
+            sourceFile = "app/src/main/java/com/example/ui/screens/onboarding/OnboardingSurveyScreen.kt",
+            composableName = "WaterGoalStep",
+            parameters = listOf(
+                ComponentParam("waterGoalText", "String", "Water goal string in ml"),
+                ComponentParam("onWaterGoalChange", "(String) -> Unit", "Value change listener"),
+                ComponentParam("errorMessage", "String?", "Validation error text")
+            ),
+            usageLocations = listOf("OnboardingSurveyScreen", "SettingsScreen"),
+            reuseRecommendations = "Never overwrite existing water settings silently when skipped.",
+            codeExample = """
+WaterGoalStep(
+    waterGoalText = "2000",
+    onWaterGoalChange = { text -> /* update */ },
+    errorMessage = null
+)
+            """.trimIndent(),
+            tags = listOf("water", "goal", "hydration", "stepper", "validation", "ml")
+        ),
+
+        // 47. Survey Discovery Source Selector (#19)
+        ComponentEntry(
+            id = "survey_discovery_selector",
+            name = "Discovery Source & Social Media Selector",
+            category = ComponentCategory.INPUTS_FORMS,
+            status = ComponentStatus.EXISTING,
+            description = "Multi-level discovery attribution selector supporting Social Media (alphabetical platform list), GitHub, Google, Friends, and bounded free-text.",
+            whenToUse = "Use in Onboarding survey and feedback forms.",
+            sourceFile = "app/src/main/java/com/example/ui/screens/onboarding/OnboardingSurveyScreen.kt",
+            composableName = "DiscoverySourceStep",
+            parameters = listOf(
+                ComponentParam("selectedSource", "String", "Main discovery channel"),
+                ComponentParam("onSourceSelected", "(String) -> Unit", "Main channel callback"),
+                ComponentParam("selectedPlatform", "String", "Social platform if applicable"),
+                ComponentParam("onPlatformSelected", "(String) -> Unit", "Platform callback"),
+                ComponentParam("otherDetail", "String", "Bounded custom detail text"),
+                ComponentParam("onDetailChange", "(String) -> Unit", "Detail text listener")
+            ),
+            usageLocations = listOf("OnboardingSurveyScreen"),
+            reuseRecommendations = "Always bound free-text length to 100 characters max.",
+            codeExample = """
+DiscoverySourceStep(
+    selectedSource = "Social Media",
+    onSourceSelected = { /* update */ },
+    selectedPlatform = "Reddit",
+    onPlatformSelected = { /* update */ },
+    otherDetail = "",
+    onDetailChange = { /* update */ }
+)
+            """.trimIndent(),
+            tags = listOf("discovery", "source", "social", "survey", "referral", "attribution")
         )
     )
 

@@ -63,6 +63,28 @@ object DataExportImportManager {
         }
         root.put("profiles", profsArr)
 
+        // 0b. Profile Surveys
+        val surveys = database.profileSurveyDao().getAllSurveys()
+        val surveysArr = JSONArray()
+        surveys.forEach { s ->
+            val obj = JSONObject().apply {
+                put("profileId", s.profileId)
+                put("displayName", s.displayName ?: JSONObject.NULL)
+                put("gender", s.gender ?: JSONObject.NULL)
+                put("sleepingTime", s.sleepingTime ?: JSONObject.NULL)
+                put("dailyWaterGoalMl", s.dailyWaterGoalMl ?: JSONObject.NULL)
+                put("discoverySource", s.discoverySource ?: JSONObject.NULL)
+                put("discoverySocialPlatform", s.discoverySocialPlatform ?: JSONObject.NULL)
+                put("discoveryOtherDetail", s.discoveryOtherDetail ?: JSONObject.NULL)
+                put("isCompleted", s.isCompleted)
+                put("isSkipped", s.isSkipped)
+                put("completedAt", s.completedAt)
+                put("updatedAt", s.updatedAt)
+            }
+            surveysArr.put(obj)
+        }
+        root.put("profile_surveys", surveysArr)
+
         // 1. Tasks
         val tasks = database.taskDao().getAllTasksList()
         val tasksArr = JSONArray()
@@ -383,6 +405,29 @@ object DataExportImportManager {
                         updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
                     )
                     database.profileDao().insertProfile(prof)
+                }
+            }
+
+            // Import Profile Surveys
+            val surveysArr = root.optJSONArray("profile_surveys")
+            if (surveysArr != null) {
+                for (i in 0 until surveysArr.length()) {
+                    val obj = surveysArr.getJSONObject(i)
+                    val survey = com.example.data.local.entities.ProfileSurveyEntity(
+                        profileId = obj.getLong("profileId"),
+                        displayName = if (obj.isNull("displayName")) null else obj.optString("displayName"),
+                        gender = if (obj.isNull("gender")) null else obj.optString("gender"),
+                        sleepingTime = if (obj.isNull("sleepingTime")) null else obj.optString("sleepingTime"),
+                        dailyWaterGoalMl = if (obj.isNull("dailyWaterGoalMl")) null else obj.optInt("dailyWaterGoalMl"),
+                        discoverySource = if (obj.isNull("discoverySource")) null else obj.optString("discoverySource"),
+                        discoverySocialPlatform = if (obj.isNull("discoverySocialPlatform")) null else obj.optString("discoverySocialPlatform"),
+                        discoveryOtherDetail = if (obj.isNull("discoveryOtherDetail")) null else obj.optString("discoveryOtherDetail"),
+                        isCompleted = obj.optBoolean("isCompleted", false),
+                        isSkipped = obj.optBoolean("isSkipped", false),
+                        completedAt = obj.optLong("completedAt", System.currentTimeMillis()),
+                        updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                    )
+                    database.profileSurveyDao().insertOrUpdateSurvey(survey)
                 }
             }
 

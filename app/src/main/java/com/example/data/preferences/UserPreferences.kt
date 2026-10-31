@@ -121,6 +121,9 @@ class UserPreferences(private val context: Context) {
         val KEY_CUSTOM_DARK_CARD = longPreferencesKey("custom_dark_card")
         val KEY_CUSTOM_DARK_SURFACE = longPreferencesKey("custom_dark_surface")
         val KEY_CUSTOM_DARK_BACKGROUND = longPreferencesKey("custom_dark_background")
+
+        // Batch 05C Honeycomb App-Entry Selector (#9)
+        val KEY_SHOW_PROFILE_SELECTOR_ON_LAUNCH = booleanPreferencesKey("show_profile_selector_on_launch")
     }
 
     // Legal Consent Flows
@@ -249,6 +252,10 @@ class UserPreferences(private val context: Context) {
         preferences[KEY_HAS_COMPLETED_ONBOARDING] ?: false
     }
 
+    val showProfileSelectorOnLaunch: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_SHOW_PROFILE_SELECTOR_ON_LAUNCH] ?: true
+    }
+
     val installedTemplateIds: Flow<Set<String>> = context.dataStore.data.map { preferences ->
         val raw = preferences[KEY_INSTALLED_TEMPLATE_IDS] ?: ""
         if (raw.isBlank()) emptySet() else raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
@@ -264,6 +271,10 @@ class UserPreferences(private val context: Context) {
 
     suspend fun setHasCompletedOnboarding(completed: Boolean) {
         context.dataStore.edit { it[KEY_HAS_COMPLETED_ONBOARDING] = completed }
+    }
+
+    suspend fun setShowProfileSelectorOnLaunch(show: Boolean) {
+        context.dataStore.edit { it[KEY_SHOW_PROFILE_SELECTOR_ON_LAUNCH] = show }
     }
 
     suspend fun addInstalledTemplateId(templateId: String) {

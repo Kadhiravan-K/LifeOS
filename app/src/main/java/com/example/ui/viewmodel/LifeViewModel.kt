@@ -221,6 +221,10 @@ class LifeViewModel(
             }
         }
         viewModelScope.launch {
+            // Guarantee Release 2 upgraded users with existing data do not see onboarding survey
+            if (!preferences.hasCompletedOnboarding.first() && repository.hasAnyExistingUserData()) {
+                preferences.setHasCompletedOnboarding(true)
+            }
             repository.seedDefaultHoneycombShortcuts()
             repository.seedDefaultProjectsAndLabels()
             repository.seedDefaultGamification()
@@ -408,6 +412,25 @@ class LifeViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = listOf(ProfileEntity.createDefaultPersonal())
+    )
+
+    // Batch 05C: App-Entry Profile Selection & Onboarding Survey Flows (#9, #19)
+    val showProfileSelectorOnLaunchFlow: StateFlow<Boolean> = preferences.showProfileSelectorOnLaunch.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    private val _isAppEntrySelectorDismissed = MutableStateFlow(false)
+    val isAppEntrySelectorDismissed: StateFlow<Boolean> = _isAppEntrySelectorDismissed.asStateFlow()
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val currentProfileSurveyFlow: StateFlow<com.example.data.local.entities.ProfileSurveyEntity?> = activeProfileIdFlow.flatMapLatest { profileId ->
+        repository.getSurveyForProfileFlow(profileId)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
     )
 
     // Legal Consent Flows (Requirement #22)
@@ -1958,6 +1981,90 @@ class LifeViewModel(
         viewModelScope.launch {
             repository.deleteProfile(profileId)
             com.example.widgets.WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
+        }
+    }
+
+    // --- Batch 05C: Profile Selector & Survey Actions (#9, #19) ---
+    fun dismissAppEntryProfileSelector() {
+        _isAppEntrySelectorDismissed.value = true
+    }
+
+    fun openAppEntryProfileSelector() {
+        _isAppEntrySelectorDismissed.value = false
+    }
+
+    fun setShowProfileSelectorOnLaunch(show: Boolean) {
+        viewModelScope.launch {
+            preferences.setShowProfileSelectorOnLaunch(show)
+        }
+    }
+
+    fun saveProfileSurvey(survey: com.example.data.local.entities.ProfileSurveyEntity) {
+        viewModelScope.launch {
+            repository.saveSurvey(survey)
+            preferences.setHasCompletedOnboarding(true)
+
+            // Sync user preferences if provided
+            survey.displayName?.let { name ->
+                if (name.isNotBlank()) {
+                    preferences.setUserName(name)
+                    val activeProfile = repository.getProfileById(survey.profileId)
+                    if (activeProfile != null) {
+                        repository.updateProfile(activeProfile.copy(name = name))
+                    }
+                }
+            }
+
+            survey.dailyWaterGoalMl?.let { goal ->
+                if (goal in com.example.data.local.entities.ProfileSurveyEntity.MIN_WATER_GOAL_ML..com.example.data.local.entities.ProfileSurveyEntity.MAX_WATER_GOAL_ML) {
+                    preferences.setWaterGoalMl(goal)
+                }
+            }
+
+            survey.sleepingTime?.let { sleep ->
+                if (sleep.isNotBlank()) {
+                    preferences.setBedTime(sleep)
+                }
+            }
+            com.example.widgets.WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
+        }
+    }
+
+    fun skipProfileSurvey(profileId: Long) {
+        viewModelScope.launch {
+            repository.skipSurvey(profileId)
+            preferences.setHasCompletedOnboarding(true)
+        }
+    }
+
+    fun updateProfileDetails(profileId: Long, name: String, emoji: String, colorHex: Long) {
+        viewModelScope.launch {
+            val existing = repository.getProfileById(profileId) ?: return@launch
+            val updated = existing.copy(name = name, emoji = emoji, colorHex = colorHex, updatedAt = System.currentTimeMillis())
+            repository.updateProfile(updated)
+            if (profileId == ProfileEntity.DEFAULT_PERSONAL_PROFILE_ID) {
+                preferences.setUserName(name)
+                preferences.setUserProfileEmoji(emoji)
+            }
+            com.example.widgets.WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
+        }
+    }
+
+    fun createProfileWithSurvey(
+        name: String,
+        emoji: String = "📁",
+        colorHex: Long = 0xFF3B82F6,
+        type: String = ProfileEntity.TYPE_CUSTOM,
+        survey: com.example.data.local.entities.ProfileSurveyEntity? = null,
+        onCreated: ((Long) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val newId = repository.createProfile(name, emoji, colorHex, type)
+            if (survey != null) {
+                repository.saveSurvey(survey.copy(profileId = newId))
+            }
+            com.example.widgets.WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
+            onCreated?.invoke(newId)
         }
     }
 

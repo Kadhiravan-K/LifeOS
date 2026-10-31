@@ -1446,6 +1446,10 @@ private fun RenderComponentLivePreview(componentId: String) {
             RenderProfileLivePreview(componentId)
         }
 
+        "app_entry_profile_selector", "onboarding_survey_screen", "survey_time_picker", "survey_water_goal", "survey_discovery_selector" -> {
+            RenderSurveyAndEntryLivePreview(componentId)
+        }
+
         else -> {
             Card(
                 shape = RoundedCornerShape(12.dp),
@@ -1722,6 +1726,91 @@ private fun RenderProfileLivePreview(componentId: String) {
                     profile = sampleProf,
                     isActive = activeState,
                     onClick = { activeState = !activeState }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RenderSurveyAndEntryLivePreview(componentId: String) {
+    when (componentId) {
+        "app_entry_profile_selector" -> {
+            var selectedId by remember { mutableStateOf(1L) }
+            val sampleProfiles = remember {
+                listOf(
+                    com.example.data.local.entities.ProfileEntity.createDefaultPersonal(),
+                    com.example.data.local.entities.ProfileEntity(id = 2, name = "Work", emoji = "💼", colorHex = 0xFF8B5CF6, type = com.example.data.local.entities.ProfileEntity.TYPE_WORK, isDefault = false)
+                )
+            }
+            Column {
+                Text("App-Entry Honeycomb Profile Selection Live Preview:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    sampleProfiles.forEach { profile ->
+                        com.example.ui.screens.profile.HoneycombEntryProfileCard(
+                            profile = profile,
+                            isSelected = profile.id == selectedId,
+                            isPersistedActive = profile.id == 1L,
+                            onClick = { selectedId = profile.id },
+                            onDoubleClickOrEnter = { selectedId = profile.id }
+                        )
+                    }
+                }
+            }
+        }
+
+        "onboarding_survey_screen" -> {
+            var nameState by remember { mutableStateOf("Sam") }
+            Column {
+                Text("Onboarding Survey Form Preview (Display Name Step):", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(10.dp))
+                com.example.ui.screens.onboarding.DisplayNameStep(
+                    displayName = nameState,
+                    onDisplayNameChange = { nameState = it }
+                )
+            }
+        }
+
+        "survey_time_picker" -> {
+            var sleepTime by remember { mutableStateOf("22:30") }
+            Column {
+                Text("Sleeping Time Picker Preview:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(10.dp))
+                com.example.ui.screens.onboarding.SleepingTimeStep(
+                    sleepingTime = sleepTime,
+                    onSleepingTimeSelected = { sleepTime = it }
+                )
+            }
+        }
+
+        "survey_water_goal" -> {
+            var waterText by remember { mutableStateOf("2500") }
+            Column {
+                Text("Hydration Target Input & Stepper:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(10.dp))
+                com.example.ui.screens.onboarding.WaterGoalStep(
+                    waterGoalText = waterText,
+                    onWaterGoalChange = { waterText = it },
+                    errorMessage = null
+                )
+            }
+        }
+
+        "survey_discovery_selector" -> {
+            var source by remember { mutableStateOf("Social Media") }
+            var platform by remember { mutableStateOf("Reddit") }
+            var detail by remember { mutableStateOf("") }
+            Column {
+                Text("Discovery Source Attribution Selector:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(10.dp))
+                com.example.ui.screens.onboarding.DiscoverySourceStep(
+                    selectedSource = source,
+                    onSourceSelected = { source = it },
+                    selectedPlatform = platform,
+                    onPlatformSelected = { platform = it },
+                    otherDetail = detail,
+                    onDetailChange = { detail = it }
                 )
             }
         }
