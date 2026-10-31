@@ -1728,6 +1728,33 @@ val task = TaskItem(
 )
             """.trimIndent(),
             tags = listOf("recurrence", "monthly", "window", "flexible", "obligation", "date-range")
+        ),
+
+        // 55. Advanced Project Database Workspace (#20)
+        ComponentEntry(
+            id = "advanced_project_workspace",
+            name = "Advanced Project Database Workspace",
+            category = ComponentCategory.TASK_PRODUCTIVITY,
+            status = ComponentStatus.EXISTING,
+            description = "Full Notion-style database workspace with Table, Board (Kanban), Calendar, List, and Gallery views, custom statuses, bulk actions, property filtering, and structured AI prompt exporter.",
+            whenToUse = "Use inside Project Detail for complex project tracking, roadmaps, and AI agent prompt generation.",
+            sourceFile = "app/src/main/java/com/example/ui/screens/projects/AdvancedProjectWorkspaceScreen.kt",
+            composableName = "AdvancedProjectWorkspaceScreen & ProjectDetailDialog",
+            parameters = listOf(
+                ComponentParam("project", "ProjectItem", "Target project data model"),
+                ComponentParam("viewModel", "LifeViewModel", "LifeOS view model for reactive database operations"),
+                ComponentParam("onBack", "() -> Unit", "Callback when exiting workspace")
+            ),
+            usageLocations = listOf("ProjectsLabelsManagerScreen", "ProjectDetailDialog", "AdvancedProjectWorkspaceScreen"),
+            reuseRecommendations = "Accessed via Settings → Organization & Essentials → Projects & Labels → Project Detail → Top-left 3-dot menu → Advanced View.",
+            codeExample = """
+AdvancedProjectWorkspaceScreen(
+    project = activeProject,
+    viewModel = viewModel,
+    onBack = { activeProject = null }
+)
+            """.trimIndent(),
+            tags = listOf("project", "workspace", "database", "notion", "table", "board", "calendar", "list", "gallery", "ai-prompt")
         )
     )
 

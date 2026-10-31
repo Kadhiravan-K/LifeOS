@@ -382,6 +382,72 @@ object DataExportImportManager {
         }
         root.put("subscription_payments", paymentsArr)
 
+        // Export Project Workspace Items
+        val workspaceItems = database.projectWorkspaceDao().getAllItems()
+        val wsItemsArr = JSONArray()
+        for (item in workspaceItems) {
+            val obj = JSONObject().apply {
+                put("id", item.id)
+                put("profileId", item.profileId)
+                put("projectId", item.projectId)
+                put("title", item.title)
+                put("status", item.status)
+                put("progress", item.progress)
+                put("category", item.category)
+                put("version", item.version)
+                if (item.dueDateIso != null) put("dueDateIso", item.dueDateIso)
+                put("notes", item.notes)
+                put("priority", item.priority)
+                put("customPropertiesJson", item.customPropertiesJson)
+                put("orderIndex", item.orderIndex)
+                put("createdAt", item.createdAt)
+                put("updatedAt", item.updatedAt)
+            }
+            wsItemsArr.put(obj)
+        }
+        root.put("project_workspace_items", wsItemsArr)
+
+        // Export Project Workspace Views
+        val workspaceViews = database.projectWorkspaceDao().getAllViews()
+        val wsViewsArr = JSONArray()
+        for (v in workspaceViews) {
+            val obj = JSONObject().apply {
+                put("id", v.id)
+                put("profileId", v.profileId)
+                put("projectId", v.projectId)
+                put("name", v.name)
+                put("viewType", v.viewType)
+                if (v.filterStatus != null) put("filterStatus", v.filterStatus)
+                if (v.filterCategory != null) put("filterCategory", v.filterCategory)
+                if (v.filterVersion != null) put("filterVersion", v.filterVersion)
+                put("sortBy", v.sortBy)
+                put("sortAscending", v.sortAscending)
+                put("groupBy", v.groupBy)
+                put("visiblePropertiesJson", v.visiblePropertiesJson)
+                put("isDefault", v.isDefault)
+                put("createdAt", v.createdAt)
+                put("updatedAt", v.updatedAt)
+            }
+            wsViewsArr.put(obj)
+        }
+        root.put("project_workspace_views", wsViewsArr)
+
+        // Export Project Custom Statuses
+        val customStatuses = database.projectWorkspaceDao().getAllCustomStatuses()
+        val customStatusesArr = JSONArray()
+        for (cs in customStatuses) {
+            val obj = JSONObject().apply {
+                put("id", cs.id)
+                put("profileId", cs.profileId)
+                put("projectId", cs.projectId)
+                put("name", cs.name)
+                put("colorHex", cs.colorHex)
+                put("orderIndex", cs.orderIndex)
+            }
+            customStatusesArr.put(obj)
+        }
+        root.put("project_custom_statuses", customStatusesArr)
+
         return@withContext root.toString(2)
     }
 
@@ -740,6 +806,75 @@ object DataExportImportManager {
                         timestamp = obj.optLong("timestamp", System.currentTimeMillis())
                     )
                     database.subscriptionDao().insertPayment(payment)
+                }
+            }
+
+            // Import Project Workspace Items
+            val wsItemsArr = root.optJSONArray("project_workspace_items")
+            if (wsItemsArr != null) {
+                for (i in 0 until wsItemsArr.length()) {
+                    val obj = wsItemsArr.getJSONObject(i)
+                    val item = com.example.data.local.entities.ProjectWorkspaceItemEntity(
+                        id = obj.optLong("id", 0L),
+                        profileId = obj.optLong("profileId", 1L),
+                        projectId = obj.getLong("projectId"),
+                        title = obj.getString("title"),
+                        status = obj.optString("status", "NOT_STARTED"),
+                        progress = obj.optInt("progress", 0),
+                        category = obj.optString("category", "Feature"),
+                        version = obj.optString("version", "V1"),
+                        dueDateIso = if (obj.has("dueDateIso") && !obj.isNull("dueDateIso")) obj.getString("dueDateIso") else null,
+                        notes = obj.optString("notes", ""),
+                        priority = obj.optString("priority", "P2"),
+                        customPropertiesJson = obj.optString("customPropertiesJson", "{}"),
+                        orderIndex = obj.optInt("orderIndex", 0),
+                        createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                        updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                    )
+                    database.projectWorkspaceDao().insertItem(item)
+                }
+            }
+
+            // Import Project Workspace Views
+            val wsViewsArr = root.optJSONArray("project_workspace_views")
+            if (wsViewsArr != null) {
+                for (i in 0 until wsViewsArr.length()) {
+                    val obj = wsViewsArr.getJSONObject(i)
+                    val v = com.example.data.local.entities.ProjectWorkspaceViewEntity(
+                        id = obj.optLong("id", 0L),
+                        profileId = obj.optLong("profileId", 1L),
+                        projectId = obj.getLong("projectId"),
+                        name = obj.getString("name"),
+                        viewType = obj.optString("viewType", "TABLE"),
+                        filterStatus = if (obj.has("filterStatus") && !obj.isNull("filterStatus")) obj.getString("filterStatus") else null,
+                        filterCategory = if (obj.has("filterCategory") && !obj.isNull("filterCategory")) obj.getString("filterCategory") else null,
+                        filterVersion = if (obj.has("filterVersion") && !obj.isNull("filterVersion")) obj.getString("filterVersion") else null,
+                        sortBy = obj.optString("sortBy", "orderIndex"),
+                        sortAscending = obj.optBoolean("sortAscending", true),
+                        groupBy = obj.optString("groupBy", "status"),
+                        visiblePropertiesJson = obj.optString("visiblePropertiesJson", "[\"status\",\"progress\",\"category\",\"version\",\"dueDate\"]"),
+                        isDefault = obj.optBoolean("isDefault", false),
+                        createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                        updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                    )
+                    database.projectWorkspaceDao().insertView(v)
+                }
+            }
+
+            // Import Project Custom Statuses
+            val customStatusesArr = root.optJSONArray("project_custom_statuses")
+            if (customStatusesArr != null) {
+                for (i in 0 until customStatusesArr.length()) {
+                    val obj = customStatusesArr.getJSONObject(i)
+                    val cs = com.example.data.local.entities.ProjectCustomStatusEntity(
+                        id = obj.optLong("id", 0L),
+                        profileId = obj.optLong("profileId", 1L),
+                        projectId = obj.getLong("projectId"),
+                        name = obj.getString("name"),
+                        colorHex = obj.optLong("colorHex", 4282168054L),
+                        orderIndex = obj.optInt("orderIndex", 0)
+                    )
+                    database.projectWorkspaceDao().insertCustomStatus(cs)
                 }
             }
 

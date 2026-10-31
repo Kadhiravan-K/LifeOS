@@ -70,6 +70,8 @@ import com.example.domain.model.ProjectItem
 import com.example.domain.model.TodoistColorPalette
 import com.example.ui.screens.labels.EditLabelBottomSheet
 import com.example.ui.screens.projects.EditProjectBottomSheet
+import com.example.ui.screens.projects.ProjectDetailDialog
+import com.example.ui.screens.projects.AdvancedProjectWorkspaceScreen
 import com.example.ui.viewmodel.LifeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,6 +94,8 @@ fun ProjectsLabelsManagerScreen(
     var projectToEdit by remember { mutableStateOf<ProjectItem?>(null) }
     var showProjectSheet by remember { mutableStateOf(false) }
     var projectToDelete by remember { mutableStateOf<ProjectItem?>(null) }
+    var projectForDetail by remember { mutableStateOf<ProjectItem?>(null) }
+    var activeWorkspaceProject by remember { mutableStateOf<ProjectItem?>(null) }
 
     var labelToEdit by remember { mutableStateOf<LabelItem?>(null) }
     var showLabelSheet by remember { mutableStateOf(false) }
@@ -133,6 +137,15 @@ fun ProjectsLabelsManagerScreen(
         else labels.filter {
             it.name.contains(searchQuery, ignoreCase = true)
         }
+    }
+
+    if (activeWorkspaceProject != null) {
+        AdvancedProjectWorkspaceScreen(
+            project = activeWorkspaceProject!!,
+            viewModel = viewModel,
+            onBack = { activeWorkspaceProject = null }
+        )
+        return
     }
 
     Scaffold(
@@ -276,6 +289,9 @@ fun ProjectsLabelsManagerScreen(
                             ProjectRowCard(
                                 project = project,
                                 activeTaskCount = projectTaskCounts[project.id] ?: 0,
+                                onClick = {
+                                    projectForDetail = project
+                                },
                                 onEdit = {
                                     projectToEdit = project
                                     showProjectSheet = true
@@ -464,12 +480,35 @@ fun ProjectsLabelsManagerScreen(
             }
         )
     }
+
+    // --- Project Detail Bottom Sheet & Advanced View Entry Point ---
+    projectForDetail?.let { project ->
+        ProjectDetailDialog(
+            project = project,
+            viewModel = viewModel,
+            onEditProject = {
+                projectToEdit = project
+                projectForDetail = null
+                showProjectSheet = true
+            },
+            onDeleteProject = {
+                projectToDelete = project
+                projectForDetail = null
+            },
+            onOpenAdvancedView = {
+                activeWorkspaceProject = project
+                projectForDetail = null
+            },
+            onDismiss = { projectForDetail = null }
+        )
+    }
 }
 
 @Composable
 private fun ProjectRowCard(
     project: ProjectItem,
     activeTaskCount: Int,
+    onClick: () -> Unit,
     onEdit: () -> Unit,
     onToggleFavorite: () -> Unit,
     onDelete: () -> Unit,
@@ -484,7 +523,7 @@ private fun ProjectRowCard(
         ),
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onEdit)
+            .clickable(onClick = onClick)
             .testTag("project_item_${project.id}")
     ) {
         Row(

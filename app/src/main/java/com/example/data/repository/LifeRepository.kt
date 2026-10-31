@@ -48,6 +48,12 @@ import com.example.data.local.entities.PriceHistoryEntity
 import com.example.domain.model.ChallengeDailyLog
 import com.example.domain.model.ChallengePreset
 import com.example.domain.model.ChallengeRule
+import com.example.domain.projectworkspace.ProjectWorkspaceItem
+import com.example.domain.projectworkspace.ProjectWorkspaceView
+import com.example.domain.projectworkspace.ProjectCustomStatus
+import com.example.data.local.entities.ProjectWorkspaceItemEntity
+import com.example.data.local.entities.ProjectWorkspaceViewEntity
+import com.example.data.local.entities.ProjectCustomStatusEntity
 import com.example.domain.model.ChallengeState
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -131,6 +137,7 @@ class LifeRepository(
     private val subscriptionDao = database.subscriptionDao()
     private val medicationDao = database.medicationDao()
     private val profileSurveyDao = database.profileSurveyDao()
+    private val projectWorkspaceDao = database.projectWorkspaceDao()
 
     // --- Release 3 Phase 5 Profile Isolation & Management (#9) ---
     val activeProfileIdFlow: Flow<Long> = preferences.activeProfileId
@@ -183,6 +190,9 @@ class LifeRepository(
             trackerDao.deleteAllTrackersForProfile(id)
             subscriptionDao.deleteAllSubscriptionsForProfile(id)
             medicationDao.deleteAllMedicationsForProfile(id)
+            projectWorkspaceDao.deleteAllItemsForProfile(id)
+            projectWorkspaceDao.deleteAllViewsForProfile(id)
+            projectWorkspaceDao.deleteAllCustomStatusesForProfile(id)
         }
         return deleted > 0
     }
@@ -268,6 +278,122 @@ class LifeRepository(
         return taskDao.getAllTasksList().isNotEmpty() ||
                 habitDao.getAllHabitsList().isNotEmpty() ||
                 projectDao.getAllProjectsList().isNotEmpty()
+    }
+
+    // --- Release 3 Phase 6: Advanced Project Workspace (#20) ---
+    fun getWorkspaceItemsForProjectFlow(projectId: Long): Flow<List<ProjectWorkspaceItem>> {
+        return activeProfileIdFlow.flatMapLatest { profileId ->
+            projectWorkspaceDao.getItemsForProjectFlow(projectId, profileId).map { entities ->
+                entities.map { ProjectWorkspaceItem.fromEntity(it) }
+            }
+        }
+    }
+
+    suspend fun getWorkspaceItemsForProject(projectId: Long): List<ProjectWorkspaceItem> {
+        val profileId = getActiveProfileId()
+        return projectWorkspaceDao.getItemsForProjectList(projectId, profileId).map { ProjectWorkspaceItem.fromEntity(it) }
+    }
+
+    suspend fun insertWorkspaceItem(item: ProjectWorkspaceItem): Long {
+        val profileId = getActiveProfileId()
+        return projectWorkspaceDao.insertItem(item.copy(profileId = profileId).toEntity())
+    }
+
+    suspend fun updateWorkspaceItem(item: ProjectWorkspaceItem) {
+        val profileId = getActiveProfileId()
+        projectWorkspaceDao.updateItem(item.copy(profileId = profileId, updatedAt = System.currentTimeMillis()).toEntity())
+    }
+
+    suspend fun deleteWorkspaceItem(item: ProjectWorkspaceItem): Boolean {
+        return projectWorkspaceDao.deleteItem(item.toEntity()) > 0
+    }
+
+    suspend fun deleteWorkspaceItemsByIds(ids: List<Long>): Int {
+        return projectWorkspaceDao.deleteItemsByIds(ids)
+    }
+
+    suspend fun bulkUpdateWorkspaceItemStatus(ids: List<Long>, status: String) {
+        val profileId = getActiveProfileId()
+        ids.forEach { id ->
+            val existing = projectWorkspaceDao.getItemById(id)
+            if (existing != null && existing.profileId == profileId) {
+                val progress = if (status == ProjectWorkspaceItemEntity.STATUS_DONE) 100 else if (status == ProjectWorkspaceItemEntity.STATUS_IN_PROGRESS && existing.progress == 0) 50 else existing.progress
+                projectWorkspaceDao.updateItem(existing.copy(status = status, progress = progress, updatedAt = System.currentTimeMillis()))
+            }
+        }
+    }
+
+    suspend fun bulkUpdateWorkspaceItemVersion(ids: List<Long>, version: String) {
+        val profileId = getActiveProfileId()
+        ids.forEach { id ->
+            val existing = projectWorkspaceDao.getItemById(id)
+            if (existing != null && existing.profileId == profileId) {
+                projectWorkspaceDao.updateItem(existing.copy(version = version, updatedAt = System.currentTimeMillis()))
+            }
+        }
+    }
+
+    fun getWorkspaceViewsForProjectFlow(projectId: Long): Flow<List<ProjectWorkspaceView>> {
+        return activeProfileIdFlow.flatMapLatest { profileId ->
+            projectWorkspaceDao.getViewsForProjectFlow(projectId, profileId).map { entities ->
+                entities.map { ProjectWorkspaceView.fromEntity(it) }
+            }
+        }
+    }
+
+    suspend fun insertWorkspaceView(view: ProjectWorkspaceView): Long {
+        val profileId = getActiveProfileId()
+        return projectWorkspaceDao.insertView(view.copy(profileId = profileId).toEntity())
+    }
+
+    suspend fun updateWorkspaceView(view: ProjectWorkspaceView) {
+        val profileId = getActiveProfileId()
+        projectWorkspaceDao.updateView(view.copy(profileId = profileId, updatedAt = System.currentTimeMillis()).toEntity())
+    }
+
+    suspend fun deleteWorkspaceView(id: Long): Boolean {
+        return projectWorkspaceDao.deleteViewById(id) > 0
+    }
+
+    fun getCustomStatusesForProjectFlow(projectId: Long): Flow<List<ProjectCustomStatus>> {
+        return activeProfileIdFlow.flatMapLatest { profileId ->
+            projectWorkspaceDao.getCustomStatusesForProjectFlow(projectId, profileId).map { entities ->
+                entities.map { ProjectCustomStatus.fromEntity(it) }
+            }
+        }
+    }
+
+    suspend fun insertCustomStatus(status: ProjectCustomStatus): Long {
+        val profileId = getActiveProfileId()
+        return projectWorkspaceDao.insertCustomStatus(status.copy(profileId = profileId).toEntity())
+    }
+
+    suspend fun deleteCustomStatus(id: Long): Boolean {
+        return projectWorkspaceDao.deleteCustomStatusById(id) > 0
+    }
+
+    suspend fun getAllWorkspaceItemsForExport(profileId: Long): List<ProjectWorkspaceItemEntity> {
+        return projectWorkspaceDao.getAllItemsForProfile(profileId)
+    }
+
+    suspend fun getAllWorkspaceViewsForExport(profileId: Long): List<ProjectWorkspaceViewEntity> {
+        return projectWorkspaceDao.getAllViewsForProfile(profileId)
+    }
+
+    suspend fun getAllCustomStatusesForExport(profileId: Long): List<ProjectCustomStatusEntity> {
+        return projectWorkspaceDao.getAllCustomStatusesForProfile(profileId)
+    }
+
+    suspend fun restoreWorkspaceItems(items: List<ProjectWorkspaceItemEntity>) {
+        projectWorkspaceDao.insertItems(items)
+    }
+
+    suspend fun restoreWorkspaceViews(views: List<ProjectWorkspaceViewEntity>) {
+        views.forEach { projectWorkspaceDao.insertView(it) }
+    }
+
+    suspend fun restoreCustomStatuses(statuses: List<ProjectCustomStatusEntity>) {
+        statuses.forEach { projectWorkspaceDao.insertCustomStatus(it) }
     }
 
     // --- Phase 3A Reactive Flows ---

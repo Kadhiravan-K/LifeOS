@@ -645,6 +645,76 @@ val MIGRATION_12_13 = object : Migration(12, 13) {
     }
 }
 
+val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // 1. project_workspace_items
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `project_workspace_items` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `profileId` INTEGER NOT NULL DEFAULT 1,
+                `projectId` INTEGER NOT NULL,
+                `title` TEXT NOT NULL,
+                `status` TEXT NOT NULL DEFAULT 'NOT_STARTED',
+                `progress` INTEGER NOT NULL DEFAULT 0,
+                `category` TEXT NOT NULL DEFAULT 'Feature',
+                `version` TEXT NOT NULL DEFAULT 'V1',
+                `dueDateIso` TEXT DEFAULT NULL,
+                `notes` TEXT NOT NULL DEFAULT '',
+                `priority` TEXT NOT NULL DEFAULT 'P2',
+                `customPropertiesJson` TEXT NOT NULL DEFAULT '{}',
+                `orderIndex` INTEGER NOT NULL DEFAULT 0,
+                `createdAt` INTEGER NOT NULL DEFAULT 0,
+                `updatedAt` INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY(`projectId`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_project_workspace_items_profileId` ON `project_workspace_items` (`profileId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_project_workspace_items_projectId` ON `project_workspace_items` (`projectId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_project_workspace_items_status` ON `project_workspace_items` (`status`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_project_workspace_items_category` ON `project_workspace_items` (`category`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_project_workspace_items_version` ON `project_workspace_items` (`version`)")
+
+        // 2. project_workspace_views
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `project_workspace_views` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `profileId` INTEGER NOT NULL DEFAULT 1,
+                `projectId` INTEGER NOT NULL,
+                `name` TEXT NOT NULL,
+                `viewType` TEXT NOT NULL DEFAULT 'TABLE',
+                `filterStatus` TEXT DEFAULT NULL,
+                `filterCategory` TEXT DEFAULT NULL,
+                `filterVersion` TEXT DEFAULT NULL,
+                `sortBy` TEXT NOT NULL DEFAULT 'orderIndex',
+                `sortAscending` INTEGER NOT NULL DEFAULT 1,
+                `groupBy` TEXT NOT NULL DEFAULT 'status',
+                `visiblePropertiesJson` TEXT NOT NULL DEFAULT '["status","progress","category","version","dueDate"]',
+                `isDefault` INTEGER NOT NULL DEFAULT 0,
+                `createdAt` INTEGER NOT NULL DEFAULT 0,
+                `updatedAt` INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY(`projectId`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_project_workspace_views_profileId` ON `project_workspace_views` (`profileId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_project_workspace_views_projectId` ON `project_workspace_views` (`projectId`)")
+
+        // 3. project_custom_statuses
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `project_custom_statuses` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `profileId` INTEGER NOT NULL DEFAULT 1,
+                `projectId` INTEGER NOT NULL,
+                `name` TEXT NOT NULL,
+                `colorHex` INTEGER NOT NULL DEFAULT 4282168054,
+                `orderIndex` INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY(`projectId`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_project_custom_statuses_profileId` ON `project_custom_statuses` (`profileId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_project_custom_statuses_projectId` ON `project_custom_statuses` (`projectId`)")
+    }
+}
+
 @Database(
     entities = [
         ProfileEntity::class,
@@ -677,9 +747,12 @@ val MIGRATION_12_13 = object : Migration(12, 13) {
         com.example.data.local.entities.SubscriptionEntity::class,
         com.example.data.local.entities.BillingOccurrenceEntity::class,
         com.example.data.local.entities.SubscriptionPaymentEntity::class,
-        com.example.data.local.entities.PriceHistoryEntity::class
+        com.example.data.local.entities.PriceHistoryEntity::class,
+        com.example.data.local.entities.ProjectWorkspaceItemEntity::class,
+        com.example.data.local.entities.ProjectWorkspaceViewEntity::class,
+        com.example.data.local.entities.ProjectCustomStatusEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -699,6 +772,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun medicationDao(): com.example.data.local.dao.MedicationDao
     abstract fun trackerDao(): com.example.data.local.dao.TrackerDao
     abstract fun subscriptionDao(): com.example.data.local.dao.SubscriptionDao
+    abstract fun projectWorkspaceDao(): com.example.data.local.dao.ProjectWorkspaceDao
 
     companion object {
         @Volatile
@@ -739,7 +813,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_9_10,
                         MIGRATION_10_11,
                         MIGRATION_11_12,
-                        MIGRATION_12_13
+                        MIGRATION_12_13,
+                        MIGRATION_13_14
                     )
                     .build()
                 INSTANCE = instance

@@ -27,6 +27,9 @@ import com.example.domain.model.Subtask
 import com.example.domain.model.TaskItem
 import com.example.domain.model.TaskPriority
 import com.example.domain.model.TaskReminderItem
+import com.example.domain.projectworkspace.ProjectWorkspaceItem
+import com.example.domain.projectworkspace.ProjectWorkspaceView
+import com.example.domain.projectworkspace.ProjectCustomStatus
 import com.example.domain.schedule.ScheduleConflict
 import com.example.domain.schedule.ScheduleConflictEngine
 import com.example.notifications.NotificationHelper
@@ -1577,6 +1580,79 @@ class LifeViewModel(
                 _taskFilter.value = "All"
             }
             repository.deleteProject(projectId)
+        }
+    }
+
+    // --- Release 3 Phase 6: Advanced Project Workspace (#20) ---
+    fun getWorkspaceItemsFlow(projectId: Long): Flow<List<ProjectWorkspaceItem>> =
+        repository.getWorkspaceItemsForProjectFlow(projectId)
+
+    fun getWorkspaceViewsFlow(projectId: Long): Flow<List<ProjectWorkspaceView>> =
+        repository.getWorkspaceViewsForProjectFlow(projectId)
+
+    fun getCustomStatusesFlow(projectId: Long): Flow<List<ProjectCustomStatus>> =
+        repository.getCustomStatusesForProjectFlow(projectId)
+
+    fun createWorkspaceItem(item: ProjectWorkspaceItem, onComplete: ((Long) -> Unit)? = null) {
+        viewModelScope.launch {
+            val id = repository.insertWorkspaceItem(item)
+            onComplete?.invoke(id)
+        }
+    }
+
+    fun updateWorkspaceItem(item: ProjectWorkspaceItem) {
+        viewModelScope.launch {
+            repository.updateWorkspaceItem(item)
+        }
+    }
+
+    fun deleteWorkspaceItem(item: ProjectWorkspaceItem) {
+        viewModelScope.launch {
+            repository.deleteWorkspaceItem(item)
+        }
+    }
+
+    fun deleteWorkspaceItemsByIds(ids: List<Long>) {
+        viewModelScope.launch {
+            repository.deleteWorkspaceItemsByIds(ids)
+        }
+    }
+
+    fun bulkUpdateWorkspaceItemStatus(ids: List<Long>, status: String) {
+        viewModelScope.launch {
+            repository.bulkUpdateWorkspaceItemStatus(ids, status)
+        }
+    }
+
+    fun bulkUpdateWorkspaceItemVersion(ids: List<Long>, version: String) {
+        viewModelScope.launch {
+            repository.bulkUpdateWorkspaceItemVersion(ids, version)
+        }
+    }
+
+    fun saveWorkspaceView(view: ProjectWorkspaceView, onComplete: ((Long) -> Unit)? = null) {
+        viewModelScope.launch {
+            val id = repository.insertWorkspaceView(view)
+            onComplete?.invoke(id)
+        }
+    }
+
+    fun deleteWorkspaceView(id: Long) {
+        viewModelScope.launch {
+            repository.deleteWorkspaceView(id)
+        }
+    }
+
+    fun createCustomStatus(status: ProjectCustomStatus, onComplete: ((Long) -> Unit)? = null) {
+        viewModelScope.launch {
+            val id = repository.insertCustomStatus(status)
+            onComplete?.invoke(id)
+        }
+    }
+
+    fun deleteCustomStatus(id: Long) {
+        viewModelScope.launch {
+            repository.deleteCustomStatus(id)
         }
     }
 
