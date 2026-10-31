@@ -71,13 +71,23 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.launch
+import com.example.ui.components.PremiumCard
+import com.example.ui.components.PremiumCardStyle
+import com.example.ui.components.PremiumButton
+import com.example.ui.components.PremiumButtonStyle
+import com.example.ui.theme.engine.AnimationSpeed
+import com.example.ui.theme.engine.LocalLifeAnimationSpeed
+import com.example.ui.theme.engine.ThemedLoadingIndicator
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -1422,6 +1432,216 @@ private fun RenderComponentLivePreview(componentId: String) {
                             OutlinedButton(onClick = {}, modifier = Modifier.weight(1f)) {
                                 Text("Restore Backup", fontSize = 11.sp)
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        "premium_card" -> {
+            var selectedStyle by remember { mutableStateOf(PremiumCardStyle.THEME_BESPOKE) }
+            var isCardSelected by remember { mutableStateOf(false) }
+            var isCardCompleted by remember { mutableStateOf(false) }
+            var isExpanded by remember { mutableStateOf(false) }
+
+            Column {
+                Text("Select Style Tier & Interactive Flags:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    PremiumCardStyle.values().forEach { style ->
+                        FilterChip(
+                            selected = selectedStyle == style,
+                            onClick = { selectedStyle = style },
+                            label = { Text(style.name, fontSize = 11.sp) }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = isCardSelected,
+                        onClick = { isCardSelected = !isCardSelected },
+                        label = { Text("Selected", fontSize = 11.sp) }
+                    )
+                    FilterChip(
+                        selected = isCardCompleted,
+                        onClick = { isCardCompleted = !isCardCompleted },
+                        label = { Text("Completed", fontSize = 11.sp) }
+                    )
+                    FilterChip(
+                        selected = isExpanded,
+                        onClick = { isExpanded = !isExpanded },
+                        label = { Text("Expanded", fontSize = 11.sp) }
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                PremiumCard(
+                    headerTitle = "Interactive Premium Card",
+                    headerEmoji = "✨",
+                    badgeText = "Live Preview",
+                    style = selectedStyle,
+                    isSelected = isCardSelected,
+                    isCompleted = isCardCompleted,
+                    onClick = { isExpanded = !isExpanded }
+                ) {
+                    Text(
+                        text = "Tap to toggle expand/collapse! Features tactile spring press feedback, animated border transitions, and theme-bespoke surfaces.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (isExpanded) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Expanded content pane with dynamic spring physics and theme-aware typography tokens.",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
+
+        "premium_button" -> {
+            var isButtonLoading by remember { mutableStateOf(false) }
+            var isButtonSuccess by remember { mutableStateOf(false) }
+            val coroutineScope = rememberCoroutineScope()
+
+            Column {
+                Text("Interactive Tactile Spring Bounce & Feedback Transitions:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(10.dp))
+                PremiumButton(
+                    text = "Tap for Micro-Spinner & Success",
+                    style = PremiumButtonStyle.PRIMARY,
+                    isLoading = isButtonLoading,
+                    isSuccess = isButtonSuccess,
+                    onClick = {
+                        isButtonLoading = true
+                        coroutineScope.launch {
+                            kotlinx.coroutines.delay(1200)
+                            isButtonLoading = false
+                            isButtonSuccess = true
+                            kotlinx.coroutines.delay(1500)
+                            isButtonSuccess = false
+                        }
+                    }
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PremiumButton(
+                        text = "Outlined",
+                        style = PremiumButtonStyle.OUTLINED,
+                        onClick = {},
+                        modifier = Modifier.weight(1f)
+                    )
+                    PremiumButton(
+                        text = "Glass",
+                        style = PremiumButtonStyle.GLASS,
+                        onClick = {},
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PremiumButton(
+                        text = "Destructive",
+                        style = PremiumButtonStyle.DESTRUCTIVE,
+                        onClick = {},
+                        modifier = Modifier.weight(1f)
+                    )
+                    PremiumButton(
+                        text = "Disabled",
+                        style = PremiumButtonStyle.SECONDARY,
+                        enabled = false,
+                        onClick = {},
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
+        "glass_theme_panel" -> {
+            Column {
+                Text("Frosted Glass Surface with Specular Highlights & Prism Glyph:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(10.dp))
+                PremiumCard(
+                    style = PremiumCardStyle.GLASS,
+                    headerTitle = "Glassmorphic Focus Pane",
+                    headerEmoji = "💎",
+                    badgeText = "Frosted Specular"
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Layered translucent gradient background (alpha 0.55 - 0.75) with specular white highlight border outline.",
+                            fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        ThemedLoadingIndicator(size = 48.dp)
+                    }
+                }
+            }
+        }
+
+        "animation_speed_system" -> {
+            var previewSpeed by remember { mutableStateOf(AnimationSpeed.NORMAL) }
+
+            Column {
+                Text("Select Speed Multiplier to observe real-time velocity changes:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(
+                        AnimationSpeed.OFF to "Off (0×)",
+                        AnimationSpeed.SLOW to "0.5×",
+                        AnimationSpeed.NORMAL to "1.0×",
+                        AnimationSpeed.FAST to "1.5×",
+                        AnimationSpeed.VERY_FAST to "2.0×"
+                    ).forEach { (speedTier, label) ->
+                        FilterChip(
+                            selected = previewSpeed == speedTier,
+                            onClick = { previewSpeed = speedTier },
+                            label = { Text(label, fontSize = 11.sp) }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+                CompositionLocalProvider(LocalLifeAnimationSpeed provides previewSpeed) {
+                    Card(
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Current Velocity: ${previewSpeed.multiplier}×",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    text = if (previewSpeed == AnimationSpeed.OFF) "Static non-animated state" else "Duration: ${previewSpeed.calculateDuration(1000)}ms",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            ThemedLoadingIndicator(size = 36.dp)
                         }
                     }
                 }

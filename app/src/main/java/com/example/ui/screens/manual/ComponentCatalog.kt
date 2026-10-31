@@ -1174,6 +1174,141 @@ BackupRestoreDialog(
 )
             """.trimIndent(),
             tags = listOf("backup", "restore", "json", "export", "import", "saf", "encryption")
+        ),
+
+        // 37. Premium Animated Card (#1, #8)
+        ComponentEntry(
+            id = "premium_card",
+            name = "Premium Animated Card",
+            category = ComponentCategory.VISUAL_STYLING,
+            status = ComponentStatus.EXISTING,
+            description = "High-fidelity interactive card supporting 5 styles (DEFAULT, ELEVATED, GLASS, ACCENT_BORDER, THEME_BESPOKE), tactile spring press physics, animated border highlights, selection and completion styling, header badge, and smooth content size expansion.",
+            whenToUse = "Use for dashboard summary cards, task tiles, habit counters, project panels, and setting sections where tactile visual polish is desired.",
+            sourceFile = "app/src/main/java/com/example/ui/components/PremiumComponents.kt",
+            composableName = "PremiumCard",
+            parameters = listOf(
+                ComponentParam("style", "PremiumCardStyle", "Visual style: DEFAULT, ELEVATED, GLASS, ACCENT_BORDER, THEME_BESPOKE"),
+                ComponentParam("isSelected", "Boolean", "Highlights card with primary glow and 2dp border"),
+                ComponentParam("isCompleted", "Boolean", "Subtle dimmed surface with strikethrough styling"),
+                ComponentParam("isExpanded", "Boolean", "Animates content visibility via animateContentSize"),
+                ComponentParam("headerTitle", "String?", "Optional header title string"),
+                ComponentParam("headerEmoji", "String?", "Optional header emoji motif"),
+                ComponentParam("badgeText", "String?", "Optional status badge chip text in header"),
+                ComponentParam("onClick", "(() -> Unit)?", "Optional click handler enabling spring press physics")
+            ),
+            usageLocations = listOf("DashboardScreen", "TasksScreen", "SettingsScreen", "UserManualScreen"),
+            reuseRecommendations = "Standardizes card surfaces, gradients, borders, and animations across all feature screens.",
+            codeExample = """
+PremiumCard(
+    title = "75-Day Challenge",
+    headerEmoji = "🏆",
+    badgeText = "Day 42/75",
+    style = PremiumCardStyle.THEME_BESPOKE,
+    isExpanded = isExpanded,
+    onClick = { isExpanded = !isExpanded }
+) {
+    Text("Active daily streak and metrics go here...")
+}
+            """.trimIndent(),
+            tags = listOf("card", "premium", "spring", "glass", "animation", "surface", "expandable", "tactile")
+        ),
+
+        // 38. Premium Animated Button (#1)
+        ComponentEntry(
+            id = "premium_button",
+            name = "Premium Spring Animated Button",
+            category = ComponentCategory.INPUTS_FORMS,
+            status = ComponentStatus.EXISTING,
+            description = "High-responsiveness interactive button with tactile spring bounce on press, 5 styles (PRIMARY, SECONDARY, OUTLINED, GLASS, DESTRUCTIVE), built-in micro-spinner loading state maintaining bounds, and success checkmark transition.",
+            whenToUse = "Use for primary call-to-action buttons, submit buttons, delete triggers, and dialog confirmation flows requiring rich tactile feedback.",
+            sourceFile = "app/src/main/java/com/example/ui/components/PremiumComponents.kt",
+            composableName = "PremiumButton",
+            parameters = listOf(
+                ComponentParam("onClick", "() -> Unit", "Button click callback"),
+                ComponentParam("text", "String", "Button label text"),
+                ComponentParam("style", "PremiumButtonStyle", "Style tier: PRIMARY, SECONDARY, OUTLINED, GLASS, DESTRUCTIVE"),
+                ComponentParam("leadingIcon", "ImageVector?", "Optional leading icon"),
+                ComponentParam("isLoading", "Boolean", "Displays micro-spinner and disables interaction"),
+                ComponentParam("isSuccess", "Boolean", "Displays animated green checkmark"),
+                ComponentParam("enabled", "Boolean", "Whether the button is interactive")
+            ),
+            usageLocations = listOf("TaskQuickAddSheet", "SettingsScreen", "ThemeGalleryScreen", "LegalConsentScreen"),
+            reuseRecommendations = "Replaces boilerplate loading/success state wrappers and ensures uniform spring feedback.",
+            codeExample = """
+var isSaving by remember { mutableStateOf(false) }
+var isSuccess by remember { mutableStateOf(false) }
+
+PremiumButton(
+    text = "Save Task",
+    isLoading = isSaving,
+    isSuccess = isSuccess,
+    style = PremiumButtonStyle.PRIMARY,
+    onClick = {
+        isSaving = true
+        saveTask { isSaving = false; isSuccess = true }
+    }
+)
+            """.trimIndent(),
+            tags = listOf("button", "premium", "spring", "loading", "success", "glass", "tactile", "bounce")
+        ),
+
+        // 39. Glassmorphism Frosted Panel (#7, #8)
+        ComponentEntry(
+            id = "glass_theme_panel",
+            name = "Glassmorphism Frosted Panel & Prism Motif",
+            category = ComponentCategory.VISUAL_STYLING,
+            status = ComponentStatus.EXISTING,
+            description = "Translucent frosted glass surface featuring specular edge highlights, subtle blur-like layered gradients, and the ThemeId.GLASS prism refraction canvas glyph.",
+            whenToUse = "Use when displaying high-aesthetic floating controls, Glass theme cards, and translucent overlays.",
+            sourceFile = "app/src/main/java/com/example/ui/theme/engine/ThemeRegistry.kt & ThemeAssetManager.kt",
+            composableName = "PremiumCard(style = PremiumCardStyle.GLASS) & drawPrismRefraction",
+            parameters = listOf(
+                ComponentParam("themeId", "ThemeId", "Active theme (ThemeId.GLASS)"),
+                ComponentParam("isGlass", "Boolean", "Token shapes.isGlass enabled on Glassmorphism theme"),
+                ComponentParam("engraving", "HoneycombEngravingType", "HoneycombEngravingType.PRISM with 6-point refraction spokes")
+            ),
+            usageLocations = listOf("ThemeGalleryScreen", "SettingsScreen (Appearance)", "DashboardScreen (Glass Theme)"),
+            reuseRecommendations = "Leverages low-overhead canvas draw paths and translucent gradient fills rather than costly GPU blur passes.",
+            codeExample = """
+PremiumCard(
+    style = PremiumCardStyle.GLASS,
+    title = "Frosted Focus Pane",
+    headerEmoji = "💎"
+) {
+    Text("Translucent glass background with specular white highlight border.")
+}
+            """.trimIndent(),
+            tags = listOf("glass", "glassmorphism", "frosted", "prism", "translucent", "refraction", "specular")
+        ),
+
+        // 40. Loading Animation Speed Engine (#23)
+        ComponentEntry(
+            id = "animation_speed_system",
+            name = "Loading Animation Speed & Motion Engine",
+            category = ComponentCategory.VISUAL_STYLING,
+            status = ComponentStatus.EXISTING,
+            description = "Centralized animation velocity control system providing 5 discrete speed tiers (OFF 0.0x, SLOW 0.5x, NORMAL 1.0x, FAST 1.5x, VERY_FAST 2.0x) with zero-speed static canvas safety.",
+            whenToUse = "Use to scale any infinite transition, rotation, pulse, or particle duration across the app.",
+            sourceFile = "app/src/main/java/com/example/ui/theme/engine/ThemeTokens.kt & ThemeContext.kt",
+            composableName = "LocalLifeAnimationSpeed & AnimationSpeed.calculateDuration",
+            parameters = listOf(
+                ComponentParam("multiplier", "Float", "0.0f (Off), 0.5f, 1.0f, 1.5f, 2.0f"),
+                ComponentParam("calculateDuration", "(Int) -> Int", "Calculates scaled duration in ms, returns 0 when Off"),
+                ComponentParam("LocalLifeAnimationSpeed", "CompositionLocal", "Provides active AnimationSpeed to Compose subtree")
+            ),
+            usageLocations = listOf("ThemedLoadingIndicator", "SettingsScreen (Appearance)", "AtmosphereCanvas"),
+            reuseRecommendations = "Essential for battery saving, accessibility (reduced motion), and user speed preference.",
+            codeExample = """
+val speed = LocalLifeAnimationSpeed.current
+val durationMs = speed.calculateDuration(1200)
+
+if (speed == AnimationSpeed.OFF) {
+    // Render static canvas or zero-animation state
+} else {
+    // Animate with durationMs
+}
+            """.trimIndent(),
+            tags = listOf("animation", "speed", "motion", "accessibility", "battery", "spinner", "velocity")
         )
     )
 

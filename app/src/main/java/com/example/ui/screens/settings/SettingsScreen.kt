@@ -23,10 +23,13 @@ import com.example.ui.components.EmojiInputDialog
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import com.example.ui.theme.engine.AnimationSpeed
+import com.example.ui.theme.engine.ThemedLoadingIndicator
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -278,6 +281,9 @@ fun SettingsScreen(
     val customSoundFileName by viewModel.customSoundFileNameFlow.collectAsStateWithLifecycle()
     val trashRetentionDays by viewModel.trashRetentionDaysFlow.collectAsStateWithLifecycle()
     val userProfileEmoji by viewModel.userProfileEmojiFlow.collectAsStateWithLifecycle()
+    val animationSpeed by viewModel.animationSpeedFlow.collectAsStateWithLifecycle()
+    val customColorsEnabled by viewModel.customColorsEnabledFlow.collectAsStateWithLifecycle()
+    val independentThemeCustomization by viewModel.independentThemeCustomizationFlow.collectAsStateWithLifecycle()
 
     // Smart Alerts & Notifications flows
     val notifMedicine by viewModel.notifMedicineEnabled.collectAsStateWithLifecycle()
@@ -599,6 +605,245 @@ fun SettingsScreen(
                                 checked = completionAnimation,
                                 onCheckedChange = { viewModel.setCompletionAnimationEnabled(it) }
                             )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Animation Speed Customization (#23)
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Loading Animation Speed", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text(
+                                    text = "Adjust speed multiplier for spinners, transitions & atmosphere",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            // Live Preview Indicator
+                            ThemedLoadingIndicator(size = 32.dp)
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                AnimationSpeed.OFF to "Off (0×)",
+                                AnimationSpeed.SLOW to "0.5× Slow",
+                                AnimationSpeed.NORMAL to "1.0× Normal",
+                                AnimationSpeed.FAST to "1.5× Fast",
+                                AnimationSpeed.VERY_FAST to "2.0× Swift"
+                            ).forEach { (speedTier, label) ->
+                                FilterChip(
+                                    selected = animationSpeed == speedTier,
+                                    onClick = { viewModel.setAnimationSpeed(speedTier) },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Independent Light / Dark Theme Customization (#4)
+                var activePaletteModeIsLight by remember { mutableStateOf(themeMode == "LIGHT") }
+                val currentPalette = independentThemeCustomization.getActivePalette(activePaletteModeIsLight)
+
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Custom Theme Palettes", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text(
+                                    text = "Override primary, card, and background colors independently",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = customColorsEnabled,
+                                onCheckedChange = { viewModel.setCustomColorsEnabled(it) }
+                            )
+                        }
+
+                        if (customColorsEnabled) {
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Mode Selector Tabs (Light / Dark)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChip(
+                                    selected = !activePaletteModeIsLight,
+                                    onClick = { activePaletteModeIsLight = false },
+                                    label = { Text("🌙 Dark Mode") },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                FilterChip(
+                                    selected = activePaletteModeIsLight,
+                                    onClick = { activePaletteModeIsLight = true },
+                                    label = { Text("☀️ Light Mode") },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Live Mini Palette Preview
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = currentPalette.getSurfaceColor(MaterialTheme.colorScheme.surface),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = if (activePaletteModeIsLight) "Light Palette Live Preview" else "Dark Palette Live Preview",
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 12.sp,
+                                            color = currentPalette.getPrimaryColor(MaterialTheme.colorScheme.primary)
+                                        )
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = currentPalette.getAccentColor(MaterialTheme.colorScheme.tertiary)
+                                        ) {
+                                            Text(
+                                                text = "Accent",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.Black,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = currentPalette.getCardColor(MaterialTheme.colorScheme.surfaceVariant),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = "Card Surface Token Preview",
+                                            fontSize = 11.sp,
+                                            modifier = Modifier.padding(8.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // Slot Customizers (Primary, Accent, Card, Surface, Background)
+                            val presetColors = listOf(
+                                0xFF3B82F6L to "Blue",
+                                0xFF8B5CF6L to "Purple",
+                                0xFFEC4899L to "Pink",
+                                0xFF10B981L to "Emerald",
+                                0xFFF59E0BL to "Amber",
+                                0xFFEF4444L to "Red",
+                                0xFF06B6D4L to "Cyan",
+                                0xFF1E293BL to "Slate",
+                                0xFF0F172AL to "Dark Slate",
+                                0xFFFFFFFFL to "White"
+                            )
+
+                            listOf(
+                                Triple("primary", "Primary Brand", currentPalette.primaryHex),
+                                Triple("accent", "Accent Highlight", currentPalette.accentHex),
+                                Triple("card", "Card Surface", currentPalette.cardHex),
+                                Triple("surface", "App Surface", currentPalette.surfaceHex),
+                                Triple("background", "Atmosphere Background", currentPalette.backgroundHex)
+                            ).forEach { (slot, slotTitle, currentHex) ->
+                                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(slotTitle, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                        if (currentHex != null) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(14.dp)
+                                                        .background(Color(currentHex), CircleShape)
+                                                        .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "Reset",
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.clickable {
+                                                        viewModel.updateCustomColor(activePaletteModeIsLight, slot, null)
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        presetColors.forEach { (colorLong, colorLabel) ->
+                                            val isSelected = currentHex == colorLong
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(24.dp)
+                                                    .background(Color(colorLong), CircleShape)
+                                                    .border(
+                                                        width = if (isSelected) 2.dp else 1.dp,
+                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.4f),
+                                                        shape = CircleShape
+                                                    )
+                                                    .clickable {
+                                                        viewModel.updateCustomColor(activePaletteModeIsLight, slot, colorLong)
+                                                    }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+                            OutlinedButton(
+                                onClick = { viewModel.resetCustomColors(activePaletteModeIsLight) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Reset ${if (activePaletteModeIsLight) "Light" else "Dark"} Palette to Defaults", fontSize = 12.sp)
+                            }
                         }
                     }
                 }

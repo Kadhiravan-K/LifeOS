@@ -1,4 +1,4 @@
-﻿package com.example.ui.screens.manual
+package com.example.ui.screens.manual
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -8,8 +8,8 @@ import org.junit.Test
 class ComponentCatalogUnitTest {
 
     @Test
-    fun catalog_totalCount_isExactly36() {
-        assertEquals("Master component catalog must contain exactly 36 components", 36, MasterComponentCatalog.items.size)
+    fun catalog_totalCount_isExactly40() {
+        assertEquals("Master component catalog must contain exactly 40 components", 40, MasterComponentCatalog.items.size)
     }
 
     @Test
@@ -18,10 +18,10 @@ class ComponentCatalogUnitTest {
         val partialCount = MasterComponentCatalog.items.count { it.status == ComponentStatus.PARTIAL }
         val proposedCount = MasterComponentCatalog.items.count { it.status == ComponentStatus.PROPOSED }
 
-        assertEquals("Expected exactly 34 EXISTING components", 34, existingCount)
+        assertEquals("Expected exactly 38 EXISTING components", 38, existingCount)
         assertEquals("Expected exactly 1 PARTIAL component", 1, partialCount)
         assertEquals("Expected exactly 1 PROPOSED component", 1, proposedCount)
-        assertEquals(36, existingCount + partialCount + proposedCount)
+        assertEquals(40, existingCount + partialCount + proposedCount)
 
         // Validate the specific partial and proposed components
         val partialItem = MasterComponentCatalog.items.first { it.status == ComponentStatus.PARTIAL }
@@ -109,8 +109,8 @@ class ComponentCatalogUnitTest {
         val priorityResults = searchCatalog("priority")
         assertTrue("Priority query should find priority_selector_group", priorityResults.any { it.id == "priority_selector_group" })
 
-        // Test empty query returns all 36
-        assertEquals(36, searchCatalog("").size)
+        // Test empty query returns all 40
+        assertEquals(40, searchCatalog("").size)
 
         // Non-existent search query returns empty
         val nonsenseResults = searchCatalog("xyznonexistentterm999")
@@ -124,7 +124,7 @@ class ComponentCatalogUnitTest {
             return MasterComponentCatalog.items.filter { it.category == cat }
         }
 
-        assertEquals(36, filterByCategory(ComponentCategory.ALL).size)
+        assertEquals(40, filterByCategory(ComponentCategory.ALL).size)
 
         val dateTimeItems = filterByCategory(ComponentCategory.DATE_TIME)
         assertTrue(dateTimeItems.isNotEmpty())
