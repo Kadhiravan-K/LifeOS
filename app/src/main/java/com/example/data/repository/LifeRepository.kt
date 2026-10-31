@@ -567,6 +567,17 @@ class LifeRepository(
                 isNowCompleted = true
                 currentCompletedDates.add(dateIso)
             }
+        } else if (recurrenceType == RecurrenceType.MONTHLY_WINDOW) {
+            newOneTimeCompleted = false
+            val targetYearMonth = if (dateIso.length >= 7) dateIso.substring(0, 7) else dateIso
+            val completedInMonth = currentCompletedDates.filter { it.startsWith(targetYearMonth) }
+            if (completedInMonth.isNotEmpty()) {
+                isNowCompleted = false
+                currentCompletedDates.removeAll(completedInMonth.toSet())
+            } else {
+                isNowCompleted = true
+                currentCompletedDates.add(dateIso)
+            }
         } else {
             newOneTimeCompleted = false
             if (currentCompletedDates.contains(dateIso)) {
@@ -1109,6 +1120,8 @@ class LifeRepository(
             recurrenceEndCondition = recurrenceEndCondition,
             recurrenceEndDateIso = recurrenceEndDateIso,
             recurrenceCount = recurrenceCount,
+            recurrenceWindowStartDay = recurrenceWindowStartDay,
+            recurrenceWindowEndDay = recurrenceWindowEndDay,
             isOneTimeCompleted = isOneTimeCompleted,
             completedDates = completedSet,
             skippedDates = skippedSet,
@@ -1157,6 +1170,8 @@ class LifeRepository(
             recurrenceEndCondition = recurrenceEndCondition,
             recurrenceEndDateIso = recurrenceEndDateIso,
             recurrenceCount = recurrenceCount,
+            recurrenceWindowStartDay = recurrenceWindowStartDay,
+            recurrenceWindowEndDay = recurrenceWindowEndDay,
             isOneTimeCompleted = isOneTimeCompleted,
             completedDatesJson = JsonMappers.serializeStringList(completedDates),
             skippedDatesJson = JsonMappers.serializeStringList(skippedDates),
@@ -1761,13 +1776,25 @@ class LifeRepository(
     // --- PLANNING REPOSITORY ---
     val allPlansFlow: Flow<List<PlanItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
         planDao.getPlansForProfile(profileId).map { list ->
-            list.map { it.toDomainModel() }
+            list.map { planEntity ->
+                val milestones = planDao.getMilestonesForPlanList(planEntity.id).map {
+                    PlanMilestone(it.id, it.planId, it.title, it.isCompleted, it.orderIndex)
+                }
+                val linkedTaskIds = planDao.getTaskIdsForPlan(planEntity.id)
+                planEntity.toDomainModel(milestones, linkedTaskIds)
+            }
         }
     }
 
     fun getPlansByLevel(level: PlanLevel): Flow<List<PlanItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
         planDao.getPlansByLevelForProfile(profileId, level.name).map { list ->
-            list.map { it.toDomainModel() }
+            list.map { planEntity ->
+                val milestones = planDao.getMilestonesForPlanList(planEntity.id).map {
+                    PlanMilestone(it.id, it.planId, it.title, it.isCompleted, it.orderIndex)
+                }
+                val linkedTaskIds = planDao.getTaskIdsForPlan(planEntity.id)
+                planEntity.toDomainModel(milestones, linkedTaskIds)
+            }
         }
     }
 
@@ -1787,8 +1814,28 @@ class LifeRepository(
         return planId
     }
 
-    suspend fun updatePlan(plan: PlanItem) {
+    suspend fun updatePlan(
+        plan: PlanItem,
+        milestoneTitles: List<String>? = null,
+        linkedTaskIds: List<Long>? = null
+    ) {
         planDao.updatePlan(plan.toEntity())
+        if (milestoneTitles != null) {
+            planDao.deleteMilestonesForPlan(plan.id)
+            val newMilestones = milestoneTitles.mapIndexed { idx, title ->
+                PlanMilestoneEntity(planId = plan.id, title = title, isCompleted = false, orderIndex = idx)
+            }
+            planDao.insertMilestones(newMilestones)
+        }
+        if (linkedTaskIds != null) {
+            planDao.clearTasksForPlan(plan.id)
+            val refs = linkedTaskIds.map { PlanTaskCrossRef(planId = plan.id, taskId = it) }
+            planDao.insertPlanTaskCrossRefs(refs)
+        }
+    }
+
+    suspend fun toggleMilestoneCompletion(milestoneId: Long, isCompleted: Boolean) {
+        planDao.updateMilestoneCompletion(milestoneId, isCompleted)
     }
 
     suspend fun deletePlan(id: Long) {
@@ -2362,7 +2409,10 @@ class LifeRepository(
         expiresAt = expiresAt
     )
 
-    private fun PlanEntity.toDomainModel() = PlanItem(
+    private fun PlanEntity.toDomainModel(
+        milestones: List<PlanMilestone> = emptyList(),
+        linkedTaskIds: List<Long> = emptyList()
+    ) = PlanItem(
         id = id,
         profileId = profileId,
         title = title,
@@ -2376,6 +2426,8 @@ class LifeRepository(
         parentPlanId = parentPlanId,
         projectId = projectId,
         priority = priority,
+        milestones = milestones,
+        linkedTaskIds = linkedTaskIds,
         createdAt = createdAt
     )
 

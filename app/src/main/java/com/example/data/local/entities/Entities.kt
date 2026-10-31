@@ -37,6 +37,8 @@ data class TaskEntity(
     val recurrenceEndCondition: String = "NEVER",
     val recurrenceEndDateIso: String? = null,
     val recurrenceCount: Int = 1,
+    val recurrenceWindowStartDay: Int? = null,
+    val recurrenceWindowEndDay: Int? = null,
     val isOneTimeCompleted: Boolean = false,
     val completedDatesJson: String = "[]", // JSON array of "YYYY-MM-DD"
     val skippedDatesJson: String = "[]", // JSON array of skipped "YYYY-MM-DD"

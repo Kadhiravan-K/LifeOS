@@ -2464,7 +2464,18 @@ class LifeViewModel(
         }
     }
 
-    fun updatePlan(plan: PlanItem) = viewModelScope.launch { repository.updatePlan(plan) }
+    fun updatePlan(
+        plan: PlanItem,
+        milestoneTitles: List<String>? = null,
+        linkedTaskIds: List<Long>? = null,
+        onComplete: () -> Unit = {}
+    ) = viewModelScope.launch {
+        repository.updatePlan(plan, milestoneTitles, linkedTaskIds)
+        onComplete()
+    }
+    fun toggleMilestoneCompletion(milestoneId: Long, isCompleted: Boolean) = viewModelScope.launch {
+        repository.toggleMilestoneCompletion(milestoneId, isCompleted)
+    }
     fun deletePlan(id: Long) = viewModelScope.launch { repository.deletePlan(id) }
     fun getMilestonesForPlan(planId: Long) = repository.getMilestonesForPlan(planId)
 

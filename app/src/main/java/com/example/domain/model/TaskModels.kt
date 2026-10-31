@@ -48,6 +48,7 @@ enum class RecurrenceType(val displayName: String) {
     EVERY_6_MONTHS("Every 6 months"),
     YEARLY("Every year"),
     EVERY_N_YEARS("Every N years"),
+    MONTHLY_WINDOW("Monthly date window (e.g. 25th–30th)"),
     CUSTOM("Custom");
 
     companion object {
@@ -217,6 +218,8 @@ data class TaskItem(
     val recurrenceEndCondition: String = "NEVER", // "NEVER", "ON_DATE", "AFTER_COUNT"
     val recurrenceEndDateIso: String? = null, // Optional end date for recurrence
     val recurrenceCount: Int = 1, // Optional occurrence count limit for recurrence
+    val recurrenceWindowStartDay: Int? = null, // Optional start day of monthly window (1..31)
+    val recurrenceWindowEndDay: Int? = null, // Optional end day of monthly window (1..31)
     val isCompletedForDate: Boolean = false, // Dynamically computed for query date
     val isOneTimeCompleted: Boolean = false, // Base DB flag for one-time tasks
     val completedDates: Set<String> = emptySet(), // Set of "YYYY-MM-DD"

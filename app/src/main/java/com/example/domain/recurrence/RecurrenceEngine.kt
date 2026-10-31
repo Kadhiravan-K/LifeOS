@@ -144,6 +144,10 @@ object RecurrenceEngine {
                 matchesYearlyInterval(task.dueDateIso, targetDateIso, intervalYears = interval)
             }
 
+            RecurrenceType.MONTHLY_WINDOW -> {
+                matchesMonthlyWindow(task, targetDateIso)
+            }
+
             RecurrenceType.CUSTOM -> {
                 val interval = if (task.recurrenceInterval > 0) task.recurrenceInterval else 1
                 when (task.recurrenceUnit.uppercase()) {
@@ -189,10 +193,17 @@ object RecurrenceEngine {
      * Completing today's occurrence never completes future occurrences.
      */
     fun isCompletedOnDate(task: TaskItem, targetDateIso: String): Boolean {
-        return if (task.recurrenceType == RecurrenceType.NONE) {
-            task.isOneTimeCompleted || task.completedDates.contains(targetDateIso)
-        } else {
-            task.completedDates.contains(targetDateIso)
+        return when (task.recurrenceType) {
+            RecurrenceType.NONE -> {
+                task.isOneTimeCompleted || task.completedDates.contains(targetDateIso)
+            }
+            RecurrenceType.MONTHLY_WINDOW -> {
+                val targetYearMonth = if (targetDateIso.length >= 7) targetDateIso.substring(0, 7) else ""
+                task.completedDates.any { it.startsWith(targetYearMonth) }
+            }
+            else -> {
+                task.completedDates.contains(targetDateIso)
+            }
         }
     }
 
@@ -211,10 +222,18 @@ object RecurrenceEngine {
         if (task.recurrenceType == RecurrenceType.NONE) return emptyList()
         val results = mutableListOf<String>()
         val start = if (fromDateIso < task.dueDateIso) task.dueDateIso else fromDateIso
+        val seenMonths = mutableSetOf<String>()
         for (i in 0..730) { // Check up to 2 years ahead
             val date = DateUtils.addDays(start, i)
             if (isTaskScheduledOnDate(task, date)) {
-                results.add(date)
+                if (task.recurrenceType == RecurrenceType.MONTHLY_WINDOW) {
+                    val ym = if (date.length >= 7) date.substring(0, 7) else date
+                    if (seenMonths.add(ym)) {
+                        results.add(date)
+                    }
+                } else {
+                    results.add(date)
+                }
                 if (results.size >= count) break
             }
         }
@@ -261,6 +280,17 @@ object RecurrenceEngine {
             RecurrenceType.EVERY_N_YEARS -> {
                 val d = DateUtils.formatDisplayDate(task.dueDateIso)
                 if (task.recurrenceInterval <= 1) "Every year on $d" else "Every ${task.recurrenceInterval} years on $d"
+            }
+            RecurrenceType.MONTHLY_WINDOW -> {
+                val start = task.recurrenceWindowStartDay ?: 1
+                val end = task.recurrenceWindowEndDay ?: start
+                val minDay = minOf(start, end).coerceIn(1, 31)
+                val maxDay = maxOf(start, end).coerceIn(1, 31)
+                if (minDay == maxDay) {
+                    "Monthly on the ${formatOrdinal(minDay)}"
+                } else {
+                    "Monthly between the ${formatOrdinal(minDay)} and ${formatOrdinal(maxDay)}"
+                }
             }
             RecurrenceType.CUSTOM -> {
                 val unit = task.recurrenceUnit.lowercase()
@@ -370,6 +400,39 @@ object RecurrenceEngine {
             }
 
             targetDay == startDay
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun matchesMonthlyWindow(task: TaskItem, targetDateIso: String): Boolean {
+        return try {
+            val dTarget = isoFormat.parse(targetDateIso) ?: return false
+            val calTarget = Calendar.getInstance().apply { time = dTarget }
+
+            val startIso = if (task.dueDateIso.isNotBlank()) task.dueDateIso else targetDateIso
+            val dStart = isoFormat.parse(startIso) ?: return false
+            val calStart = Calendar.getInstance().apply { time = dStart }
+
+            val yearDiff = calTarget.get(Calendar.YEAR) - calStart.get(Calendar.YEAR)
+            val monthDiff = (yearDiff * 12) + (calTarget.get(Calendar.MONTH) - calStart.get(Calendar.MONTH))
+            if (monthDiff < 0) return false
+
+            val maxDaysInMonth = calTarget.getActualMaximum(Calendar.DAY_OF_MONTH)
+            val rawStart = task.recurrenceWindowStartDay ?: calStart.get(Calendar.DAY_OF_MONTH)
+            val rawEnd = task.recurrenceWindowEndDay ?: rawStart
+
+            val minDay = minOf(rawStart, rawEnd).coerceIn(1, 31)
+            val maxDay = maxOf(rawStart, rawEnd).coerceIn(1, 31)
+
+            val clampedStart = minOf(minDay, maxDaysInMonth)
+            val clampedEnd = minOf(maxDay, maxDaysInMonth)
+
+            val effectiveStart = minOf(clampedStart, clampedEnd)
+            val effectiveEnd = maxOf(clampedStart, clampedEnd)
+
+            val targetDay = calTarget.get(Calendar.DAY_OF_MONTH)
+            targetDay in effectiveStart..effectiveEnd
         } catch (e: Exception) {
             false
         }

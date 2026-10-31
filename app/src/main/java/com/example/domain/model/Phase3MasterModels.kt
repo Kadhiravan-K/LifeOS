@@ -54,8 +54,9 @@ data class PlanItem(
 ) {
     val progressFraction: Float
         get() {
+            if (status == PlanStatus.COMPLETED) return 1f
             if (!isAutoProgress) return (manualProgress.coerceIn(0, 100) / 100f)
-            if (milestones.isEmpty()) return if (status == PlanStatus.COMPLETED) 1f else 0f
+            if (milestones.isEmpty()) return 0f
             val done = milestones.count { it.isCompleted }
             return done.toFloat() / milestones.size.toFloat()
         }

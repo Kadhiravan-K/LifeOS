@@ -111,6 +111,8 @@ object DataExportImportManager {
                 put("recurrenceEndCondition", t.recurrenceEndCondition)
                 put("recurrenceEndDateIso", t.recurrenceEndDateIso ?: JSONObject.NULL)
                 put("recurrenceCount", t.recurrenceCount)
+                put("recurrenceWindowStartDay", t.recurrenceWindowStartDay ?: JSONObject.NULL)
+                put("recurrenceWindowEndDay", t.recurrenceWindowEndDay ?: JSONObject.NULL)
                 put("isOneTimeCompleted", t.isOneTimeCompleted)
                 put("completedDatesJson", t.completedDatesJson)
                 put("skippedDatesJson", t.skippedDatesJson)
@@ -458,6 +460,8 @@ object DataExportImportManager {
                         recurrenceEndCondition = obj.optString("recurrenceEndCondition", "NEVER"),
                         recurrenceEndDateIso = if (obj.isNull("recurrenceEndDateIso")) null else obj.optString("recurrenceEndDateIso"),
                         recurrenceCount = obj.optInt("recurrenceCount", 1),
+                        recurrenceWindowStartDay = if (obj.isNull("recurrenceWindowStartDay")) null else obj.optInt("recurrenceWindowStartDay"),
+                        recurrenceWindowEndDay = if (obj.isNull("recurrenceWindowEndDay")) null else obj.optInt("recurrenceWindowEndDay"),
                         isOneTimeCompleted = obj.optBoolean("isOneTimeCompleted", false),
                         completedDatesJson = obj.optString("completedDatesJson", "[]"),
                         skippedDatesJson = obj.optString("skippedDatesJson", "[]"),

@@ -168,6 +168,8 @@ fun TaskAdvancedEditorSheet(
     var recurrenceEndCondition by remember { mutableStateOf(task?.recurrenceEndCondition ?: "NEVER") }
     var recurrenceEndDateIso by remember { mutableStateOf(task?.recurrenceEndDateIso) }
     var recurrenceCount by remember { mutableIntStateOf(if (task?.recurrenceCount != null && task.recurrenceCount > 0) task.recurrenceCount else 10) }
+    var recurrenceWindowStartDay by remember { mutableIntStateOf(task?.recurrenceWindowStartDay ?: 25) }
+    var recurrenceWindowEndDay by remember { mutableIntStateOf(task?.recurrenceWindowEndDay ?: 30) }
 
     // 5. Reminders List
     var remindersList by remember {
@@ -222,7 +224,9 @@ fun TaskAdvancedEditorSheet(
         recurrenceDaysOfWeek,
         recurrenceEndCondition,
         recurrenceEndDateIso,
-        recurrenceCount
+        recurrenceCount,
+        recurrenceWindowStartDay,
+        recurrenceWindowEndDay
     ) {
         derivedStateOf {
             TaskItem(
@@ -234,7 +238,9 @@ fun TaskAdvancedEditorSheet(
                 recurrenceDaysOfWeek = recurrenceDaysOfWeek,
                 recurrenceEndCondition = recurrenceEndCondition,
                 recurrenceEndDateIso = recurrenceEndDateIso,
-                recurrenceCount = recurrenceCount
+                recurrenceCount = recurrenceCount,
+                recurrenceWindowStartDay = recurrenceWindowStartDay,
+                recurrenceWindowEndDay = recurrenceWindowEndDay
             )
         }
     }
@@ -316,6 +322,8 @@ fun TaskAdvancedEditorSheet(
                                 recurrenceEndCondition = recurrenceEndCondition,
                                 recurrenceEndDateIso = recurrenceEndDateIso,
                                 recurrenceCount = recurrenceCount,
+                                recurrenceWindowStartDay = if (recurrenceType == RecurrenceType.MONTHLY_WINDOW) recurrenceWindowStartDay else null,
+                                recurrenceWindowEndDay = if (recurrenceType == RecurrenceType.MONTHLY_WINDOW) recurrenceWindowEndDay else null,
                                 projectId = selectedProjectId,
                                 labels = selectedLabels,
                                 isReminderEnabled = remindersList.isNotEmpty(),
@@ -922,6 +930,57 @@ fun TaskAdvancedEditorSheet(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("years", fontSize = 13.sp)
+                            }
+                        }
+
+                        RecurrenceType.MONTHLY_WINDOW -> {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                "Monthly Date Window (e.g. 25th–30th)",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "Produces exactly one obligation between these dates each month. Completing on any day in the window satisfies that month.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("From Day of Month", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    OutlinedTextField(
+                                        value = recurrenceWindowStartDay.toString(),
+                                        onValueChange = { str ->
+                                            val n = str.filter { it.isDigit() }.toIntOrNull()
+                                            if (n != null && n in 1..31) recurrenceWindowStartDay = n
+                                        },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth().testTag("window_start_day_input")
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("To Day of Month", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    OutlinedTextField(
+                                        value = recurrenceWindowEndDay.toString(),
+                                        onValueChange = { str ->
+                                            val n = str.filter { it.isDigit() }.toIntOrNull()
+                                            if (n != null && n in 1..31) recurrenceWindowEndDay = n
+                                        },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth().testTag("window_end_day_input")
+                                    )
+                                }
                             }
                         }
 

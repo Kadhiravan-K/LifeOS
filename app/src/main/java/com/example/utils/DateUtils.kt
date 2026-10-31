@@ -126,6 +126,42 @@ object DateUtils {
         }
     }
 
+    fun addMonths(isoDate: String, monthsToAdd: Int): String {
+        return try {
+            val date = isoFormat.parse(isoDate) ?: Date()
+            val cal = Calendar.getInstance().apply {
+                time = date
+                add(Calendar.MONTH, monthsToAdd)
+            }
+            isoFormat.format(cal.time)
+        } catch (e: Exception) {
+            isoDate
+        }
+    }
+
+    fun addYears(isoDate: String, yearsToAdd: Int): String {
+        return try {
+            val date = isoFormat.parse(isoDate) ?: Date()
+            val cal = Calendar.getInstance().apply {
+                time = date
+                add(Calendar.YEAR, yearsToAdd)
+            }
+            isoFormat.format(cal.time)
+        } catch (e: Exception) {
+            isoDate
+        }
+    }
+
+    fun formatMonthYear(isoDate: String): String {
+        return try {
+            val date = isoFormat.parse(isoDate) ?: Date()
+            val sdf = SimpleDateFormat("MMMM yyyy", Locale.US)
+            sdf.format(date)
+        } catch (e: Exception) {
+            isoDate
+        }
+    }
+
     fun daysBetween(startDateIso: String, endDateIso: String): Int {
         return try {
             (isoStringToEpochDay(endDateIso) - isoStringToEpochDay(startDateIso)).toInt()

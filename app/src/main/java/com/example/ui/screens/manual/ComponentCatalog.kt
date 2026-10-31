@@ -1670,6 +1670,64 @@ MonthGridView(
 )
             """.trimIndent(),
             tags = listOf("calendar", "range", "dotted", "recurrence", "deadline", "markers")
+        ),
+
+        // 53. Four Planning Boards & Execution Engine (#10)
+        ComponentEntry(
+            id = "planning_boards",
+            name = "Planning Boards & Execution Engine",
+            category = ComponentCategory.SPECIALIZED_LIFEOS,
+            status = ComponentStatus.EXISTING,
+            description = "Four distinct planning boards (Daily, Weekly, Monthly, Yearly) with independent planning content, period navigation, task linking, milestone tracking, and completion progress metrics.",
+            whenToUse = "Use in PlanningScreen to review and execute across daily, weekly, monthly, and yearly horizons.",
+            sourceFile = "app/src/main/java/com/example/ui/screens/planning/PlanningScreen.kt",
+            composableName = "PlanningScreen & PlanningPeriodNavigator",
+            parameters = listOf(
+                ComponentParam("activeTab", "PlanningBoardTab", "Active planning horizon (DAILY, WEEKLY, MONTHLY, YEARLY)"),
+                ComponentParam("selectedDateIso", "String", "Target reference date for the active board"),
+                ComponentParam("plans", "List<PlanItem>", "Profile-scoped strategic plans with milestones")
+            ),
+            usageLocations = listOf("PlanningScreen", "DashboardScreen"),
+            reuseRecommendations = "Switch between 4 horizons using PlanningBoardTab. Maintain profile isolation.",
+            codeExample = """
+PlanningPeriodNavigator(
+    activeTab = PlanningBoardTab.DAILY,
+    selectedDateIso = "2026-11-01",
+    todayIso = "2026-11-01",
+    onPrevious = { /* prev */ },
+    onNext = { /* next */ },
+    onJumpToCurrent = { /* jump */ }
+)
+            """.trimIndent(),
+            tags = listOf("planning", "daily", "weekly", "monthly", "yearly", "boards", "milestones")
+        ),
+
+        // 54. Flexible Monthly Window Recurrence (#21)
+        ComponentEntry(
+            id = "monthly_window_recurrence",
+            name = "Flexible Monthly Window Recurrence",
+            category = ComponentCategory.DATE_TIME,
+            status = ComponentStatus.EXISTING,
+            description = "Configurable monthly date window recurrence (e.g., 25th–30th) producing exactly one obligation per month, satisfied on any valid day in the window and resetting next month.",
+            whenToUse = "Use for flexible monthly routines, bills, reviews, and obligations.",
+            sourceFile = "app/src/main/java/com/example/domain/recurrence/RecurrenceEngine.kt",
+            composableName = "RecurrenceEngine & TaskAdvancedEditorSheet",
+            parameters = listOf(
+                ComponentParam("recurrenceWindowStartDay", "Int?", "Start day of the monthly window (1..31)"),
+                ComponentParam("recurrenceWindowEndDay", "Int?", "End day of the monthly window (1..31)")
+            ),
+            usageLocations = listOf("TaskAdvancedEditorSheet", "RecurrenceEngine", "PlanningScreen", "CalendarScreen"),
+            reuseRecommendations = "Use RecurrenceType.MONTHLY_WINDOW with start and end day. Handles short months and February clamping.",
+            codeExample = """
+val task = TaskItem(
+    title = "Monthly Utility Bill",
+    dueDateIso = "2026-11-25",
+    recurrenceType = RecurrenceType.MONTHLY_WINDOW,
+    recurrenceWindowStartDay = 25,
+    recurrenceWindowEndDay = 30
+)
+            """.trimIndent(),
+            tags = listOf("recurrence", "monthly", "window", "flexible", "obligation", "date-range")
         )
     )
 

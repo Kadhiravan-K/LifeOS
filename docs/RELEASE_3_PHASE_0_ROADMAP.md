@@ -453,3 +453,25 @@ Phase 3 implementation has been completed on branch `feat/release3-phase3-task-m
 
 ---
 *Phase 3 Task Creation, Medication UX & Deadline Calendar completed. Execution stopped per instructions.*
+
+---
+
+## 12. Implementation Status: Phase 4 — Planning Boards & Flexible Monthly Recurrence (Completed)
+
+Phase 4 implementation has been completed on branch `feat/release3-phase4-planning-boards`:
+
+| Req # | Feature / Enhancement | Implementation Details | Status |
+|---|---|---|---|
+| **#10** | Four Distinct Planning Boards (Daily, Weekly, Monthly, Yearly) | Implemented 4 dedicated planning boards in `PlanningScreen.kt`: **Daily** (today's priorities, tasks & habits, daily goals, completion progress card, quick capture input), **Weekly** (weekly goals & progress, weekly priorities, 7-day overview & task distribution strip, overdue and unfinished items), **Monthly** (monthly goals with milestones, important dates & deadlines, recurring obligations with monthly window highlights, monthly progress metrics), and **Yearly** (annual goals, key milestones checklist, quarterly breakdown Q1–Q4 with quarter cards, yearly vision progress). Added period navigation with previous/next period buttons and "Jump to Current" shortcut. Built `CreateEditPlanDialog` supporting full CRUD, milestone checklists, and task linking from active profile. | **RESOLVED & VERIFIED** |
+| **#21** | Flexible Monthly Window Recurrence (`MONTHLY_WINDOW`) | Added `MONTHLY_WINDOW` to `RecurrenceType` and `TaskEntity`/`TaskItem` with `recurrenceWindowStartDay` and `recurrenceWindowEndDay`. In `RecurrenceEngine`: scheduled within effective date window; single obligation per calendar month satisfied by completing on any valid day in the window; subsequent calendar months reset independently. Clamping handles short months (e.g. 30-day months like April clamp to day 30 so obligations are never missed) and February leap (29 days) and non-leap (28 days) years. `toggleTaskCompletion` toggles the month's obligation cleanly. Preserves all existing recurrence types (`DAILY`, `WEEKDAYS`, `WEEKLY`, `MONTHLY`, `YEARLY`) without semantic changes. | **RESOLVED & VERIFIED** |
+| **Schema** | Room Migration v12 -> v13 (`MIGRATION_12_13`) | Added non-destructive migration `MIGRATION_12_13` adding nullable `recurrenceWindowStartDay` and `recurrenceWindowEndDay` to `tasks`. Verified schema integrity and data safety through real SQLite migration tests. Updated `DataExportImportManager` backup roundtrip to serialize and restore recurrence window columns. | **RESOLVED & VERIFIED** |
+| **Catalog** | Settings → Reusable UI Registration | Registered 2 new components in `MasterComponentCatalog` (total 54 components) with interactive live previews in `ComponentDetailSheet`: `planning_boards` and `monthly_window_recurrence`. | **VERIFIED & INTEGRATED** |
+
+### Automated Verification Results
+- **Unit Test Suite:** 267 tests executed and PASSED (`BUILD SUCCESSFUL in 1m 44s`).
+- **Phase 4 Test Suite:** `Release3Phase4UnitTest` passed all test cases covering Room v13 migration, monthly window scheduling, single-obligation completion/next-month reset, short month/Feb clamping, occurrence generation, backward compatibility, 4 planning boards architecture/profile scoping, and JSON backup serialization.
+- **Android Test Compilation:** `./gradlew.bat compileDebugAndroidTestKotlin` completed cleanly (`BUILD SUCCESSFUL in 1m 14s`).
+- **Application Assembly:** `./gradlew.bat assembleDebug` completed cleanly with zero compilation errors (`BUILD SUCCESSFUL in 46s`).
+
+---
+*Phase 4 Planning Boards & Flexible Monthly Recurrence completed. Execution stopped per instructions.*

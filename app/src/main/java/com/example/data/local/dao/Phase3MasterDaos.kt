@@ -92,6 +92,9 @@ interface PlanDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMilestones(milestones: List<PlanMilestoneEntity>)
 
+    @Query("UPDATE plan_milestones SET isCompleted = :isCompleted WHERE id = :id")
+    suspend fun updateMilestoneCompletion(id: Long, isCompleted: Boolean)
+
     @Query("DELETE FROM plan_milestones WHERE planId = :planId")
     suspend fun deleteMilestonesForPlan(planId: Long)
 

@@ -2018,6 +2018,57 @@ private fun RenderSurveyAndEntryLivePreview(componentId: String) {
                 )
             }
         }
+
+        "planning_boards" -> {
+            var demoTab by remember { mutableStateOf(com.example.ui.screens.planning.PlanningBoardTab.DAILY) }
+            var demoDate by remember { mutableStateOf(com.example.utils.DateUtils.todayString()) }
+
+            Column {
+                Text("Interactive Horizon Navigator:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(6.dp))
+                com.example.ui.screens.planning.PlanningPeriodNavigator(
+                    activeTab = demoTab,
+                    selectedDateIso = demoDate,
+                    todayIso = com.example.utils.DateUtils.todayString(),
+                    onPrevious = { demoDate = com.example.utils.DateUtils.addDays(demoDate, -1) },
+                    onNext = { demoDate = com.example.utils.DateUtils.addDays(demoDate, 1) },
+                    onJumpToCurrent = { demoDate = com.example.utils.DateUtils.todayString() }
+                )
+            }
+        }
+
+        "monthly_window_recurrence" -> {
+            val sampleWindowTask = remember {
+                com.example.domain.model.TaskItem(
+                    title = "Monthly Rent & Utility Bill",
+                    dueDateIso = "2026-11-25",
+                    recurrenceType = com.example.domain.model.RecurrenceType.MONTHLY_WINDOW,
+                    recurrenceWindowStartDay = 25,
+                    recurrenceWindowEndDay = 30
+                )
+            }
+            val preview = remember(sampleWindowTask) {
+                com.example.domain.recurrence.RecurrenceEngine.formatRecurrencePreview(sampleWindowTask)
+            }
+
+            Column {
+                Text("Flexible Monthly Recurrence Window:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(6.dp))
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(sampleWindowTask.title, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(preview, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Window: 25th–30th of each month (1 obligation/month, satisfies on any day)", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                    }
+                }
+            }
+        }
     }
 }
 
