@@ -13,6 +13,7 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "trash_items",
     indices = [
+        Index("profileId"),
         Index("itemType"),
         Index("expiresAt")
     ]
@@ -20,6 +21,7 @@ import androidx.room.PrimaryKey
 data class TrashItemEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    val profileId: Long = 1,
     val itemType: String, // "TASK", "PROJECT", "LABEL", "HABIT", "CHALLENGE", "PLAN"
     val originalId: Long,
     val title: String,
@@ -32,6 +34,7 @@ data class TrashItemEntity(
 @Entity(
     tableName = "plans",
     indices = [
+        Index("profileId"),
         Index("level"),
         Index("status"),
         Index("parentPlanId"),
@@ -41,6 +44,7 @@ data class TrashItemEntity(
 data class PlanEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    val profileId: Long = 1,
     val title: String,
     val description: String = "",
     val level: String, // "DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY"

@@ -17,11 +17,23 @@ interface LabelDao {
     @Query("SELECT * FROM labels ORDER BY isArchived ASC, isFavorite DESC, orderIndex ASC, name ASC")
     fun getAllLabelsFlow(): Flow<List<LabelEntity>>
 
+    @Query("SELECT * FROM labels WHERE profileId = :profileId AND isArchived = 0 ORDER BY isFavorite DESC, orderIndex ASC, name ASC")
+    fun getActiveLabelsForProfileFlow(profileId: Long): Flow<List<LabelEntity>>
+
+    @Query("SELECT * FROM labels WHERE profileId = :profileId ORDER BY isArchived ASC, isFavorite DESC, orderIndex ASC, name ASC")
+    fun getAllLabelsForProfileFlow(profileId: Long): Flow<List<LabelEntity>>
+
     @Query("SELECT * FROM labels WHERE id = :id LIMIT 1")
     suspend fun getLabelById(id: Long): LabelEntity?
 
+    @Query("SELECT * FROM labels WHERE id = :id AND profileId = :profileId LIMIT 1")
+    suspend fun getLabelByIdForProfile(id: Long, profileId: Long): LabelEntity?
+
     @Query("SELECT * FROM labels ORDER BY orderIndex ASC")
     suspend fun getAllLabelsList(): List<LabelEntity>
+
+    @Query("SELECT * FROM labels WHERE profileId = :profileId ORDER BY orderIndex ASC")
+    suspend fun getAllLabelsForProfileList(profileId: Long): List<LabelEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLabel(label: LabelEntity): Long
@@ -37,6 +49,12 @@ interface LabelDao {
 
     @Query("DELETE FROM labels WHERE id = :id")
     suspend fun deleteLabelById(id: Long)
+
+    @Query("DELETE FROM labels WHERE id = :id AND profileId = :profileId")
+    suspend fun deleteLabelByIdForProfile(id: Long, profileId: Long)
+
+    @Query("DELETE FROM labels WHERE profileId = :profileId")
+    suspend fun deleteAllLabelsForProfile(profileId: Long)
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTaskLabelCrossRef(ref: TaskLabelCrossRef)

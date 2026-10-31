@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "medications",
     indices = [
+        Index(value = ["profileId"]),
         Index(value = ["taskId"]),
         Index(value = ["isPaused"])
     ]
@@ -14,6 +15,7 @@ import androidx.room.PrimaryKey
 data class MedicationEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    val profileId: Long = 1,
     val taskId: Long,
     val name: String,
     val form: String,

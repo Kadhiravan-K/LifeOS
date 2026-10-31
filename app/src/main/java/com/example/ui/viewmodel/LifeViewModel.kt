@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.preferences.UserPreferences
 import com.example.data.repository.LifeRepository
+import com.example.data.local.entities.ProfileEntity
 import com.example.domain.model.ChallengePreset
 import com.example.domain.model.ChallengeRule
 import com.example.domain.model.ChallengeState
@@ -394,6 +395,19 @@ class LifeViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = IndependentThemeCustomization()
+    )
+
+    // Profile Isolation Flows (Requirement #9)
+    val activeProfileIdFlow: StateFlow<Long> = repository.activeProfileIdFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ProfileEntity.DEFAULT_PERSONAL_PROFILE_ID
+    )
+
+    val allProfilesFlow: StateFlow<List<ProfileEntity>> = repository.allProfilesFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = listOf(ProfileEntity.createDefaultPersonal())
     )
 
     // Legal Consent Flows (Requirement #22)
@@ -1923,6 +1937,24 @@ class LifeViewModel(
     fun resetCustomColors(isLightMode: Boolean? = null) {
         viewModelScope.launch {
             preferences.resetCustomPalette(isLightMode)
+        }
+    }
+
+    fun switchProfile(profileId: Long) {
+        viewModelScope.launch {
+            repository.setActiveProfileId(profileId)
+        }
+    }
+
+    fun createProfile(name: String, emoji: String = "📁", colorHex: Long = 0xFF3B82F6, type: String = ProfileEntity.TYPE_CUSTOM) {
+        viewModelScope.launch {
+            repository.createProfile(name, emoji, colorHex, type)
+        }
+    }
+
+    fun deleteProfile(profileId: Long) {
+        viewModelScope.launch {
+            repository.deleteProfile(profileId)
         }
     }
 

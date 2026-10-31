@@ -17,8 +17,14 @@ interface TaskDao {
     @Query("SELECT * FROM tasks ORDER BY createdAt DESC")
     fun getAllTasks(): Flow<List<TaskEntity>>
 
+    @Query("SELECT * FROM tasks WHERE profileId = :profileId ORDER BY createdAt DESC")
+    fun getTasksForProfile(profileId: Long): Flow<List<TaskEntity>>
+
     @Query("SELECT * FROM tasks WHERE id = :id LIMIT 1")
     suspend fun getTaskById(id: Long): TaskEntity?
+
+    @Query("SELECT * FROM tasks WHERE id = :id AND profileId = :profileId LIMIT 1")
+    suspend fun getTaskByIdForProfile(id: Long, profileId: Long): TaskEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTask(task: TaskEntity): Long
@@ -29,11 +35,20 @@ interface TaskDao {
     @Query("SELECT * FROM tasks ORDER BY createdAt DESC")
     suspend fun getAllTasksList(): List<TaskEntity>
 
+    @Query("SELECT * FROM tasks WHERE profileId = :profileId ORDER BY createdAt DESC")
+    suspend fun getTasksForProfileList(profileId: Long): List<TaskEntity>
+
     @Query("DELETE FROM tasks WHERE id = :id")
     suspend fun deleteTaskById(id: Long)
 
+    @Query("DELETE FROM tasks WHERE id = :id AND profileId = :profileId")
+    suspend fun deleteTaskByIdForProfile(id: Long, profileId: Long)
+
     @Query("DELETE FROM tasks")
     suspend fun deleteAllTasks()
+
+    @Query("DELETE FROM tasks WHERE profileId = :profileId")
+    suspend fun deleteAllTasksForProfile(profileId: Long)
 }
 
 @Dao
@@ -41,8 +56,14 @@ interface HabitDao {
     @Query("SELECT * FROM habits ORDER BY orderIndex ASC, createdAt ASC")
     fun getAllHabits(): Flow<List<HabitEntity>>
 
+    @Query("SELECT * FROM habits WHERE profileId = :profileId ORDER BY orderIndex ASC, createdAt ASC")
+    fun getHabitsForProfile(profileId: Long): Flow<List<HabitEntity>>
+
     @Query("SELECT * FROM habits ORDER BY orderIndex ASC, createdAt ASC")
     suspend fun getAllHabitsList(): List<HabitEntity>
+
+    @Query("SELECT * FROM habits WHERE profileId = :profileId ORDER BY orderIndex ASC, createdAt ASC")
+    suspend fun getHabitsForProfileList(profileId: Long): List<HabitEntity>
 
     @Query("SELECT * FROM habits WHERE id = :id LIMIT 1")
     suspend fun getHabitById(id: Long): HabitEntity?
@@ -59,8 +80,14 @@ interface HabitDao {
     @Query("DELETE FROM habits WHERE id = :id")
     suspend fun deleteHabitById(id: Long)
 
+    @Query("DELETE FROM habits WHERE id = :id AND profileId = :profileId")
+    suspend fun deleteHabitByIdForProfile(id: Long, profileId: Long)
+
     @Query("DELETE FROM habits")
     suspend fun deleteAllHabits()
+
+    @Query("DELETE FROM habits WHERE profileId = :profileId")
+    suspend fun deleteAllHabitsForProfile(profileId: Long)
 }
 
 @Dao
@@ -101,11 +128,20 @@ interface HoneycombShortcutDao {
     @Query("SELECT * FROM honeycomb_shortcuts ORDER BY orderIndex ASC, id ASC")
     fun getAllShortcuts(): Flow<List<HoneycombShortcutEntity>>
 
+    @Query("SELECT * FROM honeycomb_shortcuts WHERE profileId = :profileId ORDER BY orderIndex ASC, id ASC")
+    fun getShortcutsForProfile(profileId: Long): Flow<List<HoneycombShortcutEntity>>
+
     @Query("SELECT * FROM honeycomb_shortcuts ORDER BY orderIndex ASC, id ASC")
     suspend fun getAllShortcutsList(): List<HoneycombShortcutEntity>
 
+    @Query("SELECT * FROM honeycomb_shortcuts WHERE profileId = :profileId ORDER BY orderIndex ASC, id ASC")
+    suspend fun getShortcutsForProfileList(profileId: Long): List<HoneycombShortcutEntity>
+
     @Query("SELECT * FROM honeycomb_shortcuts WHERE id = :id LIMIT 1")
     suspend fun getShortcutById(id: Long): HoneycombShortcutEntity?
+
+    @Query("SELECT * FROM honeycomb_shortcuts WHERE id = :id AND profileId = :profileId LIMIT 1")
+    suspend fun getShortcutByIdForProfile(id: Long, profileId: Long): HoneycombShortcutEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertShortcut(shortcut: HoneycombShortcutEntity): Long
@@ -134,8 +170,14 @@ interface HoneycombShortcutDao {
     @Query("DELETE FROM honeycomb_shortcuts WHERE id = :id")
     suspend fun deleteShortcutById(id: Long)
 
+    @Query("DELETE FROM honeycomb_shortcuts WHERE id = :id AND profileId = :profileId")
+    suspend fun deleteShortcutByIdForProfile(id: Long, profileId: Long)
+
     @Query("DELETE FROM honeycomb_shortcuts WHERE type = :type AND targetId = :targetId")
     suspend fun deleteShortcutByTarget(type: String, targetId: String)
+
+    @Query("DELETE FROM honeycomb_shortcuts WHERE profileId = :profileId")
+    suspend fun deleteAllShortcutsForProfile(profileId: Long)
 
     @Query("DELETE FROM honeycomb_shortcuts")
     suspend fun clearAllShortcuts()

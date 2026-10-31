@@ -4,10 +4,17 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "projects")
+@Entity(
+    tableName = "projects",
+    indices = [
+        Index("profileId"),
+        Index("orderIndex")
+    ]
+)
 data class ProjectEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    val profileId: Long = 1,
     val name: String,
     val description: String = "",
     val colorId: String = "blue",
@@ -19,10 +26,17 @@ data class ProjectEntity(
     val updatedAt: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "labels")
+@Entity(
+    tableName = "labels",
+    indices = [
+        Index("profileId"),
+        Index("orderIndex")
+    ]
+)
 data class LabelEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    val profileId: Long = 1,
     val name: String,
     val colorId: String = "blue",
     val isFavorite: Boolean = false,

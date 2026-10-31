@@ -23,6 +23,7 @@ class UserPreferences(private val context: Context) {
     companion object {
         val KEY_USER_NAME = stringPreferencesKey("user_name")
         val KEY_USER_PROFILE_EMOJI = stringPreferencesKey("user_profile_emoji")
+        val KEY_ACTIVE_PROFILE_ID = longPreferencesKey("active_profile_id")
         val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         val KEY_ACTIVE_THEME_ID = stringPreferencesKey("active_theme_id")
         val KEY_WATER_GOAL = intPreferencesKey("water_goal_ml")
@@ -148,6 +149,10 @@ class UserPreferences(private val context: Context) {
 
     val userProfileEmoji: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[KEY_USER_PROFILE_EMOJI] ?: "👤"
+    }
+
+    val activeProfileId: Flow<Long> = context.dataStore.data.map { preferences ->
+        preferences[KEY_ACTIVE_PROFILE_ID] ?: 1L
     }
 
     val themeMode: Flow<String> = context.dataStore.data.map { preferences ->
@@ -696,6 +701,12 @@ class UserPreferences(private val context: Context) {
                 prefs.remove(KEY_CUSTOM_DARK_SURFACE)
                 prefs.remove(KEY_CUSTOM_DARK_BACKGROUND)
             }
+        }
+    }
+
+    suspend fun setActiveProfileId(profileId: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_ACTIVE_PROFILE_ID] = profileId
         }
     }
 

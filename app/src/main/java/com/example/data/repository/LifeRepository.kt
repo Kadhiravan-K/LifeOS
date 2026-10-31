@@ -4,6 +4,7 @@ import com.example.data.local.AppDatabase
 import com.example.data.local.entities.ChallengeEntity
 import com.example.data.local.entities.HabitEntity
 import com.example.data.local.entities.HoneycombShortcutEntity
+import com.example.data.local.entities.ProfileEntity
 import com.example.data.local.entities.TaskEntity
 import com.example.data.local.entities.WaterLogEntity
 import com.example.data.preferences.UserPreferences
@@ -111,6 +112,7 @@ class LifeRepository(
     private val preferences: UserPreferences,
     private val entitlementRepo: PremiumEntitlementRepository? = null
 ) {
+    private val profileDao = database.profileDao()
     private val taskDao = database.taskDao()
     private val habitDao = database.habitDao()
     private val challengeDao = database.challengeDao()
@@ -124,6 +126,55 @@ class LifeRepository(
     private val gamificationDao = database.gamificationDao()
     private val trackerDao = database.trackerDao()
     private val subscriptionDao = database.subscriptionDao()
+
+    // --- Release 3 Phase 5 Profile Isolation & Management (#9) ---
+    val activeProfileIdFlow: Flow<Long> = preferences.activeProfileId
+    val allProfilesFlow: Flow<List<ProfileEntity>> = profileDao.getAllProfilesFlow()
+
+    suspend fun getActiveProfileId(): Long = preferences.activeProfileId.first()
+
+    suspend fun setActiveProfileId(profileId: Long) {
+        preferences.setActiveProfileId(profileId)
+    }
+
+    suspend fun getAllProfiles(): List<ProfileEntity> = profileDao.getAllProfiles()
+
+    suspend fun getProfileById(id: Long): ProfileEntity? = profileDao.getProfileById(id)
+
+    suspend fun createProfile(
+        name: String,
+        emoji: String = "📁",
+        colorHex: Long = 0xFF3B82F6,
+        type: String = ProfileEntity.TYPE_CUSTOM
+    ): Long {
+        val currentCount = profileDao.getProfileCount()
+        val profile = ProfileEntity(
+            name = name,
+            emoji = emoji,
+            colorHex = colorHex,
+            type = type,
+            orderIndex = currentCount,
+            isDefault = false
+        )
+        return profileDao.insertProfile(profile)
+    }
+
+    suspend fun deleteProfile(id: Long): Boolean {
+        if (id == ProfileEntity.DEFAULT_PERSONAL_PROFILE_ID) return false
+        val active = getActiveProfileId()
+        if (active == id) {
+            setActiveProfileId(ProfileEntity.DEFAULT_PERSONAL_PROFILE_ID)
+        }
+        val deleted = profileDao.deleteCustomProfile(id)
+        if (deleted > 0) {
+            taskDao.deleteAllTasksForProfile(id)
+            habitDao.deleteAllHabitsForProfile(id)
+            honeycombShortcutDao.deleteAllShortcutsForProfile(id)
+            projectDao.deleteAllProjectsForProfile(id)
+            labelDao.deleteAllLabelsForProfile(id)
+        }
+        return deleted > 0
+    }
 
     // --- Phase 3A Reactive Flows ---
     val allProjectsFlow: Flow<List<ProjectItem>> = combine(
@@ -944,6 +995,7 @@ class LifeRepository(
 
         return TaskItem(
             id = id,
+            profileId = profileId,
             title = title,
             emoji = emoji,
             description = description,
@@ -988,6 +1040,7 @@ class LifeRepository(
     private fun TaskItem.toEntity(): TaskEntity {
         return TaskEntity(
             id = id,
+            profileId = profileId,
             title = title,
             emoji = emoji,
             description = description,

@@ -10,6 +10,7 @@ import com.example.data.local.dao.ChallengeDao
 import com.example.data.local.dao.HabitDao
 import com.example.data.local.dao.HoneycombShortcutDao
 import com.example.data.local.dao.LabelDao
+import com.example.data.local.dao.ProfileDao
 import com.example.data.local.dao.ProjectDao
 import com.example.data.local.dao.TaskDao
 import com.example.data.local.dao.TaskReminderDao
@@ -18,6 +19,7 @@ import com.example.data.local.entities.ChallengeEntity
 import com.example.data.local.entities.HabitEntity
 import com.example.data.local.entities.HoneycombShortcutEntity
 import com.example.data.local.entities.LabelEntity
+import com.example.data.local.entities.ProfileEntity
 import com.example.data.local.entities.ProjectEntity
 import com.example.data.local.entities.TaskEntity
 import com.example.data.local.entities.TaskLabelCrossRef
@@ -555,8 +557,67 @@ val MIGRATION_9_10 = object : Migration(9, 10) {
     }
 }
 
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // 1. Create profiles table
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `profiles` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `name` TEXT NOT NULL,
+                `emoji` TEXT NOT NULL DEFAULT '👤',
+                `colorHex` INTEGER NOT NULL DEFAULT 4282168054,
+                `type` TEXT NOT NULL DEFAULT 'PERSONAL',
+                `orderIndex` INTEGER NOT NULL DEFAULT 0,
+                `isDefault` INTEGER NOT NULL DEFAULT 0,
+                `createdAt` INTEGER NOT NULL DEFAULT 0,
+                `updatedAt` INTEGER NOT NULL DEFAULT 0
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_profiles_type` ON `profiles` (`type`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_profiles_orderIndex` ON `profiles` (`orderIndex`)")
+
+        // 2. Insert default Personal profile with id = 1
+        db.execSQL("""
+            INSERT OR IGNORE INTO `profiles` (`id`, `name`, `emoji`, `colorHex`, `type`, `orderIndex`, `isDefault`, `createdAt`, `updatedAt`)
+            VALUES (1, 'Personal', '👤', 4282168054, 'PERSONAL', 0, 1, 1730000000000, 1730000000000)
+        """.trimIndent())
+
+        // 3. Add profileId column with default 1 and create indexes across all 10 profile-scoped root tables
+        db.execSQL("ALTER TABLE `tasks` ADD COLUMN `profileId` INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_profileId` ON `tasks` (`profileId`)")
+
+        db.execSQL("ALTER TABLE `habits` ADD COLUMN `profileId` INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_habits_profileId` ON `habits` (`profileId`)")
+
+        db.execSQL("ALTER TABLE `projects` ADD COLUMN `profileId` INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_projects_profileId` ON `projects` (`profileId`)")
+
+        db.execSQL("ALTER TABLE `labels` ADD COLUMN `profileId` INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_labels_profileId` ON `labels` (`profileId`)")
+
+        db.execSQL("ALTER TABLE `honeycomb_shortcuts` ADD COLUMN `profileId` INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_honeycomb_shortcuts_profileId` ON `honeycomb_shortcuts` (`profileId`)")
+
+        db.execSQL("ALTER TABLE `plans` ADD COLUMN `profileId` INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_plans_profileId` ON `plans` (`profileId`)")
+
+        db.execSQL("ALTER TABLE `trackers` ADD COLUMN `profileId` INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_trackers_profileId` ON `trackers` (`profileId`)")
+
+        db.execSQL("ALTER TABLE `subscriptions` ADD COLUMN `profileId` INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_subscriptions_profileId` ON `subscriptions` (`profileId`)")
+
+        db.execSQL("ALTER TABLE `medications` ADD COLUMN `profileId` INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_medications_profileId` ON `medications` (`profileId`)")
+
+        db.execSQL("ALTER TABLE `trash_items` ADD COLUMN `profileId` INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_trash_items_profileId` ON `trash_items` (`profileId`)")
+    }
+}
+
 @Database(
     entities = [
+        ProfileEntity::class,
         TaskEntity::class,
         HabitEntity::class,
         ChallengeEntity::class,
@@ -587,10 +648,11 @@ val MIGRATION_9_10 = object : Migration(9, 10) {
         com.example.data.local.entities.SubscriptionPaymentEntity::class,
         com.example.data.local.entities.PriceHistoryEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
+    abstract fun profileDao(): ProfileDao
     abstract fun taskDao(): TaskDao
     abstract fun habitDao(): HabitDao
     abstract fun challengeDao(): ChallengeDao
@@ -626,7 +688,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_6_7,
                         MIGRATION_7_8,
                         MIGRATION_8_9,
-                        MIGRATION_9_10
+                        MIGRATION_9_10,
+                        MIGRATION_10_11
                     )
                     .build()
                 INSTANCE = instance

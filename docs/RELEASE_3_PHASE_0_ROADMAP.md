@@ -317,11 +317,19 @@ flowchart TD
 
 #### Phase 5: Profile Isolation & Onboarding Survey (Core Architecture)
 - **Scope:** #9 (Work/Personal profile isolation), #19 (Survey).
+- **Branch:** `feat/release3-phase5-profile-isolation`
+- **Delivery Batches:**
+  - **Batch 05A (Completed):** Complete entity ownership audit (29 tables), `ProfileEntity` and `ProfileDao`, safe `MIGRATION_10_11` (v10 -> v11) preserving 100% of legacy records and defaulting to Personal profile (`id = 1`), `profileId` column + indexes added across all 10 root tables (`tasks`, `habits`, `projects`, `labels`, `honeycomb_shortcuts`, `plans`, `trackers`, `subscriptions`, `medications`, `trash_items`), profile-scoped DAO methods, `UserPreferences.activeProfileId`, `LifeRepository` profile APIs, and Robolectric real SQLite migration test (`Release3Phase5Batch05AUnitTest`).
+  - **Batch 05B (Pending):** UI layer profile switcher (Honeycomb selector, top app bar dropdown, workspace indicator), Profile CRUD management dialogs.
+  - **Batch 05C (Pending):** Requirement #19 Onboarding survey questionnaire and profile setup wizard.
 - **Dependencies:** Must precede Phases 3, 4, 6, 7.
-- **Acceptance Criteria:**
-  - Room migration `MIGRATION_10_11` assigns all existing data to Profile 1 (`Personal`) with zero data loss.
-  - Switching to `Work` profile hides personal tasks, habits, and projects.
-  - Onboarding survey stores results locally and initializes profile settings.
+- **Acceptance Criteria & Verification:**
+  - [x] Room migration `MIGRATION_10_11` assigns all existing data to Profile 1 (`Personal`) with zero data loss.
+  - [x] Profile 1 deletion is strictly prohibited (`isDefault = 1` guard in `ProfileDao.deleteCustomProfile`).
+  - [x] Verified via real SQLite v10 -> v11 migration in `Release3Phase5Batch05AUnitTest`.
+  - [x] Full unit test suite passes with zero failures.
+  - [ ] Switching to `Work` profile hides personal tasks, habits, and projects in UI (Batch 05B).
+  - [ ] Onboarding survey stores results locally and initializes profile settings (Batch 05C).
 
 #### Phase 3: Task Creation & Medication Refinements
 - **Scope:** #5 (Emoji suggestions), #6 (Multi-label selector), #11 (Medication P1/custom times), #18 (Deadline picker & calendar dotted circles).

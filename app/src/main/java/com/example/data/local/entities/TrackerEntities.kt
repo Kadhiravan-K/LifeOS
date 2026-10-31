@@ -19,6 +19,7 @@ import org.json.JSONArray
 @Entity(
     tableName = "trackers",
     indices = [
+        Index("profileId"),
         Index("projectId"),
         Index("isArchived")
     ]
@@ -26,6 +27,7 @@ import org.json.JSONArray
 data class TrackerEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    val profileId: Long = 1,
     val title: String,
     val emoji: String = "📦",
     val description: String = "",

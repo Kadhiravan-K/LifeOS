@@ -1,12 +1,21 @@
 package com.example.data.local.entities
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "tasks")
+@Entity(
+    tableName = "tasks",
+    indices = [
+        Index("profileId"),
+        Index("projectId"),
+        Index("dueDateIso")
+    ]
+)
 data class TaskEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    val profileId: Long = 1,
     val title: String,
     val emoji: String = "",
     val description: String = "",
@@ -43,10 +52,17 @@ data class TaskEntity(
     val createdAt: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "habits")
+@Entity(
+    tableName = "habits",
+    indices = [
+        Index("profileId"),
+        Index("orderIndex")
+    ]
+)
 data class HabitEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    val profileId: Long = 1,
     val title: String,
     val emoji: String = "✨",
     val description: String = "",
@@ -78,10 +94,17 @@ data class WaterLogEntity(
     val updatedAt: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "honeycomb_shortcuts")
+@Entity(
+    tableName = "honeycomb_shortcuts",
+    indices = [
+        Index("profileId"),
+        Index("orderIndex")
+    ]
+)
 data class HoneycombShortcutEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    val profileId: Long = 1,
     val type: String, // "TASK", "HABIT", "CHALLENGE_RULE", "WATER", "CUSTOM"
     val targetId: String,
     val title: String,

@@ -193,6 +193,7 @@ data class TaskReminderItem(
 
 data class TaskItem(
     val id: Long = 0,
+    val profileId: Long = 1,
     val title: String,
     val emoji: String = "",
     val description: String = "",
