@@ -1755,6 +1755,31 @@ AdvancedProjectWorkspaceScreen(
 )
             """.trimIndent(),
             tags = listOf("project", "workspace", "database", "notion", "table", "board", "calendar", "list", "gallery", "ai-prompt")
+        ),
+
+        // 56. Productivity Radar Chart (#17)
+        ComponentEntry(
+            id = "productivity_radar_chart",
+            name = "Productivity Radar (Spider) Chart",
+            category = ComponentCategory.SPECIALIZED_LIFEOS,
+            status = ComponentStatus.EXISTING,
+            description = "5-axis productivity radar chart visualizing Focus, Consistency, Wellness, Vision, and Discipline with concentric pentagon rings, spoke lines, shaded polygon, and launcher AppWidget.",
+            whenToUse = "Use on Analytics screen and home screen launcher widget to display high-level multi-dimensional productivity scores.",
+            sourceFile = "app/src/main/java/com/example/ui/components/ProductivityRadarChart.kt",
+            composableName = "ProductivityRadarChart & ProductivityRadarWidgetProvider",
+            parameters = listOf(
+                ComponentParam("data", "ProductivityRadarData", "Radar snapshot model containing dimension scores and overall rating"),
+                ComponentParam("onDimensionClick", "((RadarDimension) -> Unit)?", "Optional callback when a dimension is clicked")
+            ),
+            usageLocations = listOf("AnalyticsScreen", "ProductivityRadarWidgetProvider", "ComponentCatalog"),
+            reuseRecommendations = "Use ProductivityRadarEngine.calculate() to generate deterministic radar data from active Room profile entities.",
+            codeExample = """
+ProductivityRadarChart(
+    data = productivityRadarData,
+    modifier = Modifier.fillMaxWidth()
+)
+            """.trimIndent(),
+            tags = listOf("analytics", "radar", "spider", "chart", "productivity", "focus", "habits", "wellness", "widget")
         )
     )
 

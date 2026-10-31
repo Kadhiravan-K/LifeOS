@@ -44,9 +44,10 @@ import com.example.ui.viewmodel.LifeViewModel
 @Composable
 fun MainScreen(
     viewModel: LifeViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    initialDestination: NavigationItem = NavigationItem.HOME
 ) {
-    var currentItem by rememberSaveable { mutableStateOf(NavigationItem.HOME) }
+    var currentItem by rememberSaveable { mutableStateOf(initialDestination) }
     var showThemeGallery by rememberSaveable { mutableStateOf(false) }
 
     val previewThemeId by viewModel.previewThemeId.collectAsStateWithLifecycle()

@@ -89,6 +89,19 @@
                 android:resource="@xml/lifeos_subscription_widget_info" />
         </receiver>
 
+        <!-- LifeOS Productivity Radar Home-Screen Widget (#17) -->
+        <receiver
+            android:name=".widgets.ProductivityRadarWidgetProvider"
+            android:exported="true"
+            android:label="LifeOS Productivity Radar">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/lifeos_productivity_radar_widget_info" />
+        </receiver>
+
         <service
             android:name=".widgets.QuickRemindersRemoteViewsService"
             android:exported="false"

@@ -139,7 +139,12 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         } else {
-                            MainScreen(viewModel = viewModel)
+                            val initialDest = if (intent?.getStringExtra("extra_destination") == "analytics") {
+                                com.example.ui.navigation.NavigationItem.ANALYTICS
+                            } else {
+                                com.example.ui.navigation.NavigationItem.HOME
+                            }
+                            MainScreen(viewModel = viewModel, initialDestination = initialDest)
                         }
                     }
                 }

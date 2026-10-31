@@ -43,6 +43,11 @@ object WidgetRefreshCoordinator {
         try {
             TrackerWidgetProvider.notifyDataChanged(ctx)
         } catch (_: Exception) {}
+
+        // 4. Refresh Productivity Radar Widget (#17)
+        try {
+            ProductivityRadarWidgetProvider.notifyDataChanged(ctx)
+        } catch (_: Exception) {}
     }
 
     /**

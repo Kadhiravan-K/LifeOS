@@ -247,7 +247,8 @@ data class HoneycombAppearanceConfig(
     val spacingDp: Int = 6,
     val iconSizeSp: Int = 26,
     val isAnimationEnabled: Boolean = true,
-    val shape: DashboardShape = DashboardShape.HEXAGON
+    val shape: DashboardShape = DashboardShape.HEXAGON,
+    val zoomScale: Float = 1.0f
 )
 
 object HoneycombColorPresets {

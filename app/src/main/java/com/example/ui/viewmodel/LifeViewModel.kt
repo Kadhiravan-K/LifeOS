@@ -17,6 +17,8 @@ import com.example.domain.model.DashboardShape
 import com.example.domain.model.DefaultHoneycombShortcuts
 import com.example.domain.model.HabitItem
 import com.example.domain.model.HoneycombAppearanceConfig
+import com.example.domain.analytics.ProductivityRadarData
+import com.example.domain.analytics.ProductivityRadarEngine
 import com.example.domain.model.HoneycombShortcut
 import com.example.ui.feedback.FeedbackSoundType
 import com.example.domain.model.LabelItem
@@ -721,6 +723,16 @@ class LifeViewModel(
     private val _isHoneycombEditMode = MutableStateFlow(false)
     val isHoneycombEditMode: StateFlow<Boolean> = _isHoneycombEditMode.asStateFlow()
 
+    val honeycombZoomScale: StateFlow<Float> = preferences.honeycombZoomScale.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 1.0f
+    )
+
+    fun setHoneycombZoomScale(scale: Float) = viewModelScope.launch {
+        preferences.setHoneycombZoomScale(scale)
+    }
+
     val honeycombAppearance: StateFlow<HoneycombAppearanceConfig> = combine(
         combine(
             preferences.honeycombDefaultColorHex,
@@ -731,8 +743,9 @@ class LifeViewModel(
             preferences.honeycombSizeDp,
             preferences.honeycombSpacingDp,
             preferences.dashboardShape
-        ) { size, spacing, shape -> Triple(size, spacing, shape) }
-    ) { (color, border, width), (size, spacing, shape) ->
+        ) { size, spacing, shape -> Triple(size, spacing, shape) },
+        preferences.honeycombZoomScale
+    ) { (color, border, width), (size, spacing, shape), zoomScale ->
         HoneycombAppearanceConfig(
             defaultColorHex = color,
             borderColorType = border,
@@ -741,7 +754,8 @@ class LifeViewModel(
             spacingDp = spacing,
             iconSizeSp = 26,
             isAnimationEnabled = true,
-            shape = shape
+            shape = shape,
+            zoomScale = zoomScale
         )
     }.stateIn(
         scope = viewModelScope,
@@ -2575,6 +2589,30 @@ class LifeViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = GamificationProfile()
+    )
+
+    // --- Phase 7 Master: Productivity Radar & Spider Chart (#17) ---
+    val productivityRadarData: StateFlow<ProductivityRadarData> = combine(
+        combine(allTasks, habits, todayWaterLog) { t, h, w -> Triple(t, h, w) },
+        combine(waterGoalFlow, allPlansFlow, gamificationProfile) { g, p, gp -> Triple(g, p, gp) }
+    ) { (t, h, w), (g, p, gp) ->
+        ProductivityRadarEngine.calculate(
+            tasks = t,
+            habits = h,
+            waterCurrentMl = w.amountMl,
+            waterGoalMl = g,
+            plans = p,
+            currentStreak = h.maxOfOrNull { it.currentStreak } ?: 0
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ProductivityRadarEngine.calculate(
+            tasks = emptyList(),
+            habits = emptyList(),
+            waterCurrentMl = 0,
+            waterGoalMl = 2000
+        )
     )
 
     val allAchievements: StateFlow<List<AchievementItem>> = repository.allAchievementsFlow.stateIn(

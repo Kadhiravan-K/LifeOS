@@ -51,6 +51,7 @@ class UserPreferences(private val context: Context) {
         val KEY_HONEYCOMB_ICON_SIZE = intPreferencesKey("honeycomb_icon_size")
         val KEY_HONEYCOMB_ANIMATION = booleanPreferencesKey("honeycomb_animation")
         val KEY_DASHBOARD_SHAPE = stringPreferencesKey("dashboard_shape")
+        val KEY_HONEYCOMB_ZOOM_SCALE = floatPreferencesKey("honeycomb_zoom_scale")
 
         // Phase 3A Color Picker Preferences
         val KEY_COLOR_ORDERING_MODE = stringPreferencesKey("color_ordering_mode")
@@ -496,6 +497,16 @@ class UserPreferences(private val context: Context) {
         DashboardShape.fromString(raw)
     }
 
+    val honeycombZoomScale: Flow<Float> = context.dataStore.data.map { preferences ->
+        preferences[KEY_HONEYCOMB_ZOOM_SCALE]?.coerceIn(0.75f, 1.35f) ?: 1.0f
+    }
+
+    suspend fun setHoneycombZoomScale(scale: Float) {
+        context.dataStore.edit {
+            it[KEY_HONEYCOMB_ZOOM_SCALE] = scale.coerceIn(0.75f, 1.35f)
+        }
+    }
+
     suspend fun setDashboardShape(shape: DashboardShape) {
         context.dataStore.edit { it[KEY_DASHBOARD_SHAPE] = shape.name }
     }
@@ -538,6 +549,7 @@ class UserPreferences(private val context: Context) {
             it[KEY_HONEYCOMB_ICON_SIZE] = 26
             it[KEY_HONEYCOMB_ANIMATION] = true
             it[KEY_DASHBOARD_SHAPE] = DashboardShape.HEXAGON.name
+            it[KEY_HONEYCOMB_ZOOM_SCALE] = 1.0f
         }
     }
 

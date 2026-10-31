@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.domain.model.TaskPriority
 import com.example.ui.components.CalendarHeatmapView
+import com.example.ui.components.ProductivityRadarChart
 import com.example.ui.viewmodel.LifeViewModel
 
 import androidx.compose.foundation.Canvas
@@ -90,6 +91,7 @@ fun AnalyticsScreen(
     val habitsState by viewModel.habitsUiState.collectAsStateWithLifecycle()
     val dashboardState by viewModel.dashboardUiState.collectAsStateWithLifecycle()
     val profile by viewModel.gamificationProfile.collectAsStateWithLifecycle()
+    val productivityRadarData by viewModel.productivityRadarData.collectAsStateWithLifecycle()
 
     var selectedChartType by remember { mutableStateOf(AnalysisChartType.PIE) }
     var selectedDimension by remember { mutableStateOf(AnalysisDimension.PRIORITY) }
@@ -369,58 +371,10 @@ fun AnalyticsScreen(
                                 }
 
                                 AnalysisChartType.RADAR -> {
-                                    val gridColor = MaterialTheme.colorScheme.outlineVariant
-                                    val primaryColor = MaterialTheme.colorScheme.primary
-                                    val n = activeSlices.size.coerceAtLeast(3)
-                                    val maxVal = activeSlices.maxOfOrNull { it.count }?.toFloat()?.coerceAtLeast(1f) ?: 1f
-
-                                    Canvas(modifier = Modifier.size(200.dp)) {
-                                        val center = Offset(size.width / 2f, size.height / 2f)
-                                        val maxR = size.minDimension / 2f * 0.85f
-
-                                        // Web grid concentric rings
-                                        listOf(0.33f, 0.66f, 1f).forEach { scale ->
-                                            val gridPath = Path()
-                                            for (i in 0 until n) {
-                                                val angle = (2 * Math.PI * i / n - Math.PI / 2).toFloat()
-                                                val x = center.x + maxR * scale * cos(angle)
-                                                val y = center.y + maxR * scale * sin(angle)
-                                                if (i == 0) gridPath.moveTo(x, y) else gridPath.lineTo(x, y)
-                                            }
-                                            gridPath.close()
-                                            drawPath(gridPath, color = gridColor, style = Stroke(width = 1.dp.toPx()))
-                                        }
-
-                                        // Spoke lines
-                                        for (i in 0 until n) {
-                                            val angle = (2 * Math.PI * i / n - Math.PI / 2).toFloat()
-                                            val x = center.x + maxR * cos(angle)
-                                            val y = center.y + maxR * sin(angle)
-                                            drawLine(color = gridColor, start = center, end = Offset(x, y), strokeWidth = 1.dp.toPx())
-                                        }
-
-                                        // Data polygon
-                                        val dataPath = Path()
-                                        val points = mutableListOf<Offset>()
-                                        for (i in 0 until n) {
-                                            val count = if (i < activeSlices.size) activeSlices[i].count.toFloat() else 0f
-                                            val fraction = count / maxVal
-                                            val angle = (2 * Math.PI * i / n - Math.PI / 2).toFloat()
-                                            val r = maxR * fraction
-                                            val x = center.x + r * cos(angle)
-                                            val y = center.y + r * sin(angle)
-                                            val pt = Offset(x, y)
-                                            points.add(pt)
-                                            if (i == 0) dataPath.moveTo(x, y) else dataPath.lineTo(x, y)
-                                        }
-                                        dataPath.close()
-                                        drawPath(dataPath, color = primaryColor.copy(alpha = 0.35f), style = Fill)
-                                        drawPath(dataPath, color = primaryColor, style = Stroke(width = 2.5.dp.toPx()))
-                                        points.forEach { pt ->
-                                            drawCircle(color = primaryColor, radius = 4.dp.toPx(), center = pt)
-                                            drawCircle(color = Color.White, radius = 2.dp.toPx(), center = pt)
-                                        }
-                                    }
+                                    ProductivityRadarChart(
+                                        data = productivityRadarData,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
                                 }
 
                                 AnalysisChartType.BAR -> {

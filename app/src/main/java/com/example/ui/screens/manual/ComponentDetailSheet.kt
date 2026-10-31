@@ -2106,6 +2106,22 @@ private fun RenderSurveyAndEntryLivePreview(componentId: String) {
                 }
             }
         }
+
+        "productivity_radar_chart" -> {
+            val sampleRadar = com.example.domain.analytics.ProductivityRadarData(
+                overallScorePercent = 86,
+                ratingTier = "Optimal Productivity",
+                ratingTierEmoji = "🚀",
+                dimensions = listOf(
+                    com.example.domain.analytics.RadarDimensionScore(com.example.domain.analytics.RadarDimension.TASKS, 80, "4 done", "5 total", "4 of 5 completed"),
+                    com.example.domain.analytics.RadarDimensionScore(com.example.domain.analytics.RadarDimension.HABITS, 100, "3 checked", "3 active", "3 of 3 habits built"),
+                    com.example.domain.analytics.RadarDimensionScore(com.example.domain.analytics.RadarDimension.WELLNESS, 75, "1500ml", "2000ml", "1500ml / 2000ml water logged"),
+                    com.example.domain.analytics.RadarDimensionScore(com.example.domain.analytics.RadarDimension.PLANNING, 85, "6 milestones", "7 total", "6 of 7 milestones reached"),
+                    com.example.domain.analytics.RadarDimensionScore(com.example.domain.analytics.RadarDimension.DISCIPLINE, 90, "6 days", "7 days", "6 day streak ongoing")
+                )
+            )
+            com.example.ui.components.ProductivityRadarChart(data = sampleRadar)
+        }
     }
 }
 

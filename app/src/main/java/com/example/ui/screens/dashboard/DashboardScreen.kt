@@ -35,6 +35,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -80,6 +81,7 @@ import com.example.ui.screens.templates.TemplateBrowserDialog
 import com.example.ui.viewmodel.DashboardUiState
 import com.example.ui.viewmodel.LifeViewModel
 import com.example.utils.DateUtils
+import kotlin.math.roundToInt
 
 @Composable
 fun DashboardScreen(
@@ -333,6 +335,21 @@ fun DashboardScreen(
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (!uiState.isHoneycombEditMode) {
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    val current = appearance.zoomScale
+                                    val next = when {
+                                        current < 0.9f -> 1.0f
+                                        current < 1.2f -> 1.35f
+                                        else -> 0.75f
+                                    }
+                                    viewModel.setHoneycombZoomScale(next)
+                                },
+                                label = { Text("🔍 ${(appearance.zoomScale * 100).roundToInt()}%", fontSize = 11.sp) },
+                                modifier = Modifier.height(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
                             TextButton(
                                 onClick = { showCustomizeDialog = true },
                                 modifier = Modifier.testTag("customize_honeycomb_button")
@@ -395,6 +412,9 @@ fun DashboardScreen(
                     },
                     onBrowseTemplatesClick = {
                         showTemplateBrowserDialog = true
+                    },
+                    onZoomChange = { zoom ->
+                        viewModel.setHoneycombZoomScale(zoom)
                     }
                 )
             }

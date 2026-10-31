@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -111,6 +112,7 @@ fun HoneycombTaskGrid(
     onDoneEditClick: () -> Unit,
     onApplyTemplate: ((HoneycombLayoutTemplate) -> Unit)? = null,
     onBrowseTemplatesClick: (() -> Unit)? = null,
+    onZoomChange: ((Float) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     if (shortcuts.isEmpty()) {
@@ -172,8 +174,9 @@ fun HoneycombTaskGrid(
     }
 
     val density = LocalDensity.current
-    val hexSizeDp = appearance.hexagonSizeDp.dp
-    val spacingDp = appearance.spacingDp.dp
+    val effectiveScale = appearance.zoomScale.coerceIn(0.75f, 1.35f)
+    val hexSizeDp = (appearance.hexagonSizeDp * effectiveScale).dp
+    val spacingDp = (appearance.spacingDp * effectiveScale).dp
     val radiusDp = hexSizeDp / 2f
     val hexWidthDp = (sqrt(3.0) * radiusDp.value).dp
     val hexHeightDp = hexSizeDp
@@ -289,13 +292,60 @@ fun HoneycombTaskGrid(
                             }
                         }
                     }
+
+                    // Zoom Scale Presets & Indicator (#13)
+                    if (onZoomChange != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "🔍 Zoom: ${(effectiveScale * 100).roundToInt()}%",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                listOf(
+                                    0.75f to "75% Compact",
+                                    1.0f to "100%",
+                                    1.35f to "135% Large"
+                                ).forEach { (scaleVal, label) ->
+                                    FilterChip(
+                                        selected = abs(effectiveScale - scaleVal) < 0.05f,
+                                        onClick = { onZoomChange.invoke(scaleVal) },
+                                        label = { Text(label, fontSize = 10.sp) }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        // --- Mathematical Axial Coordinate Grid ---
+        // --- Mathematical Axial Coordinate Grid with Smooth Pinch-to-Zoom (#13) ---
+        var currentPinchScale by remember(appearance.zoomScale) { mutableStateOf(appearance.zoomScale) }
+
         BoxWithConstraints(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerInput(onZoomChange) {
+                    if (onZoomChange != null) {
+                        detectTransformGestures { _, _, zoom, _ ->
+                            if (abs(zoom - 1f) > 0.005f) {
+                                val newScale = (currentPinchScale * zoom).coerceIn(0.75f, 1.35f)
+                                currentPinchScale = newScale
+                                onZoomChange.invoke(newScale)
+                            }
+                        }
+                    }
+                }
         ) {
             val containerWidthPx = constraints.maxWidth.toFloat()
 
@@ -693,6 +743,7 @@ fun HoneycombCell(
         }
 
         // Center Content: Emoji Icon & Title indicator
+        val scaleRatio = (sizeDp.value / appearance.hexagonSizeDp.coerceAtLeast(1).toFloat()).coerceIn(0.7f, 1.4f)
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
@@ -700,7 +751,7 @@ fun HoneycombCell(
         ) {
             Text(
                 text = shortcut.emoji,
-                fontSize = appearance.iconSizeSp.sp,
+                fontSize = (appearance.iconSizeSp * scaleRatio).sp,
                 textAlign = TextAlign.Center
             )
 
@@ -708,7 +759,7 @@ fun HoneycombCell(
             if (tileTitle.isNotBlank()) {
                 Text(
                     text = tileTitle,
-                    fontSize = 9.sp,
+                    fontSize = (9f * scaleRatio).coerceAtLeast(7f).sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     textAlign = TextAlign.Center,
