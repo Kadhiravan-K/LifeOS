@@ -1438,6 +1438,42 @@ private fun RenderComponentLivePreview(componentId: String) {
             }
         }
 
+        "premium_card", "premium_button", "glass_theme_panel", "animation_speed_system" -> {
+            RenderPremiumThemeLivePreview(componentId)
+        }
+
+        "honeycomb_profile_selector", "profile_tile" -> {
+            RenderProfileLivePreview(componentId)
+        }
+
+        else -> {
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Interactive Demonstration", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "This component is integrated into the active LifeOS architecture. See the Developer Reference below for source file paths, parameter signatures, and copyable integration code.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RenderPremiumThemeLivePreview(componentId: String) {
+    when (componentId) {
         "premium_card" -> {
             var selectedStyle by remember { mutableStateOf(PremiumCardStyle.THEME_BESPOKE) }
             var isCardSelected by remember { mutableStateOf(false) }
@@ -1647,26 +1683,46 @@ private fun RenderComponentLivePreview(componentId: String) {
                 }
             }
         }
+    }
+}
 
-        else -> {
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Interactive Demonstration", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "This component is integrated into the active LifeOS architecture. See the Developer Reference below for source file paths, parameter signatures, and copyable integration code.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+@Composable
+private fun RenderProfileLivePreview(componentId: String) {
+    when (componentId) {
+        "honeycomb_profile_selector" -> {
+            var selectedId by remember { mutableStateOf(1L) }
+            val sampleProfiles = remember {
+                listOf(
+                    com.example.data.local.entities.ProfileEntity.createDefaultPersonal(),
+                    com.example.data.local.entities.ProfileEntity(id = 2, name = "Work", emoji = "💼", colorHex = 0xFF8B5CF6, type = com.example.data.local.entities.ProfileEntity.TYPE_WORK, isDefault = false),
+                    com.example.data.local.entities.ProfileEntity(id = 3, name = "Startup", emoji = "🚀", colorHex = 0xFF10B981, type = com.example.data.local.entities.ProfileEntity.TYPE_CUSTOM, isDefault = false)
+                )
+            }
+            Column {
+                Text("Tap workspace tiles to switch active profile reactively:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(8.dp))
+                com.example.ui.components.HoneycombProfileSelector(
+                    profiles = sampleProfiles,
+                    activeProfileId = selectedId,
+                    onProfileSelected = { selectedId = it },
+                    onAddProfileClick = { /* demo */ }
+                )
+            }
+        }
+
+        "profile_tile" -> {
+            var activeState by remember { mutableStateOf(true) }
+            val sampleProf = remember {
+                com.example.data.local.entities.ProfileEntity(id = 2, name = "Engineering", emoji = "💻", colorHex = 0xFF3B82F6, type = com.example.data.local.entities.ProfileEntity.TYPE_WORK, isDefault = false)
+            }
+            Column {
+                Text("Interactive Honeycomb Profile Tile (tap to toggle active state):", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(8.dp))
+                com.example.ui.components.HoneycombProfileTile(
+                    profile = sampleProf,
+                    isActive = activeState,
+                    onClick = { activeState = !activeState }
+                )
             }
         }
     }

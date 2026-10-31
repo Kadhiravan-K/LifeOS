@@ -174,14 +174,15 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
         val entitlementRepo = LocalPremiumEntitlementRepository(context)
         val repository = LifeRepository(db, prefs, entitlementRepo)
         val todayIso = DateUtils.todayString()
+        val activeProfileId = repository.getActiveProfileId()
 
-        var shortcuts = db.honeycombShortcutDao().getAllShortcutsList()
+        var shortcuts = db.honeycombShortcutDao().getShortcutsForProfileList(activeProfileId)
 
         // Auto-seed defaults if database shortcuts are empty so widget never stays blank
         if (shortcuts.isEmpty()) {
             try {
                 repository.seedDefaultHoneycombShortcuts()
-                shortcuts = db.honeycombShortcutDao().getAllShortcutsList()
+                shortcuts = db.honeycombShortcutDao().getShortcutsForProfileList(activeProfileId)
             } catch (_: Exception) {}
         }
 
@@ -195,9 +196,9 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
         }
 
         // Load supporting data for completion state
-        val tasks = db.taskDao().getAllTasksList()
-        val habits = db.habitDao().getAllHabitsList()
-        val projects = db.projectDao().getAllProjectsList()
+        val tasks = db.taskDao().getTasksForProfileList(activeProfileId)
+        val habits = db.habitDao().getHabitsForProfileList(activeProfileId)
+        val projects = db.projectDao().getAllProjectsForProfileList(activeProfileId)
         val waterLog = db.waterLogDao().getWaterLog(todayIso)
         val waterGoal = try { prefs.waterGoalMl.first() } catch (_: Exception) { 2000 }
         val activeChallenge = db.challengeDao().getActiveChallenge()

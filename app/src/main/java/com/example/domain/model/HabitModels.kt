@@ -2,6 +2,7 @@ package com.example.domain.model
 
 data class HabitItem(
     val id: Long = 0,
+    val profileId: Long = 1,
     val title: String,
     val emoji: String = "✨",
     val description: String = "",

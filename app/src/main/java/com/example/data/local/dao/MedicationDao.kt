@@ -27,6 +27,9 @@ interface MedicationDao {
     @Query("DELETE FROM medications WHERE taskId = :taskId")
     suspend fun deleteMedicationByTaskId(taskId: Long)
 
+    @Query("DELETE FROM medications WHERE profileId = :profileId")
+    suspend fun deleteAllMedicationsForProfile(profileId: Long)
+
     @Query("SELECT * FROM medications WHERE id = :id LIMIT 1")
     suspend fun getMedicationById(id: Long): MedicationEntity?
 
@@ -38,6 +41,12 @@ interface MedicationDao {
 
     @Query("SELECT * FROM medications ORDER BY createdAt DESC")
     fun getAllMedicationsFlow(): Flow<List<MedicationEntity>>
+
+    @Query("SELECT * FROM medications WHERE profileId = :profileId ORDER BY createdAt DESC")
+    fun getAllMedicationsForProfileFlow(profileId: Long): Flow<List<MedicationEntity>>
+
+    @Query("SELECT * FROM medications WHERE profileId = :profileId AND isPaused = 0")
+    suspend fun getActiveMedicationsForProfile(profileId: Long): List<MedicationEntity>
 
     @Query("SELECT * FROM medications WHERE isPaused = 0")
     suspend fun getActiveMedications(): List<MedicationEntity>

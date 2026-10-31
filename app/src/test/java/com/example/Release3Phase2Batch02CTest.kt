@@ -19,7 +19,7 @@ class Release3Phase2Batch02CTest {
     @Test
     fun testPhase2ComponentsInMasterCatalog() {
         val catalog = MasterComponentCatalog.items
-        assertEquals(40, catalog.size)
+        assertEquals(42, catalog.size)
 
         // 1. Premium Card
         val premiumCard = catalog.find { it.id == "premium_card" }

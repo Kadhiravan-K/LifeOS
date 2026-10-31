@@ -1943,18 +1943,21 @@ class LifeViewModel(
     fun switchProfile(profileId: Long) {
         viewModelScope.launch {
             repository.setActiveProfileId(profileId)
+            com.example.widgets.WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
     fun createProfile(name: String, emoji: String = "📁", colorHex: Long = 0xFF3B82F6, type: String = ProfileEntity.TYPE_CUSTOM) {
         viewModelScope.launch {
             repository.createProfile(name, emoji, colorHex, type)
+            com.example.widgets.WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
     fun deleteProfile(profileId: Long) {
         viewModelScope.launch {
             repository.deleteProfile(profileId)
+            com.example.widgets.WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 

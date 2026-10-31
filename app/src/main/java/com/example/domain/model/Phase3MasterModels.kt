@@ -36,6 +36,7 @@ data class PlanMilestone(
 
 data class PlanItem(
     val id: Long = 0,
+    val profileId: Long = 1,
     val title: String,
     val description: String = "",
     val level: PlanLevel = PlanLevel.WEEKLY,
@@ -62,6 +63,7 @@ data class PlanItem(
 
 data class TrashItem(
     val id: Long = 0,
+    val profileId: Long = 1,
     val itemType: String, // "TASK", "PROJECT", "LABEL", "HABIT", "PLAN"
     val originalId: Long,
     val title: String,

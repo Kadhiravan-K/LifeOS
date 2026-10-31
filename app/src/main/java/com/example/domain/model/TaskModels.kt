@@ -93,6 +93,7 @@ data class Subtask(
 
 data class ProjectItem(
     val id: Long = 0,
+    val profileId: Long = 1,
     val name: String,
     val description: String = "",
     val colorId: String = "blue",
@@ -111,6 +112,7 @@ data class ProjectItem(
 
 data class LabelItem(
     val id: Long = 0,
+    val profileId: Long = 1,
     val name: String,
     val colorId: String = "blue",
     val isFavorite: Boolean = false,

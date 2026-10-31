@@ -40,6 +40,7 @@ enum class QrColorSource(val displayName: String) {
 
 data class HoneycombShortcut(
     val id: Long = 0,
+    val profileId: Long = 1,
     val type: ShortcutType,
     val targetId: String,
     val title: String,

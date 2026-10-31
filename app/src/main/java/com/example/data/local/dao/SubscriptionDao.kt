@@ -18,8 +18,14 @@ interface SubscriptionDao {
     @Query("SELECT * FROM subscriptions WHERE status != 'ARCHIVED' ORDER BY updatedAt DESC")
     fun getActiveSubscriptionsFlow(): Flow<List<SubscriptionEntity>>
 
+    @Query("SELECT * FROM subscriptions WHERE profileId = :profileId AND status != 'ARCHIVED' ORDER BY updatedAt DESC")
+    fun getActiveSubscriptionsForProfileFlow(profileId: Long): Flow<List<SubscriptionEntity>>
+
     @Query("SELECT * FROM subscriptions ORDER BY status ASC, updatedAt DESC")
     fun getAllSubscriptionsFlow(): Flow<List<SubscriptionEntity>>
+
+    @Query("SELECT * FROM subscriptions WHERE profileId = :profileId ORDER BY status ASC, updatedAt DESC")
+    fun getAllSubscriptionsForProfileFlow(profileId: Long): Flow<List<SubscriptionEntity>>
 
     @Query("SELECT * FROM subscriptions WHERE id = :id LIMIT 1")
     suspend fun getSubscriptionById(id: Long): SubscriptionEntity?
@@ -41,6 +47,9 @@ interface SubscriptionDao {
 
     @Query("DELETE FROM subscriptions WHERE id = :id")
     suspend fun deleteSubscriptionById(id: Long)
+
+    @Query("DELETE FROM subscriptions WHERE profileId = :profileId")
+    suspend fun deleteAllSubscriptionsForProfile(profileId: Long)
 
     @Query("UPDATE subscriptions SET projectId = NULL WHERE projectId = :projectId")
     suspend fun unassignSubscriptionsFromProject(projectId: Long)

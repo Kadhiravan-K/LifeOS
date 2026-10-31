@@ -22,6 +22,9 @@ interface TrashDao {
     @Query("SELECT * FROM trash_items ORDER BY deletedAt DESC")
     fun getAllTrashItems(): Flow<List<TrashItemEntity>>
 
+    @Query("SELECT * FROM trash_items WHERE profileId = :profileId ORDER BY deletedAt DESC")
+    fun getTrashItemsForProfile(profileId: Long): Flow<List<TrashItemEntity>>
+
     @Query("SELECT * FROM trash_items ORDER BY deletedAt DESC")
     suspend fun getAllTrashItemsList(): List<TrashItemEntity>
 
@@ -33,6 +36,9 @@ interface TrashDao {
 
     @Query("DELETE FROM trash_items WHERE id = :id")
     suspend fun deleteTrashItemById(id: Long)
+
+    @Query("DELETE FROM trash_items WHERE profileId = :profileId")
+    suspend fun deleteAllTrashForProfile(profileId: Long)
 
     @Query("DELETE FROM trash_items")
     suspend fun clearTrash()
@@ -46,11 +52,20 @@ interface PlanDao {
     @Query("SELECT * FROM plans ORDER BY createdAt DESC")
     fun getAllPlans(): Flow<List<PlanEntity>>
 
+    @Query("SELECT * FROM plans WHERE profileId = :profileId ORDER BY createdAt DESC")
+    fun getPlansForProfile(profileId: Long): Flow<List<PlanEntity>>
+
     @Query("SELECT * FROM plans ORDER BY createdAt DESC")
     suspend fun getAllPlansList(): List<PlanEntity>
 
+    @Query("SELECT * FROM plans WHERE profileId = :profileId ORDER BY createdAt DESC")
+    suspend fun getPlansForProfileList(profileId: Long): List<PlanEntity>
+
     @Query("SELECT * FROM plans WHERE level = :level ORDER BY createdAt DESC")
     fun getPlansByLevel(level: String): Flow<List<PlanEntity>>
+
+    @Query("SELECT * FROM plans WHERE profileId = :profileId AND level = :level ORDER BY createdAt DESC")
+    fun getPlansByLevelForProfile(profileId: Long, level: String): Flow<List<PlanEntity>>
 
     @Query("SELECT * FROM plans WHERE id = :id LIMIT 1")
     suspend fun getPlanById(id: Long): PlanEntity?
@@ -63,6 +78,9 @@ interface PlanDao {
 
     @Query("DELETE FROM plans WHERE id = :id")
     suspend fun deletePlanById(id: Long)
+
+    @Query("DELETE FROM plans WHERE profileId = :profileId")
+    suspend fun deleteAllPlansForProfile(profileId: Long)
 
     // Milestones
     @Query("SELECT * FROM plan_milestones WHERE planId = :planId ORDER BY orderIndex ASC")

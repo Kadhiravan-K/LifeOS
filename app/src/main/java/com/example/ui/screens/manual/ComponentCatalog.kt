@@ -1309,6 +1309,64 @@ if (speed == AnimationSpeed.OFF) {
 }
             """.trimIndent(),
             tags = listOf("animation", "speed", "motion", "accessibility", "battery", "spinner", "velocity")
+        ),
+
+        // 41. Honeycomb Profile Selector (#9)
+        ComponentEntry(
+            id = "honeycomb_profile_selector",
+            name = "Honeycomb Profile Selector",
+            category = ComponentCategory.NAVIGATION_LAYOUT,
+            status = ComponentStatus.EXISTING,
+            description = "Horizontal scrolling workspace selector displaying active and available profiles with tactile spring animations, active profile indicators, and workspace creation tile.",
+            whenToUse = "Use at the top of the Dashboard or navigation headers to switch between Personal, Work, and Custom isolated workspaces.",
+            sourceFile = "app/src/main/java/com/example/ui/components/HoneycombProfileSelector.kt",
+            composableName = "HoneycombProfileSelector",
+            parameters = listOf(
+                ComponentParam("profiles", "List<ProfileEntity>", "Available workspace profiles"),
+                ComponentParam("activeProfileId", "Long", "Currently active profile ID"),
+                ComponentParam("onProfileSelected", "(Long) -> Unit", "Callback when a profile is tapped"),
+                ComponentParam("onAddProfileClick", "() -> Unit", "Callback when 'New Profile' is tapped"),
+                ComponentParam("onDeleteProfileClick", "((ProfileEntity) -> Unit)?", "Optional callback to delete custom profile")
+            ),
+            usageLocations = listOf("DashboardScreen", "ComponentDetailSheet"),
+            reuseRecommendations = "Centralized entrypoint for Requirement #9 profile isolation; guarantees instant reactive flow switching.",
+            codeExample = """
+HoneycombProfileSelector(
+    profiles = allProfiles,
+    activeProfileId = activeProfileId,
+    onProfileSelected = { viewModel.switchProfile(it) },
+    onAddProfileClick = { showCreateDialog = true }
+)
+            """.trimIndent(),
+            tags = listOf("profile", "workspace", "isolation", "honeycomb", "selector", "switch", "work", "personal")
+        ),
+
+        // 42. Workspace Profile Tile (#9)
+        ComponentEntry(
+            id = "profile_tile",
+            name = "Workspace Profile Tile",
+            category = ComponentCategory.SPECIALIZED_LIFEOS,
+            status = ComponentStatus.EXISTING,
+            description = "Individual styled workspace tile featuring hexagonal emoji avatar, custom color accent border, active glow, and tactile spring press feedback.",
+            whenToUse = "Use inside HoneycombProfileSelector, settings workspace management, or profile switcher dialogs.",
+            sourceFile = "app/src/main/java/com/example/ui/components/HoneycombProfileSelector.kt",
+            composableName = "HoneycombProfileTile",
+            parameters = listOf(
+                ComponentParam("profile", "ProfileEntity", "Profile data entity"),
+                ComponentParam("isActive", "Boolean", "Whether profile is currently active"),
+                ComponentParam("onClick", "() -> Unit", "Tap callback with tactile spring"),
+                ComponentParam("onDeleteClick", "(() -> Unit)?", "Optional delete action for custom profiles")
+            ),
+            usageLocations = listOf("HoneycombProfileSelector", "DashboardScreen"),
+            reuseRecommendations = "Pair with LocalLifeAnimationSpeed for custom spring velocity.",
+            codeExample = """
+HoneycombProfileTile(
+    profile = profile,
+    isActive = true,
+    onClick = { /* switch */ }
+)
+            """.trimIndent(),
+            tags = listOf("profile", "tile", "card", "hex", "avatar", "workspace", "badge")
         )
     )
 

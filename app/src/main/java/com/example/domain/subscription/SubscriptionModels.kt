@@ -76,6 +76,7 @@ enum class BillStatus {
  */
 data class SubscriptionItem(
     val id: Long = 0,
+    val profileId: Long = 1,
     val title: String,
     val emoji: String = "💳",
     val description: String = "",

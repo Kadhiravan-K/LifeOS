@@ -96,9 +96,11 @@ import com.example.data.local.entities.AchievementEntity
 import com.example.data.local.entities.RewardItemEntity
 import com.example.data.local.entities.RewardRedemptionEntity
 import org.json.JSONObject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import androidx.room.withTransaction
 import com.example.domain.gamification.GamificationEngine
@@ -107,6 +109,7 @@ import com.example.domain.templates.LifeTemplate
 import com.example.domain.templates.TemplateImportSummary
 import com.example.ui.theme.engine.PremiumEntitlementRepository
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class LifeRepository(
     private val database: AppDatabase,
     private val preferences: UserPreferences,
@@ -126,6 +129,7 @@ class LifeRepository(
     private val gamificationDao = database.gamificationDao()
     private val trackerDao = database.trackerDao()
     private val subscriptionDao = database.subscriptionDao()
+    private val medicationDao = database.medicationDao()
 
     // --- Release 3 Phase 5 Profile Isolation & Management (#9) ---
     val activeProfileIdFlow: Flow<Long> = preferences.activeProfileId
@@ -172,58 +176,73 @@ class LifeRepository(
             honeycombShortcutDao.deleteAllShortcutsForProfile(id)
             projectDao.deleteAllProjectsForProfile(id)
             labelDao.deleteAllLabelsForProfile(id)
+            trashDao.deleteAllTrashForProfile(id)
+            planDao.deleteAllPlansForProfile(id)
+            trackerDao.deleteAllTrackersForProfile(id)
+            subscriptionDao.deleteAllSubscriptionsForProfile(id)
+            medicationDao.deleteAllMedicationsForProfile(id)
         }
         return deleted > 0
     }
 
     // --- Phase 3A Reactive Flows ---
-    val allProjectsFlow: Flow<List<ProjectItem>> = combine(
-        projectDao.getActiveProjectsFlow(),
-        taskDao.getAllTasks()
-    ) { projects, tasks ->
-        val counts = tasks.groupBy { it.projectId }
-        projects.map { entity ->
-            val projectTasks = counts[entity.id] ?: emptyList()
-            val total = projectTasks.size
-            val completed = projectTasks.count { it.isOneTimeCompleted }
-            entity.toDomainModel(total, completed)
+    val allProjectsFlow: Flow<List<ProjectItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        combine(
+            projectDao.getActiveProjectsForProfileFlow(profileId),
+            taskDao.getTasksForProfile(profileId)
+        ) { projects, tasks ->
+            val counts = tasks.groupBy { it.projectId }
+            projects.map { entity ->
+                val projectTasks = counts[entity.id] ?: emptyList()
+                val total = projectTasks.size
+                val completed = projectTasks.count { it.isOneTimeCompleted }
+                entity.toDomainModel(total, completed)
+            }
         }
     }
 
-    val archivedProjectsFlow: Flow<List<ProjectItem>> = projectDao.getArchivedProjectsFlow().map { list ->
-        list.map { it.toDomainModel(0, 0) }
+    val archivedProjectsFlow: Flow<List<ProjectItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        projectDao.getArchivedProjectsForProfileFlow(profileId).map { list ->
+            list.map { it.toDomainModel(0, 0) }
+        }
     }
 
-    val allLabelsFlow: Flow<List<LabelItem>> = combine(
-        labelDao.getActiveLabelsFlow(),
-        labelDao.getAllCrossRefsFlow()
-    ) { labels, crossRefs ->
-        val counts = crossRefs.groupingBy { it.labelId }.eachCount()
-        labels.map { it.toDomainModel(counts[it.id] ?: 0) }
+    val allLabelsFlow: Flow<List<LabelItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        combine(
+            labelDao.getActiveLabelsForProfileFlow(profileId),
+            labelDao.getAllCrossRefsFlow()
+        ) { labels, crossRefs ->
+            val counts = crossRefs.groupingBy { it.labelId }.eachCount()
+            labels.map { it.toDomainModel(counts[it.id] ?: 0) }
+        }
     }
 
-    val archivedLabelsFlow: Flow<List<LabelItem>> = labelDao.getAllLabelsFlow().map { list ->
-        list.filter { it.isArchived }.map { it.toDomainModel(0) }
+    val archivedLabelsFlow: Flow<List<LabelItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        labelDao.getAllLabelsForProfileFlow(profileId).map { list ->
+            list.filter { it.isArchived }.map { it.toDomainModel(0) }
+        }
     }
 
     // --- Unified Tasks Flow (enriched with Project, Labels, and Reminders) ---
-    val allTasksFlow: Flow<List<TaskItem>> = combine(
-        taskDao.getAllTasks(),
-        projectDao.getAllProjectsFlow(),
-        labelDao.getAllLabelsFlow(),
-        labelDao.getAllCrossRefsFlow(),
-        taskReminderDao.getAllActiveRemindersFlow()
-    ) { tasks, projects, labels, crossRefs, reminders ->
-        val projectMap = projects.associateBy { it.id }
-        val labelMap = labels.associateBy { it.id }
-        val labelsByTask = crossRefs.groupBy({ it.taskId }, { it.labelId })
-        val remindersByTask = reminders.groupBy { it.taskId }
+    val allTasksFlow: Flow<List<TaskItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        combine(
+            taskDao.getTasksForProfile(profileId),
+            projectDao.getAllProjectsForProfileFlow(profileId),
+            labelDao.getAllLabelsForProfileFlow(profileId),
+            labelDao.getAllCrossRefsFlow(),
+            taskReminderDao.getAllActiveRemindersFlow()
+        ) { tasks, projects, labels, crossRefs, reminders ->
+            val projectMap = projects.associateBy { it.id }
+            val labelMap = labels.associateBy { it.id }
+            val labelsByTask = crossRefs.groupBy({ it.taskId }, { it.labelId })
+            val remindersByTask = reminders.groupBy { it.taskId }
 
-        tasks.map { entity ->
-            val project = entity.projectId?.let { projectMap[it] }
-            val taskLabels = (labelsByTask[entity.id] ?: emptyList()).mapNotNull { labelMap[it]?.toDomainModel() }
-            val taskReminders = (remindersByTask[entity.id] ?: emptyList()).map { it.toDomainModel() }
-            entity.toDomainModel(project, taskLabels, taskReminders)
+            tasks.map { entity ->
+                val project = entity.projectId?.let { projectMap[it] }
+                val taskLabels = (labelsByTask[entity.id] ?: emptyList()).mapNotNull { labelMap[it]?.toDomainModel() }
+                val taskReminders = (remindersByTask[entity.id] ?: emptyList()).map { it.toDomainModel() }
+                entity.toDomainModel(project, taskLabels, taskReminders)
+            }
         }
     }
 
@@ -243,16 +262,44 @@ class LifeRepository(
     }
 
     suspend fun insertTask(task: TaskItem): Long {
-        val taskId = taskDao.insertTask(task.toEntity())
-        saveTaskLabels(taskId, task.labels)
-        saveTaskReminders(taskId, task.reminders)
+        val effectiveProfileId = if (task.profileId > 0) task.profileId else getActiveProfileId()
+        val validatedProjectId = task.projectId?.let { pId ->
+            val project = projectDao.getProjectById(pId)
+            if (project != null && project.profileId == effectiveProfileId) pId else null
+        }
+        val validatedLabels = task.labels.filter { label ->
+            val dbLabel = labelDao.getLabelById(label.id)
+            dbLabel == null || dbLabel.profileId == effectiveProfileId
+        }
+        val safeTask = task.copy(
+            profileId = effectiveProfileId,
+            projectId = validatedProjectId,
+            labels = validatedLabels
+        )
+        val taskId = taskDao.insertTask(safeTask.toEntity())
+        saveTaskLabels(taskId, safeTask.labels)
+        saveTaskReminders(taskId, safeTask.reminders)
         return taskId
     }
 
     suspend fun updateTask(task: TaskItem) {
-        taskDao.updateTask(task.toEntity())
-        saveTaskLabels(task.id, task.labels)
-        saveTaskReminders(task.id, task.reminders)
+        val effectiveProfileId = if (task.profileId > 0) task.profileId else getActiveProfileId()
+        val validatedProjectId = task.projectId?.let { pId ->
+            val project = projectDao.getProjectById(pId)
+            if (project != null && project.profileId == effectiveProfileId) pId else null
+        }
+        val validatedLabels = task.labels.filter { label ->
+            val dbLabel = labelDao.getLabelById(label.id)
+            dbLabel == null || dbLabel.profileId == effectiveProfileId
+        }
+        val safeTask = task.copy(
+            profileId = effectiveProfileId,
+            projectId = validatedProjectId,
+            labels = validatedLabels
+        )
+        taskDao.updateTask(safeTask.toEntity())
+        saveTaskLabels(safeTask.id, safeTask.labels)
+        saveTaskReminders(safeTask.id, safeTask.reminders)
     }
 
     suspend fun deleteTask(taskId: Long) {
@@ -296,7 +343,8 @@ class LifeRepository(
         recurrence: RecurrenceType = RecurrenceType.DAILY
     ): TaskItem {
         val cleanTitle = title.trim()
-        val allTasks = taskDao.getAllTasksList()
+        val activeProfileId = getActiveProfileId()
+        val allTasks = taskDao.getTasksForProfileList(activeProfileId)
         val existing = allTasks.find {
             !it.isArchived && (
                 it.title.equals(cleanTitle, ignoreCase = true) ||
@@ -311,6 +359,7 @@ class LifeRepository(
         val todayIso = DateUtils.todayString()
         val newTaskId = insertTask(
             TaskItem(
+                profileId = activeProfileId,
                 title = cleanTitle,
                 emoji = emoji,
                 description = "Daily Quick Reminder Routine",
@@ -382,7 +431,8 @@ class LifeRepository(
 
     // --- Phase 3A Project Operations ---
     suspend fun insertProject(project: ProjectItem): Long {
-        return projectDao.insertProject(project.toEntity())
+        val effectiveProfileId = if (project.profileId > 0) project.profileId else getActiveProfileId()
+        return projectDao.insertProject(project.copy(profileId = effectiveProfileId).toEntity())
     }
 
     suspend fun updateProject(project: ProjectItem) {
@@ -407,7 +457,8 @@ class LifeRepository(
 
     // --- Phase 3A Label Operations ---
     suspend fun insertLabel(label: LabelItem): Long {
-        return labelDao.insertLabel(label.toEntity())
+        val effectiveProfileId = if (label.profileId > 0) label.profileId else getActiveProfileId()
+        return labelDao.insertLabel(label.copy(profileId = effectiveProfileId).toEntity())
     }
 
     suspend fun updateLabel(label: LabelItem) {
@@ -620,13 +671,16 @@ class LifeRepository(
     }
 
     // --- Habits Flow ---
-    val allHabitsFlow: Flow<List<HabitItem>> = habitDao.getAllHabits().map { entities ->
-        val todayStr = DateUtils.todayString()
-        entities.map { it.toDomainModel(todayStr) }
+    val allHabitsFlow: Flow<List<HabitItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        habitDao.getHabitsForProfile(profileId).map { entities ->
+            val todayStr = DateUtils.todayString()
+            entities.map { it.toDomainModel(todayStr) }
+        }
     }
 
     suspend fun insertHabit(habit: HabitItem): Long {
-        return habitDao.insertHabit(habit.toEntity())
+        val effectiveProfileId = if (habit.profileId > 0) habit.profileId else getActiveProfileId()
+        return habitDao.insertHabit(habit.copy(profileId = effectiveProfileId).toEntity())
     }
 
     suspend fun updateHabit(habit: HabitItem) {
@@ -1081,6 +1135,7 @@ class LifeRepository(
     private fun ProjectEntity.toDomainModel(taskCount: Int = 0, completedCount: Int = 0): ProjectItem {
         return ProjectItem(
             id = id,
+            profileId = profileId,
             name = name,
             description = description,
             colorId = colorId,
@@ -1098,6 +1153,7 @@ class LifeRepository(
     private fun ProjectItem.toEntity(): ProjectEntity {
         return ProjectEntity(
             id = id,
+            profileId = profileId,
             name = name,
             description = description,
             colorId = colorId,
@@ -1113,6 +1169,7 @@ class LifeRepository(
     private fun LabelEntity.toDomainModel(taskCount: Int = 0): LabelItem {
         return LabelItem(
             id = id,
+            profileId = profileId,
             name = name,
             colorId = colorId,
             isFavorite = isFavorite,
@@ -1127,6 +1184,7 @@ class LifeRepository(
     private fun LabelItem.toEntity(): LabelEntity {
         return LabelEntity(
             id = id,
+            profileId = profileId,
             name = name,
             colorId = colorId,
             isFavorite = isFavorite,
@@ -1203,6 +1261,7 @@ class LifeRepository(
 
         return HabitItem(
             id = id,
+            profileId = profileId,
             title = title,
             emoji = emoji,
             description = description,
@@ -1221,6 +1280,7 @@ class LifeRepository(
     private fun HabitItem.toEntity(): HabitEntity {
         return HabitEntity(
             id = id,
+            profileId = profileId,
             title = title,
             emoji = emoji,
             description = description,
@@ -1367,16 +1427,20 @@ class LifeRepository(
     }
 
     // --- Honeycomb Shortcuts Flow & CRUD ---
-    val allHoneycombShortcutsFlow: Flow<List<HoneycombShortcut>> = honeycombShortcutDao.getAllShortcuts().map { list ->
-        list.map { it.toDomainModel() }
+    val allHoneycombShortcutsFlow: Flow<List<HoneycombShortcut>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        honeycombShortcutDao.getShortcutsForProfile(profileId).map { list ->
+            list.map { it.toDomainModel() }
+        }
     }
 
     suspend fun getHoneycombShortcutsList(): List<HoneycombShortcut> {
-        return honeycombShortcutDao.getAllShortcutsList().map { it.toDomainModel() }
+        val activeProfileId = getActiveProfileId()
+        return honeycombShortcutDao.getShortcutsForProfileList(activeProfileId).map { it.toDomainModel() }
     }
 
     suspend fun insertHoneycombShortcut(shortcut: HoneycombShortcut): Long {
-        return honeycombShortcutDao.insertShortcut(shortcut.toEntity())
+        val effectiveProfileId = if (shortcut.profileId > 0) shortcut.profileId else getActiveProfileId()
+        return honeycombShortcutDao.insertShortcut(shortcut.copy(profileId = effectiveProfileId).toEntity())
     }
 
     suspend fun updateHoneycombShortcut(shortcut: HoneycombShortcut) {
@@ -1462,8 +1526,10 @@ class LifeRepository(
     }
 
     // --- TRASH BIN REPOSITORY ---
-    val allTrashItemsFlow: Flow<List<TrashItem>> = trashDao.getAllTrashItems().map { list ->
-        list.map { it.toDomainModel() }
+    val allTrashItemsFlow: Flow<List<TrashItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        trashDao.getTrashItemsForProfile(profileId).map { list ->
+            list.map { it.toDomainModel() }
+        }
     }
 
     private suspend fun getTrashRetentionMillis(): Long {
@@ -1472,6 +1538,7 @@ class LifeRepository(
     }
 
     suspend fun softDeleteTask(task: TaskItem) {
+        val effectiveProfileId = if (task.profileId > 0) task.profileId else getActiveProfileId()
         val payload = JSONObject().apply {
             put("id", task.id)
             put("title", task.title)
@@ -1482,9 +1549,11 @@ class LifeRepository(
             put("dueDateIso", task.dueDateIso)
             put("dueTime", task.dueTime)
             put("projectId", task.projectId)
+            put("profileId", effectiveProfileId)
         }.toString()
         trashDao.insertTrashItem(
             TrashItemEntity(
+                profileId = effectiveProfileId,
                 itemType = "TASK",
                 originalId = task.id,
                 title = task.title,
@@ -1500,6 +1569,7 @@ class LifeRepository(
     }
 
     suspend fun softDeleteHabit(habit: HabitItem) {
+        val effectiveProfileId = if (habit.profileId > 0) habit.profileId else getActiveProfileId()
         val payload = JSONObject().apply {
             put("id", habit.id)
             put("title", habit.title)
@@ -1507,9 +1577,11 @@ class LifeRepository(
             put("description", habit.description)
             put("reminderTime", habit.reminderTime)
             put("colorHex", habit.colorHex)
+            put("profileId", effectiveProfileId)
         }.toString()
         trashDao.insertTrashItem(
             TrashItemEntity(
+                profileId = effectiveProfileId,
                 itemType = "HABIT",
                 originalId = habit.id,
                 title = habit.title,
@@ -1522,15 +1594,18 @@ class LifeRepository(
     }
 
     suspend fun softDeleteProject(project: ProjectItem) {
+        val effectiveProfileId = if (project.profileId > 0) project.profileId else getActiveProfileId()
         val payload = JSONObject().apply {
             put("id", project.id)
             put("name", project.name)
             put("description", project.description)
             put("colorId", project.colorId)
             put("emoji", project.emoji)
+            put("profileId", effectiveProfileId)
         }.toString()
         trashDao.insertTrashItem(
             TrashItemEntity(
+                profileId = effectiveProfileId,
                 itemType = "PROJECT",
                 originalId = project.id,
                 title = project.name,
@@ -1543,13 +1618,16 @@ class LifeRepository(
     }
 
     suspend fun softDeleteLabel(label: LabelItem) {
+        val effectiveProfileId = if (label.profileId > 0) label.profileId else getActiveProfileId()
         val payload = JSONObject().apply {
             put("id", label.id)
             put("name", label.name)
             put("colorId", label.colorId)
+            put("profileId", effectiveProfileId)
         }.toString()
         trashDao.insertTrashItem(
             TrashItemEntity(
+                profileId = effectiveProfileId,
                 itemType = "LABEL",
                 originalId = label.id,
                 title = "#${label.name}",
@@ -1565,11 +1643,13 @@ class LifeRepository(
         val item = trashDao.getTrashItemById(id) ?: return false
         try {
             val json = JSONObject(item.originalPayloadJson)
+            val effectiveProfileId = item.profileId
             when (item.itemType) {
                 "TASK" -> {
                     taskDao.insertTask(
                         TaskEntity(
                             id = json.optLong("id", 0L),
+                            profileId = effectiveProfileId,
                             title = json.getString("title"),
                             emoji = json.optString("emoji", ""),
                             description = json.optString("description", ""),
@@ -1585,6 +1665,7 @@ class LifeRepository(
                     habitDao.insertHabit(
                         HabitEntity(
                             id = json.optLong("id", 0L),
+                            profileId = effectiveProfileId,
                             title = json.getString("title"),
                             emoji = json.optString("emoji", "✨"),
                             description = json.optString("description", ""),
@@ -1597,6 +1678,7 @@ class LifeRepository(
                     projectDao.insertProject(
                         ProjectEntity(
                             id = json.optLong("id", 0L),
+                            profileId = effectiveProfileId,
                             name = json.getString("name"),
                             description = json.optString("description", ""),
                             colorId = json.optString("colorId", "charcoal"),
@@ -1608,6 +1690,7 @@ class LifeRepository(
                     labelDao.insertLabel(
                         LabelEntity(
                             id = json.optLong("id", 0L),
+                            profileId = effectiveProfileId,
                             name = json.getString("name"),
                             colorId = json.optString("colorId", "charcoal")
                         )
@@ -1635,16 +1718,21 @@ class LifeRepository(
     }
 
     // --- PLANNING REPOSITORY ---
-    val allPlansFlow: Flow<List<PlanItem>> = planDao.getAllPlans().map { list ->
-        list.map { it.toDomainModel() }
+    val allPlansFlow: Flow<List<PlanItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        planDao.getPlansForProfile(profileId).map { list ->
+            list.map { it.toDomainModel() }
+        }
     }
 
-    fun getPlansByLevel(level: PlanLevel): Flow<List<PlanItem>> = planDao.getPlansByLevel(level.name).map { list ->
-        list.map { it.toDomainModel() }
+    fun getPlansByLevel(level: PlanLevel): Flow<List<PlanItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        planDao.getPlansByLevelForProfile(profileId, level.name).map { list ->
+            list.map { it.toDomainModel() }
+        }
     }
 
     suspend fun insertPlan(plan: PlanItem, milestoneTitles: List<String>, linkedTaskIds: List<Long>): Long {
-        val planId = planDao.insertPlan(plan.toEntity())
+        val effectiveProfileId = if (plan.profileId > 0) plan.profileId else getActiveProfileId()
+        val planId = planDao.insertPlan(plan.copy(profileId = effectiveProfileId).toEntity())
         if (milestoneTitles.isNotEmpty()) {
             val milestones = milestoneTitles.mapIndexed { idx, title ->
                 PlanMilestoneEntity(planId = planId, title = title, isCompleted = false, orderIndex = idx)
@@ -1884,6 +1972,7 @@ class LifeRepository(
         selectedHabitIndices: Set<Int> = template.habits.indices.toSet()
     ): TemplateImportSummary {
         val todayIso = DateUtils.todayString()
+        val activeProfileId = getActiveProfileId()
         var tasksAdded = 0
         var habitsAdded = 0
         var projectsAdded = 0
@@ -1892,7 +1981,7 @@ class LifeRepository(
 
         database.withTransaction {
             // 1. Projects
-            val existingProjects = projectDao.getAllProjectsList()
+            val existingProjects = projectDao.getAllProjectsForProfileList(activeProfileId)
             val projectNameToId = mutableMapOf<String, Long>()
             existingProjects.forEach { p ->
                 projectNameToId[p.name.trim().lowercase()] = p.id
@@ -1904,6 +1993,7 @@ class LifeRepository(
                 if (!projectNameToId.containsKey(key)) {
                     val newId = projectDao.insertProject(
                         ProjectEntity(
+                            profileId = activeProfileId,
                             name = projDef.name,
                             description = projDef.description,
                             colorId = projDef.colorId,
@@ -1922,6 +2012,7 @@ class LifeRepository(
                     if (key.isNotBlank() && !projectNameToId.containsKey(key)) {
                         val newId = projectDao.insertProject(
                             ProjectEntity(
+                                profileId = activeProfileId,
                                 name = pName.trim(),
                                 description = "",
                                 colorId = "blue",
@@ -1935,7 +2026,7 @@ class LifeRepository(
             }
 
             // 2. Labels
-            val existingLabels = labelDao.getAllLabelsList()
+            val existingLabels = labelDao.getAllLabelsForProfileList(activeProfileId)
             val labelNameToId = mutableMapOf<String, Long>()
             existingLabels.forEach { l ->
                 labelNameToId[l.name.trim().lowercase()] = l.id
@@ -1948,6 +2039,7 @@ class LifeRepository(
                     if (key.isNotBlank() && !labelNameToId.containsKey(key)) {
                         val newLabelId = labelDao.insertLabel(
                             LabelEntity(
+                                profileId = activeProfileId,
                                 name = labelName.trim(),
                                 colorId = "blue",
                                 isFavorite = false,
@@ -1963,7 +2055,7 @@ class LifeRepository(
             }
 
             // 3. Tasks
-            val existingTasks = taskDao.getAllTasksList()
+            val existingTasks = taskDao.getTasksForProfileList(activeProfileId)
             template.tasks.forEachIndexed { index, taskDef ->
                 if (index in selectedTaskIndices) {
                     val isDuplicate = existingTasks.any { it.title.equals(taskDef.title, ignoreCase = true) }
@@ -1974,6 +2066,7 @@ class LifeRepository(
 
                         val newTaskId = taskDao.insertTask(
                             TaskEntity(
+                                profileId = activeProfileId,
                                 title = taskDef.title,
                                 emoji = taskDef.emoji,
                                 description = taskDef.description,
@@ -2008,13 +2101,14 @@ class LifeRepository(
             }
 
             // 4. Habits
-            val existingHabits = habitDao.getAllHabitsList()
+            val existingHabits = habitDao.getHabitsForProfileList(activeProfileId)
             template.habits.forEachIndexed { index, habitDef ->
                 if (index in selectedHabitIndices) {
                     val isDuplicate = existingHabits.any { it.title.equals(habitDef.title, ignoreCase = true) }
                     if (!isDuplicate) {
                         habitDao.insertHabit(
                             HabitEntity(
+                                profileId = activeProfileId,
                                 title = habitDef.title,
                                 emoji = habitDef.emoji,
                                 description = habitDef.description,
@@ -2040,7 +2134,7 @@ class LifeRepository(
             }
 
             // 5. Honeycomb shortcuts
-            val existingShortcuts = honeycombShortcutDao.getAllShortcutsList()
+            val existingShortcuts = honeycombShortcutDao.getShortcutsForProfileList(activeProfileId)
             template.shortcuts.forEach { scDef ->
                 val alreadyExists = existingShortcuts.any { it.title.equals(scDef.title, ignoreCase = true) }
                 if (!alreadyExists && existingShortcuts.size + shortcutsAdded < 19) {
@@ -2051,7 +2145,7 @@ class LifeRepository(
 
                     when (scDef.type) {
                         ShortcutType.TASK -> {
-                            val allT = taskDao.getAllTasksList()
+                            val allT = taskDao.getTasksForProfileList(activeProfileId)
                             val matched = allT.find { it.id.toString() == scDef.targetId }
                                 ?: allT.find { it.title.equals(scDef.targetId, ignoreCase = true) }
                                 ?: allT.find { it.title.equals(scDef.title, ignoreCase = true) }
@@ -2073,7 +2167,7 @@ class LifeRepository(
                             }
                         }
                         ShortcutType.HABIT -> {
-                            val allH = habitDao.getAllHabitsList()
+                            val allH = habitDao.getHabitsForProfileList(activeProfileId)
                             val matched = allH.find { it.id.toString() == scDef.targetId }
                                 ?: allH.find { it.title.equals(scDef.targetId, ignoreCase = true) }
                                 ?: allH.find { it.title.equals(scDef.title, ignoreCase = true) }
@@ -2123,6 +2217,7 @@ class LifeRepository(
 
                     honeycombShortcutDao.insertShortcut(
                         HoneycombShortcutEntity(
+                            profileId = activeProfileId,
                             type = scDef.type.name,
                             targetId = resolvedTargetId,
                             title = scDef.title,
@@ -2216,6 +2311,7 @@ class LifeRepository(
 
     private fun TrashItemEntity.toDomainModel() = TrashItem(
         id = id,
+        profileId = profileId,
         itemType = itemType,
         originalId = originalId,
         title = title,
@@ -2227,6 +2323,7 @@ class LifeRepository(
 
     private fun PlanEntity.toDomainModel() = PlanItem(
         id = id,
+        profileId = profileId,
         title = title,
         description = description,
         level = PlanLevel.fromString(level),
@@ -2243,6 +2340,7 @@ class LifeRepository(
 
     private fun PlanItem.toEntity() = PlanEntity(
         id = id,
+        profileId = profileId,
         title = title,
         description = description,
         level = level.name,
@@ -2343,7 +2441,8 @@ class LifeRepository(
                     shape = "HEXAGON",
                     orderIndex = existing.size,
                     coordQ = targetQ,
-                    coordR = targetR
+                    coordR = targetR,
+                    profileId = task.profileId
                 )
             )
             return true
@@ -2358,6 +2457,7 @@ class LifeRepository(
     private fun HoneycombShortcutEntity.toDomainModel(): HoneycombShortcut {
         return HoneycombShortcut(
             id = id,
+            profileId = profileId,
             type = ShortcutType.fromString(type),
             targetId = targetId,
             title = title,
@@ -2376,6 +2476,7 @@ class LifeRepository(
     private fun HoneycombShortcut.toEntity(): HoneycombShortcutEntity {
         return HoneycombShortcutEntity(
             id = id,
+            profileId = profileId,
             type = type.name,
             targetId = targetId,
             title = title,
@@ -2396,8 +2497,10 @@ class LifeRepository(
     // ==========================================
 
     fun getAllMedicationsFlow(): Flow<List<MedicationItem>> {
-        return database.medicationDao().getAllMedicationsFlow().map { list ->
-            list.map { it.toDomain() }
+        return activeProfileIdFlow.flatMapLatest { profileId ->
+            database.medicationDao().getAllMedicationsForProfileFlow(profileId).map { list ->
+                list.map { it.toDomain() }
+            }
         }
     }
 
@@ -2416,7 +2519,8 @@ class LifeRepository(
     }
 
     suspend fun saveMedicationForTask(taskId: Long, medication: MedicationItem): Long {
-        val entity = medication.toEntity(taskId)
+        val effectiveProfileId = if (medication.profileId > 0) medication.profileId else getActiveProfileId()
+        val entity = medication.copy(profileId = effectiveProfileId).toEntity(taskId)
         val medId = database.medicationDao().insertMedication(entity)
         val savedMed = entity.copy(id = medId).toDomain()
 
@@ -2546,6 +2650,7 @@ class LifeRepository(
     private fun MedicationEntity.toDomain(): MedicationItem {
         return MedicationItem(
             id = id,
+            profileId = profileId,
             taskId = taskId,
             name = name,
             form = MedicationForm.fromString(form),
@@ -2582,6 +2687,7 @@ class LifeRepository(
     private fun MedicationItem.toEntity(taskId: Long): MedicationEntity {
         return MedicationEntity(
             id = id,
+            profileId = profileId,
             taskId = taskId,
             name = name,
             form = form.name,
@@ -2636,12 +2742,16 @@ class LifeRepository(
     // --- SMART TRACKER REPOSITORY METHODS ---
     // ==========================================
 
-    val allTrackersFlow: Flow<List<TrackerItem>> = trackerDao.getAllTrackersFlow().map { list ->
-        list.map { it.toDomain() }
+    val allTrackersFlow: Flow<List<TrackerItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        trackerDao.getAllTrackersForProfileFlow(profileId).map { list ->
+            list.map { it.toDomain() }
+        }
     }
 
-    val activeTrackersFlow: Flow<List<TrackerItem>> = trackerDao.getActiveTrackersFlow().map { list ->
-        list.map { it.toDomain() }
+    val activeTrackersFlow: Flow<List<TrackerItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        trackerDao.getActiveTrackersForProfileFlow(profileId).map { list ->
+            list.map { it.toDomain() }
+        }
     }
 
     suspend fun getTrackerById(id: Long): TrackerItem? {
@@ -2649,7 +2759,8 @@ class LifeRepository(
     }
 
     suspend fun insertTracker(tracker: TrackerItem): Long {
-        return trackerDao.insertTracker(TrackerEntity.fromDomain(tracker))
+        val effectiveProfileId = if (tracker.profileId > 0) tracker.profileId else getActiveProfileId()
+        return trackerDao.insertTracker(TrackerEntity.fromDomain(tracker.copy(profileId = effectiveProfileId)))
     }
 
     suspend fun updateTracker(tracker: TrackerItem) {
@@ -2717,12 +2828,16 @@ class LifeRepository(
     // --- SUBSCRIPTION REPOSITORY METHODS ---
     // ==========================================
 
-    val allSubscriptionsFlow: Flow<List<SubscriptionItem>> = subscriptionDao.getAllSubscriptionsFlow().map { list ->
-        list.map { it.toDomain() }
+    val allSubscriptionsFlow: Flow<List<SubscriptionItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        subscriptionDao.getAllSubscriptionsForProfileFlow(profileId).map { list ->
+            list.map { it.toDomain() }
+        }
     }
 
-    val activeSubscriptionsFlow: Flow<List<SubscriptionItem>> = subscriptionDao.getActiveSubscriptionsFlow().map { list ->
-        list.map { it.toDomain() }
+    val activeSubscriptionsFlow: Flow<List<SubscriptionItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        subscriptionDao.getActiveSubscriptionsForProfileFlow(profileId).map { list ->
+            list.map { it.toDomain() }
+        }
     }
 
     suspend fun getSubscriptionById(id: Long): SubscriptionItem? {
@@ -2730,13 +2845,15 @@ class LifeRepository(
     }
 
     suspend fun insertSubscription(subscription: SubscriptionItem): Long {
+        val effectiveProfileId = if (subscription.profileId > 0) subscription.profileId else getActiveProfileId()
+        val safeSubscription = subscription.copy(profileId = effectiveProfileId)
         return database.withTransaction {
-            val subId = subscriptionDao.insertSubscription(SubscriptionEntity.fromDomain(subscription))
+            val subId = subscriptionDao.insertSubscription(SubscriptionEntity.fromDomain(safeSubscription))
             val initialBill = BillingOccurrenceEntity(
                 subscriptionId = subId,
-                dueDateIso = subscription.nextRenewalDateIso.ifBlank { subscription.anchorDateIso },
-                expectedAmount = subscription.amount,
-                currency = subscription.currency,
+                dueDateIso = safeSubscription.nextRenewalDateIso.ifBlank { safeSubscription.anchorDateIso },
+                expectedAmount = safeSubscription.amount,
+                currency = safeSubscription.currency,
                 status = BillStatus.UNPAID.name
             )
             subscriptionDao.insertBill(initialBill)

@@ -69,6 +69,7 @@ data class SubscriptionEntity(
 
         return SubscriptionItem(
             id = id,
+            profileId = profileId,
             title = title,
             emoji = emoji,
             description = description,
@@ -108,6 +109,7 @@ data class SubscriptionEntity(
 
             return SubscriptionEntity(
                 id = item.id,
+                profileId = item.profileId,
                 title = item.title,
                 emoji = item.emoji,
                 description = item.description,

@@ -19,8 +19,14 @@ interface TrackerDao {
     @Query("SELECT * FROM trackers WHERE isArchived = 0 ORDER BY updatedAt DESC")
     fun getActiveTrackersFlow(): Flow<List<TrackerEntity>>
 
+    @Query("SELECT * FROM trackers WHERE profileId = :profileId AND isArchived = 0 ORDER BY updatedAt DESC")
+    fun getActiveTrackersForProfileFlow(profileId: Long): Flow<List<TrackerEntity>>
+
     @Query("SELECT * FROM trackers ORDER BY isArchived ASC, updatedAt DESC")
     fun getAllTrackersFlow(): Flow<List<TrackerEntity>>
+
+    @Query("SELECT * FROM trackers WHERE profileId = :profileId ORDER BY isArchived ASC, updatedAt DESC")
+    fun getAllTrackersForProfileFlow(profileId: Long): Flow<List<TrackerEntity>>
 
     @Query("SELECT * FROM trackers WHERE id = :id LIMIT 1")
     suspend fun getTrackerById(id: Long): TrackerEntity?
@@ -42,6 +48,9 @@ interface TrackerDao {
 
     @Query("DELETE FROM trackers WHERE id = :id")
     suspend fun deleteTrackerById(id: Long)
+
+    @Query("DELETE FROM trackers WHERE profileId = :profileId")
+    suspend fun deleteAllTrackersForProfile(profileId: Long)
 
     @Query("UPDATE trackers SET projectId = NULL WHERE projectId = :projectId")
     suspend fun unassignTrackersFromProject(projectId: Long)

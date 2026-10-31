@@ -123,6 +123,7 @@ enum class AlertStyle(val displayName: String) {
  */
 data class MedicationItem(
     val id: Long = 0,
+    val profileId: Long = 1,
     val taskId: Long,
     val name: String,
     val form: MedicationForm = MedicationForm.TABLET,

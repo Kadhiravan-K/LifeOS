@@ -44,6 +44,25 @@ object DataExportImportManager {
         root.put("exportedAt", System.currentTimeMillis())
         root.put("exportDateReadable", SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()))
 
+        // 0. Profiles
+        val profiles = database.profileDao().getAllProfiles()
+        val profsArr = JSONArray()
+        profiles.forEach { p ->
+            val obj = JSONObject().apply {
+                put("id", p.id)
+                put("name", p.name)
+                put("emoji", p.emoji)
+                put("colorHex", p.colorHex)
+                put("type", p.type)
+                put("orderIndex", p.orderIndex)
+                put("isDefault", p.isDefault)
+                put("createdAt", p.createdAt)
+                put("updatedAt", p.updatedAt)
+            }
+            profsArr.put(obj)
+        }
+        root.put("profiles", profsArr)
+
         // 1. Tasks
         val tasks = database.taskDao().getAllTasksList()
         val tasksArr = JSONArray()
@@ -82,6 +101,7 @@ object DataExportImportManager {
                 put("isPaused", t.isPaused)
                 put("isQuickReminder", t.isQuickReminder)
                 put("projectId", t.projectId ?: JSONObject.NULL)
+                put("profileId", t.profileId)
                 put("createdAt", t.createdAt)
             }
             tasksArr.put(obj)
@@ -101,6 +121,7 @@ object DataExportImportManager {
                 put("isFavorite", p.isFavorite)
                 put("isArchived", p.isArchived)
                 put("orderIndex", p.orderIndex)
+                put("profileId", p.profileId)
                 put("createdAt", p.createdAt)
             }
             projArr.put(obj)
@@ -118,6 +139,7 @@ object DataExportImportManager {
                 put("isFavorite", l.isFavorite)
                 put("isArchived", l.isArchived)
                 put("orderIndex", l.orderIndex)
+                put("profileId", l.profileId)
                 put("createdAt", l.createdAt)
             }
             labelsArr.put(obj)
@@ -137,6 +159,7 @@ object DataExportImportManager {
                 put("colorHex", h.colorHex)
                 put("completedDatesJson", h.completedDatesJson)
                 put("orderIndex", h.orderIndex)
+                put("profileId", h.profileId)
                 put("createdAt", h.createdAt)
             }
             habitsArr.put(obj)
@@ -161,6 +184,7 @@ object DataExportImportManager {
                 put("coordQ", sc.coordQ)
                 put("coordR", sc.coordR)
                 put("isPinned", sc.isPinned)
+                put("profileId", sc.profileId)
                 put("createdAt", sc.createdAt)
             }
             scArr.put(obj)
@@ -208,6 +232,7 @@ object DataExportImportManager {
                 put("isReminderEnabled", tr.isReminderEnabled)
                 put("reminderDaysInterval", tr.reminderDaysInterval)
                 put("isArchived", tr.isArchived)
+                put("profileId", tr.profileId)
                 put("createdAt", tr.createdAt)
                 put("updatedAt", tr.updatedAt)
             }
@@ -290,6 +315,7 @@ object DataExportImportManager {
                 put("reminderDaysBefore", s.reminderDaysBefore)
                 put("overdueReminderEnabled", s.overdueReminderEnabled)
                 put("notes", s.notes)
+                put("profileId", s.profileId)
                 put("createdAt", s.createdAt)
                 put("updatedAt", s.updatedAt)
             }
@@ -340,6 +366,26 @@ object DataExportImportManager {
         try {
             val root = JSONObject(jsonStr)
 
+            // Import Profiles
+            val profsArr = root.optJSONArray("profiles")
+            if (profsArr != null) {
+                for (i in 0 until profsArr.length()) {
+                    val obj = profsArr.getJSONObject(i)
+                    val prof = com.example.data.local.entities.ProfileEntity(
+                        id = obj.optLong("id", 0L),
+                        name = obj.getString("name"),
+                        emoji = obj.optString("emoji", "📁"),
+                        colorHex = obj.optLong("colorHex", 0xFF3B82F6),
+                        type = obj.optString("type", com.example.data.local.entities.ProfileEntity.TYPE_CUSTOM),
+                        orderIndex = obj.optInt("orderIndex", 0),
+                        isDefault = obj.optBoolean("isDefault", false),
+                        createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                        updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                    )
+                    database.profileDao().insertProfile(prof)
+                }
+            }
+
             // Import Tasks
             val tasksArr = root.optJSONArray("tasks")
             if (tasksArr != null) {
@@ -379,6 +425,7 @@ object DataExportImportManager {
                         isPaused = obj.optBoolean("isPaused", false),
                         isQuickReminder = obj.optBoolean("isQuickReminder", false),
                         projectId = if (obj.isNull("projectId")) null else obj.optLong("projectId"),
+                        profileId = obj.optLong("profileId", 1L),
                         createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                     )
                     database.taskDao().insertTask(task)
@@ -399,6 +446,7 @@ object DataExportImportManager {
                         isFavorite = obj.optBoolean("isFavorite", false),
                         isArchived = obj.optBoolean("isArchived", false),
                         orderIndex = obj.optInt("orderIndex", 0),
+                        profileId = obj.optLong("profileId", 1L),
                         createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                     )
                     database.projectDao().insertProject(proj)
@@ -417,6 +465,7 @@ object DataExportImportManager {
                         isFavorite = obj.optBoolean("isFavorite", false),
                         isArchived = obj.optBoolean("isArchived", false),
                         orderIndex = obj.optInt("orderIndex", 0),
+                        profileId = obj.optLong("profileId", 1L),
                         createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                     )
                     database.labelDao().insertLabel(label)
@@ -437,6 +486,7 @@ object DataExportImportManager {
                         colorHex = obj.optLong("colorHex", 0xFF3B82F6),
                         completedDatesJson = obj.optString("completedDatesJson", "[]"),
                         orderIndex = obj.optInt("orderIndex", 0),
+                        profileId = obj.optLong("profileId", 1L),
                         createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                     )
                     database.habitDao().insertHabit(habit)
@@ -477,6 +527,7 @@ object DataExportImportManager {
                         coordQ = obj.optInt("coordQ", 0),
                         coordR = obj.optInt("coordR", 0),
                         isPinned = obj.optBoolean("isPinned", false),
+                        profileId = obj.optLong("profileId", 1L),
                         createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                     )
                     database.honeycombShortcutDao().insertShortcut(sc)
@@ -508,6 +559,7 @@ object DataExportImportManager {
                         isReminderEnabled = obj.optBoolean("isReminderEnabled", false),
                         reminderDaysInterval = obj.optInt("reminderDaysInterval", 30),
                         isArchived = obj.optBoolean("isArchived", false),
+                        profileId = obj.optLong("profileId", 1L),
                         createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
                         updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
                     )
@@ -595,6 +647,7 @@ object DataExportImportManager {
                         reminderDaysBefore = obj.optInt("reminderDaysBefore", 3),
                         overdueReminderEnabled = obj.optBoolean("overdueReminderEnabled", true),
                         notes = obj.optString("notes", ""),
+                        profileId = obj.optLong("profileId", 1L),
                         createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
                         updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
                     )

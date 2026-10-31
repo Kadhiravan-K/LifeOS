@@ -95,13 +95,14 @@ internal class QuickRemindersRemoteViewsFactory(
         try {
             runBlocking {
                 val db = AppDatabase.getInstance(context)
-                val shortcuts = db.honeycombShortcutDao().getAllShortcutsList()
-                val tasks = db.taskDao().getAllTasksList()
-                val habits = db.habitDao().getAllHabitsList()
-                val projects = db.projectDao().getAllProjectsList()
+                val prefs = UserPreferences(context)
+                val activeProfileId = try { prefs.activeProfileId.first() } catch (_: Exception) { 1L }
+                val shortcuts = db.honeycombShortcutDao().getShortcutsForProfileList(activeProfileId)
+                val tasks = db.taskDao().getTasksForProfileList(activeProfileId)
+                val habits = db.habitDao().getHabitsForProfileList(activeProfileId)
+                val projects = db.projectDao().getAllProjectsForProfileList(activeProfileId)
                 val todayIso = DateUtils.todayString()
                 val waterLog = db.waterLogDao().getWaterLog(todayIso)
-                val prefs = UserPreferences(context)
                 val waterGoal = try { prefs.waterGoalMl.first() } catch (_: Exception) { 2000 }
                 val activeChallenge = db.challengeDao().getActiveChallenge()
                 val challengeLogs = activeChallenge?.let { JsonMappers.parseChallengeDailyLogs(it.dailyLogsJson) }

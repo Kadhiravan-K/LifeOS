@@ -63,6 +63,7 @@ data class TrackerEntity(
 
         return TrackerItem(
             id = id,
+            profileId = profileId,
             title = title,
             emoji = emoji,
             description = description,
@@ -96,6 +97,7 @@ data class TrackerEntity(
 
             return TrackerEntity(
                 id = item.id,
+                profileId = item.profileId,
                 title = item.title,
                 emoji = item.emoji,
                 description = item.description,
