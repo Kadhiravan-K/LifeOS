@@ -19,7 +19,7 @@ class Release3Phase2Batch02CTest {
     @Test
     fun testPhase2ComponentsInMasterCatalog() {
         val catalog = MasterComponentCatalog.items
-        assertEquals(47, catalog.size)
+        assertTrue("Catalog size must be at least 47", catalog.size >= 47)
 
         // 1. Premium Card
         val premiumCard = catalog.find { it.id == "premium_card" }

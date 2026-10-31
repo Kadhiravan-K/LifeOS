@@ -1513,6 +1513,163 @@ DiscoverySourceStep(
 )
             """.trimIndent(),
             tags = listOf("discovery", "source", "social", "survey", "referral", "attribution")
+        ),
+
+        // 48. Task Emoji Suggester (#5)
+        ComponentEntry(
+            id = "task_emoji_suggester",
+            name = "Task Title Emoji Suggester",
+            category = ComponentCategory.INPUTS_FORMS,
+            status = ComponentStatus.EXISTING,
+            description = "Offline keyword-driven emoji suggestion engine that recommends contextual emojis based on task titles, with full manual override protection.",
+            whenToUse = "Use in task quick add, advanced task creation, and title input fields.",
+            sourceFile = "app/src/main/java/com/example/ui/components/EmojiSuggestionRow.kt",
+            composableName = "EmojiSuggestionRow",
+            parameters = listOf(
+                ComponentParam("suggestions", "List<String>", "List of suggested emoji characters"),
+                ComponentParam("currentEmoji", "String", "Currently active task emoji"),
+                ComponentParam("onEmojiSelected", "(String) -> Unit", "Callback when an emoji is chosen")
+            ),
+            usageLocations = listOf("TaskQuickAddSheet", "TaskAdvancedEditorSheet"),
+            reuseRecommendations = "Pair with TaskEmojiSuggestionEngine. Never overwrite an emoji if isEmojiManuallySelected is true.",
+            codeExample = """
+EmojiSuggestionRow(
+    suggestions = listOf("🛒", "🥛", "🍎"),
+    currentEmoji = "🛒",
+    onEmojiSelected = { emoji -> /* apply */ }
+)
+            """.trimIndent(),
+            tags = listOf("emoji", "suggestions", "task", "quick add", "offline", "recommendation")
+        ),
+
+        // 49. Multi-Label Checkbox Selector (#6)
+        ComponentEntry(
+            id = "multi_label_checkbox_selector",
+            name = "Multi-Label Checkbox Selector & Chips",
+            category = ComponentCategory.SELECTION_CONTROLS,
+            status = ComponentStatus.EXISTING,
+            description = "Checkbox-based multi-label selector bottom sheet and removable label chips strip for workspace-scoped task labeling.",
+            whenToUse = "Use in task creation, quick add sheets, and batch tag management.",
+            sourceFile = "app/src/main/java/com/example/ui/components/MultiLabelCheckboxSelector.kt",
+            composableName = "MultiLabelSelectorBottomSheet & SelectedLabelChips",
+            parameters = listOf(
+                ComponentParam("availableLabels", "List<LabelItem>", "Labels belonging to current workspace profile"),
+                ComponentParam("selectedLabelIds", "Set<Long>", "Active label IDs"),
+                ComponentParam("onToggleLabel", "(Long) -> Unit", "Toggle label selection callback"),
+                ComponentParam("onCreateNewLabel", "() -> Unit", "Action to create a new label in-line")
+            ),
+            usageLocations = listOf("TaskQuickAddSheet", "TaskAdvancedEditorSheet"),
+            reuseRecommendations = "Always display selected labels with SelectedLabelChips with instant removable 'x' icons.",
+            codeExample = """
+SelectedLabelChips(
+    selectedLabels = activeLabels,
+    onRemoveLabel = { id -> /* remove */ }
+)
+
+MultiLabelSelectorBottomSheet(
+    availableLabels = labels,
+    selectedLabelIds = selectedIds,
+    onToggleLabel = { id -> /* toggle */ },
+    onCreateNewLabel = { /* open sheet */ },
+    onDismiss = { /* close */ }
+)
+            """.trimIndent(),
+            tags = listOf("labels", "checkbox", "multi-select", "chips", "tags", "filter")
+        ),
+
+        // 50. Medication Priority & Timing Controls (#11)
+        ComponentEntry(
+            id = "medication_priority_timing_control",
+            name = "Medication Priority & Timing Controls",
+            category = ComponentCategory.INPUTS_FORMS,
+            status = ComponentStatus.EXISTING,
+            description = "Progressive medication reminder configuration supporting automatic P1 priority defaults without silent override, timing presets (before/after meals, empty stomach, before sleep), and calibrated sleep/wake hours.",
+            whenToUse = "Use in task creation, medication scheduling, and health routine planning.",
+            sourceFile = "app/src/main/java/com/example/ui/components/MedicineReminderSection.kt",
+            composableName = "MedicineReminderSection",
+            parameters = listOf(
+                ComponentParam("isMedicineEnabled", "Boolean", "Toggle state for medication reminder"),
+                ComponentParam("onMedicineEnabledChange", "(Boolean) -> Unit", "Toggle listener with P1 default logic"),
+                ComponentParam("taskTitle", "String", "Task title for medicine name prefill"),
+                ComponentParam("wakeUpTime", "String", "Wake-up preference time for calibration (HH:mm)"),
+                ComponentParam("bedTime", "String", "Bed-time preference time for calibration (HH:mm)")
+            ),
+            usageLocations = listOf("TaskQuickAddSheet", "TaskAdvancedEditorSheet"),
+            reuseRecommendations = "Calibrate meal periods with user sleep/wake preferences. Preserve manual user priority choices across toggle changes.",
+            codeExample = """
+MedicineReminderSection(
+    isMedicineEnabled = isMedEnabled,
+    onMedicineEnabledChange = { enabled -> /* toggle with P1 default */ },
+    taskTitle = "Amoxicillin",
+    wakeUpTime = "06:30",
+    bedTime = "22:30",
+    onMedicationDraftChanged = { draft -> /* update */ }
+)
+            """.trimIndent(),
+            tags = listOf("medication", "medicine", "timing", "presets", "meal periods", "priority")
+        ),
+
+        // 51. Medication Details & Course Card (#11)
+        ComponentEntry(
+            id = "medication_detail_card",
+            name = "Medication Course Card & Details Sheet",
+            category = ComponentCategory.SPECIALIZED_LIFEOS,
+            status = ComponentStatus.EXISTING,
+            description = "Clear visual hierarchy course card and comprehensive details modal sheet showing dosage, timing, food relationship, remaining doses, adherence rate, quick action chips, and adherence history.",
+            whenToUse = "Use in Medicine Tracker screen and course management dialogs.",
+            sourceFile = "app/src/main/java/com/example/ui/screens/medication/MedicationScreen.kt",
+            composableName = "MedicationCourseCard & MedicationDetailsBottomSheet",
+            parameters = listOf(
+                ComponentParam("medication", "MedicationItem", "Active medication course item"),
+                ComponentParam("doses", "List<MedicationDoseItem>", "Logged dose occurrences for adherence history"),
+                ComponentParam("onMarkTaken", "(Long) -> Unit", "Dose taken callback"),
+                ComponentParam("onTogglePause", "() -> Unit", "Pause or resume course callback")
+            ),
+            usageLocations = listOf("MedicationScreen"),
+            reuseRecommendations = "Use MedicationDetailsBottomSheet for deep inspection, dosage logging, and adherence tracking.",
+            codeExample = """
+MedicationCourseCard(
+    medication = medItem,
+    onTogglePause = { /* pause/resume */ },
+    onLogPrnDose = { /* log */ },
+    onClick = { /* open details */ }
+)
+            """.trimIndent(),
+            tags = listOf("medication", "details", "course", "adherence", "tracker", "dosage")
+        ),
+
+        // 52. Calendar Range & Recurrence Markers (#18)
+        ComponentEntry(
+            id = "calendar_deadline_range_marker",
+            name = "Calendar Range & Recurrence Markers",
+            category = ComponentCategory.DATE_TIME,
+            status = ComponentStatus.EXISTING,
+            description = "Enhanced calendar markers featuring dotted circular borders for intermediate date ranges, distinct double-dot recurrence indicators, and decoupled always-visible deadline fields.",
+            whenToUse = "Use in MonthGridView, WeekStripView, and Task Editors.",
+            sourceFile = "app/src/main/java/com/example/ui/screens/calendar/CalendarScreen.kt",
+            composableName = "MonthGridView & WeekStripView",
+            parameters = listOf(
+                ComponentParam("datesWithTasks", "Set<String>", "Dates containing active scheduled tasks"),
+                ComponentParam("datesWithRecurringTasks", "Set<String>", "Dates containing recurring tasks"),
+                ComponentParam("rangeStartDate", "String?", "Start boundary of date range"),
+                ComponentParam("rangeEndDate", "String?", "End boundary of date range")
+            ),
+            usageLocations = listOf("CalendarScreen", "TaskAdvancedEditorSheet", "TaskQuickAddSheet"),
+            reuseRecommendations = "Render dotted circular borders with PathEffect.dashPathEffect. Distinguish recurring tasks with multi-dot markers.",
+            codeExample = """
+MonthGridView(
+    monthDates = monthDates,
+    selectedDate = selectedDate,
+    today = today,
+    monthIndex = 10,
+    datesWithTasks = datesWithTasks,
+    datesWithRecurringTasks = recurringDates,
+    rangeStartDate = "2026-11-01",
+    rangeEndDate = "2026-11-05",
+    onSelectDate = { /* select */ }
+)
+            """.trimIndent(),
+            tags = listOf("calendar", "range", "dotted", "recurrence", "deadline", "markers")
         )
     )
 

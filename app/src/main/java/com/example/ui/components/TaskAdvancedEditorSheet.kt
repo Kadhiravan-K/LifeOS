@@ -76,6 +76,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.domain.emoji.TaskEmojiSuggestionEngine
 import com.example.domain.model.ColorOrderingMode
 import com.example.domain.model.DefaultTaskCategories
 import com.example.domain.model.DurationUnit
@@ -121,9 +122,18 @@ fun TaskAdvancedEditorSheet(
     // 1. Basic Info
     var title by remember { mutableStateOf(task?.title ?: "") }
     var emoji by remember { mutableStateOf(task?.emoji ?: "") }
+    var isEmojiManuallySelected by remember { mutableStateOf(!task?.emoji.isNullOrBlank()) }
+    val suggestedEmojis by remember(title, isEmojiManuallySelected) {
+        derivedStateOf {
+            if (isEmojiManuallySelected) emptyList()
+            else TaskEmojiSuggestionEngine.suggestEmojis(title)
+        }
+    }
     var description by remember { mutableStateOf(task?.description ?: "") }
     var category by remember { mutableStateOf(task?.category ?: "Habits & Daily Routine") }
     var priority by remember { mutableStateOf(task?.priority ?: TaskPriority.P3) }
+    var isPriorityManuallySet by remember { mutableStateOf(task?.priority != null && task.priority != TaskPriority.P3) }
+    var preservedPriorityBeforeMedicine by remember { mutableStateOf(priority) }
     var selectedProjectId by remember { mutableStateOf<Long?>(task?.projectId) }
     var selectedLabelIds by remember { mutableStateOf<Set<Long>>(task?.labels?.map { it.id }?.toSet() ?: emptySet()) }
     var isQuickReminder by remember { mutableStateOf(task?.isQuickReminder ?: false) }
@@ -137,7 +147,7 @@ fun TaskAdvancedEditorSheet(
     var draftDueTime by remember { mutableStateOf(task?.dueTime ?: "09:00") }
     var isAllDay by remember { mutableStateOf(task?.isAllDay ?: (task?.dueTime == null)) }
 
-    // 3. Scheduling Mode: Duration vs Deadline (mutually exclusive)
+    // 3. Scheduling Mode & Duration
     var schedulingMode by remember {
         mutableStateOf(task?.schedulingMode ?: if (task?.deadlineIso != null) SchedulingMode.DEADLINE else SchedulingMode.DURATION)
     }
@@ -146,8 +156,8 @@ fun TaskAdvancedEditorSheet(
     var durationAmount by remember { mutableIntStateOf(task?.durationAmount ?: (task?.durationMinutes ?: defaultDuration)) }
     var durationUnit by remember { mutableStateOf(task?.durationUnit ?: DurationUnit.MINUTES) }
 
-    // Deadline draft state
-    var draftDeadlineIso by remember { mutableStateOf(task?.deadlineIso ?: DateUtils.addDays(today, 1)) }
+    // Requirement #18: Always-visible optional deadline (default empty/null, independent of duration)
+    var draftDeadlineIso by remember { mutableStateOf<String?>(task?.deadlineIso) }
     var draftDeadlineTime by remember { mutableStateOf(task?.deadlineTime) }
 
     // 4. Recurrence State
@@ -177,6 +187,7 @@ fun TaskAdvancedEditorSheet(
     var showCategoryDropdown by remember { mutableStateOf(false) }
     var showProjectDropdown by remember { mutableStateOf(false) }
     var showLabelDropdown by remember { mutableStateOf(false) }
+    var showMultiLabelSheet by remember { mutableStateOf(false) }
     var showCreateProjectSheet by remember { mutableStateOf(false) }
     var showCreateLabelSheet by remember { mutableStateOf(false) }
 
@@ -296,8 +307,8 @@ fun TaskAdvancedEditorSheet(
                                 durationAmount = durationAmount,
                                 durationUnit = durationUnit,
                                 durationMinutes = elapsedMinutes,
-                                deadlineIso = if (schedulingMode == SchedulingMode.DEADLINE) draftDeadlineIso else null,
-                                deadlineTime = if (schedulingMode == SchedulingMode.DEADLINE) draftDeadlineTime else null,
+                                deadlineIso = draftDeadlineIso?.ifBlank { null },
+                                deadlineTime = if (draftDeadlineIso != null) draftDeadlineTime else null,
                                 recurrenceType = recurrenceType,
                                 recurrenceInterval = recurrenceInterval,
                                 recurrenceUnit = recurrenceUnit,
@@ -319,7 +330,7 @@ fun TaskAdvancedEditorSheet(
                             onDismiss()
                         }
                     },
-                    enabled = title.isNotBlank() && (schedulingMode != SchedulingMode.DURATION || durationAmount > 0),
+                    enabled = title.isNotBlank() && durationAmount >= 0,
                     modifier = Modifier.testTag("adv_editor_save_btn")
                 ) {
                     Text("Save")
@@ -334,7 +345,10 @@ fun TaskAdvancedEditorSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    onClick = { showEmojiDialog = true },
+                    onClick = {
+                        showEmojiDialog = true
+                        isEmojiManuallySelected = true
+                    },
                     shape = RoundedCornerShape(12.dp),
                     color = if (emoji.isNotBlank()) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     border = androidx.compose.foundation.BorderStroke(
@@ -373,6 +387,19 @@ fun TaskAdvancedEditorSheet(
                 )
             }
 
+            // Requirement #5: Responsive horizontal strip of offline suggested emojis
+            if (!isEmojiManuallySelected && suggestedEmojis.isNotEmpty()) {
+                EmojiSuggestionRow(
+                    suggestions = suggestedEmojis,
+                    currentEmoji = emoji,
+                    onEmojiSelected = { chosen ->
+                        emoji = chosen
+                        isEmojiManuallySelected = true
+                    },
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(14.dp))
 
             // Description
@@ -400,7 +427,10 @@ fun TaskAdvancedEditorSheet(
                 TaskPriority.allPriorities.forEach { p ->
                     val isSel = priority == p
                     Surface(
-                        onClick = { priority = p },
+                        onClick = {
+                            priority = p
+                            isPriorityManuallySet = true
+                        },
                         shape = RoundedCornerShape(10.dp),
                         color = if (isSel) p.composeColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                         border = if (isSel) androidx.compose.foundation.BorderStroke(1.5.dp, p.composeColor) else null,
@@ -495,99 +525,40 @@ fun TaskAdvancedEditorSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Labels Multi-select Row with + Create New Label
-            Box {
-                Surface(
-                    onClick = { showLabelDropdown = true },
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("adv_labels_row")
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Label, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text("Labels", fontWeight = FontWeight.SemiBold)
-                            }
-                            TextButton(onClick = { showLabelDropdown = true }) {
-                                Text(if (selectedLabelIds.isEmpty()) "Add Labels" else "Edit")
-                            }
+            // Requirement #6: Labels Multi-select Row with Checkbox Sheet Trigger
+            Surface(
+                onClick = { showMultiLabelSheet = true },
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("adv_labels_row")
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Label, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text("Labels", fontWeight = FontWeight.SemiBold)
                         }
-
-                        if (selectedLabelIds.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                labels.filter { selectedLabelIds.contains(it.id) }.forEach { lbl ->
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = lbl.composeColor.copy(alpha = 0.15f),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, lbl.composeColor.copy(alpha = 0.5f))
-                                    ) {
-                                        Text(
-                                            text = "#${lbl.name}",
-                                            color = lbl.composeColor,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 11.sp,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
-                                    }
-                                }
-                            }
+                        TextButton(onClick = { showMultiLabelSheet = true }) {
+                            Text(if (selectedLabelIds.isEmpty()) "Add Labels" else "Edit (${selectedLabelIds.size})")
                         }
                     }
-                }
 
-                DropdownMenu(expanded = showLabelDropdown, onDismissRequest = { showLabelDropdown = false }) {
-                    DropdownMenuItem(
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Create New Label", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    val currentSelectedLabels = labels.filter { selectedLabelIds.contains(it.id) }
+                    if (currentSelectedLabels.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SelectedLabelChips(
+                            selectedLabels = currentSelectedLabels,
+                            onRemoveLabel = { removedId ->
+                                selectedLabelIds = selectedLabelIds - removedId
                             }
-                        },
-                        onClick = {
-                            showLabelDropdown = false
-                            showCreateLabelSheet = true
-                        },
-                        modifier = Modifier.testTag("adv_create_label_option")
-                    )
-                    HorizontalDivider()
-                    if (labels.isEmpty()) {
-                        DropdownMenuItem(
-                            text = { Text("No labels yet", color = MaterialTheme.colorScheme.outline) },
-                            onClick = { showLabelDropdown = false }
                         )
-                    } else {
-                        labels.forEach { lbl ->
-                            val isChecked = selectedLabelIds.contains(lbl.id)
-                            DropdownMenuItem(
-                                text = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("#${lbl.name}", color = lbl.composeColor, fontWeight = FontWeight.Bold)
-                                        if (isChecked) {
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        }
-                                    }
-                                },
-                                onClick = {
-                                    selectedLabelIds = if (isChecked) selectedLabelIds - lbl.id else selectedLabelIds + lbl.id
-                                }
-                            )
-                        }
                     }
                 }
             }
@@ -597,7 +568,19 @@ fun TaskAdvancedEditorSheet(
             // Medicine Reminder Section (Positioned right after Labels)
             MedicineReminderSection(
                 isMedicineEnabled = isMedicineEnabled,
-                onMedicineEnabledChange = { isMedicineEnabled = it },
+                onMedicineEnabledChange = { enabled ->
+                    isMedicineEnabled = enabled
+                    if (enabled) {
+                        if (!isPriorityManuallySet) {
+                            preservedPriorityBeforeMedicine = priority
+                            priority = TaskPriority.P1
+                        }
+                    } else {
+                        if (!isPriorityManuallySet) {
+                            priority = preservedPriorityBeforeMedicine
+                        }
+                    }
+                },
                 taskTitle = title,
                 initialMedication = null,
                 onMedicationDraftChanged = { medicationDraft = it }
@@ -683,74 +666,8 @@ fun TaskAdvancedEditorSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // SECTION: Scheduling Method (Mutually Exclusive: Duration vs Deadline)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("Planning Method", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                        .padding(2.dp)
-                ) {
-                    Surface(
-                        onClick = { schedulingMode = SchedulingMode.DURATION },
-                        shape = RoundedCornerShape(6.dp),
-                        color = if (schedulingMode == SchedulingMode.DURATION) MaterialTheme.colorScheme.primary else Color.Transparent,
-                        modifier = Modifier.testTag("sched_mode_duration_tab")
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Timer,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = if (schedulingMode == SchedulingMode.DURATION) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                "Duration",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (schedulingMode == SchedulingMode.DURATION) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    Surface(
-                        onClick = { schedulingMode = SchedulingMode.DEADLINE },
-                        shape = RoundedCornerShape(6.dp),
-                        color = if (schedulingMode == SchedulingMode.DEADLINE) MaterialTheme.colorScheme.primary else Color.Transparent,
-                        modifier = Modifier.testTag("sched_mode_deadline_tab")
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.HourglassBottom,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = if (schedulingMode == SchedulingMode.DEADLINE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                "Deadline",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (schedulingMode == SchedulingMode.DEADLINE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-
+            // SECTION: Task Duration
+            Text("Duration & Estimated Time", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
 
             Surface(
@@ -759,17 +676,16 @@ fun TaskAdvancedEditorSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
-                    if (schedulingMode == SchedulingMode.DURATION) {
-                        // MODE A: Custom Duration with custom units
-                        DurationInput(
-                            durationAmount = durationAmount,
-                            durationUnit = durationUnit,
-                            onDurationAmountChanged = { durationAmount = it },
-                            onDurationUnitChanged = { durationUnit = it },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                    DurationInput(
+                        durationAmount = durationAmount,
+                        durationUnit = durationUnit,
+                        onDurationAmountChanged = { durationAmount = it },
+                        onDurationUnitChanged = { durationUnit = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-                        // Calendar-aware projected end display
+                    // Calendar-aware projected end display
+                    if (durationAmount > 0) {
                         Spacer(modifier = Modifier.height(10.dp))
                         Surface(
                             shape = RoundedCornerShape(8.dp),
@@ -791,31 +707,43 @@ fun TaskAdvancedEditorSheet(
                                 )
                             }
                         }
-                    } else {
-                        // MODE B: Deadline Date & Optional Time
-                        Text("Complete By (Deadline)", style = MaterialTheme.typography.labelSmall)
-                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+                }
+            }
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.HourglassBottom, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Text("Deadline Date", style = MaterialTheme.typography.labelSmall)
-                                    Text(DateUtils.formatDisplayDate(draftDeadlineIso), fontWeight = FontWeight.SemiBold)
-                                }
-                            }
-                            TextButton(onClick = { showDeadlineDatePicker = true }) {
-                                Text("Change Date")
-                            }
-                        }
+            Spacer(modifier = Modifier.height(20.dp))
 
+            // SECTION: Always-Visible Optional Deadline (Requirement #18)
+            Text("Deadline (Optional)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Independent of duration; marks a hard completion target.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    LifeDatePickerField(
+                        selectedDateIso = draftDeadlineIso ?: "",
+                        onDateSelected = { draftDeadlineIso = it },
+                        label = "Deadline Date",
+                        minDateIso = dueDateIso,
+                        isNullable = true,
+                        onClear = {
+                            draftDeadlineIso = null
+                            draftDeadlineTime = null
+                        },
+                        modifier = Modifier.testTag("adv_deadline_field")
+                    )
+
+                    if (draftDeadlineIso != null) {
                         Spacer(modifier = Modifier.height(10.dp))
-
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -1200,8 +1128,29 @@ fun TaskAdvancedEditorSheet(
             currentEmoji = emoji,
             onEmojiSelected = { chosen ->
                 emoji = com.example.utils.EmojiUtils.extractFirstEmoji(chosen) ?: chosen.trim().take(2)
+                isEmojiManuallySelected = true
             },
             onDismiss = { showEmojiDialog = false }
+        )
+    }
+
+    // Requirement #6: Checkbox-Based Multi-Label Selector Bottom Sheet
+    if (showMultiLabelSheet) {
+        MultiLabelSelectorBottomSheet(
+            availableLabels = labels,
+            selectedLabelIds = selectedLabelIds,
+            onToggleLabel = { id ->
+                selectedLabelIds = if (selectedLabelIds.contains(id)) {
+                    selectedLabelIds - id
+                } else {
+                    selectedLabelIds + id
+                }
+            },
+            onCreateNewLabel = {
+                showMultiLabelSheet = false
+                showCreateLabelSheet = true
+            },
+            onDismiss = { showMultiLabelSheet = false }
         )
     }
 

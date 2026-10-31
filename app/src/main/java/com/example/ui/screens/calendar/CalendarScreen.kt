@@ -1,5 +1,7 @@
 package com.example.ui.screens.calendar
 
+import androidx.compose.ui.draw.drawBehind
+import com.example.domain.model.RecurrenceType
 import com.example.domain.recurrence.RecurrenceEngine
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -129,6 +131,21 @@ fun CalendarScreen(
                 }
             }.toSet()
         }
+    }
+
+    val datesWithRecurringTasks = remember(allTasksList, visibleDates) {
+        val recurringTasks = allTasksList.filter { !it.isArchived && it.recurrenceType != RecurrenceType.NONE }
+        visibleDates.filter { dateIso ->
+            recurringTasks.any { task ->
+                RecurrenceEngine.isTaskScheduledOnDate(task, dateIso)
+            }
+        }.toSet()
+    }
+
+    val (rangeStartDate, rangeEndDate) = if (uiState.viewMode == "THREE_DAY" && uiState.threeDayDates.size >= 2) {
+        Pair(uiState.threeDayDates.first(), uiState.threeDayDates.last())
+    } else {
+        Pair(null, null)
     }
 
     Scaffold(
@@ -330,6 +347,9 @@ fun CalendarScreen(
                         selectedDate = uiState.selectedDateIso,
                         today = todayStr,
                         datesWithTasks = datesWithTasks,
+                        datesWithRecurringTasks = datesWithRecurringTasks,
+                        rangeStartDate = rangeStartDate,
+                        rangeEndDate = rangeEndDate,
                         onSelectDate = { viewModel.selectCalendarDate(it) }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -368,6 +388,9 @@ fun CalendarScreen(
                             today = todayStr,
                             monthIndex = uiState.currentMonthZeroIndexed,
                             datesWithTasks = datesWithTasks,
+                            datesWithRecurringTasks = datesWithRecurringTasks,
+                            rangeStartDate = rangeStartDate,
+                            rangeEndDate = rangeEndDate,
                             firstDayOfWeek = uiState.firstDayOfWeek,
                             onSelectDate = { viewModel.selectCalendarDate(it) }
                         )
@@ -377,6 +400,9 @@ fun CalendarScreen(
                             selectedDate = uiState.selectedDateIso,
                             today = todayStr,
                             datesWithTasks = datesWithTasks,
+                            datesWithRecurringTasks = datesWithRecurringTasks,
+                            rangeStartDate = rangeStartDate,
+                            rangeEndDate = rangeEndDate,
                             onSelectDate = { viewModel.selectCalendarDate(it) }
                         )
                     }
@@ -708,7 +734,7 @@ fun ThreeDayGridView(
 }
 
 /**
- * Week Strip View.
+ * Requirement #18: Enhanced Week Strip View with range dotted markers and distinct recurrence indicators.
  */
 @Composable
 fun WeekStripView(
@@ -716,6 +742,9 @@ fun WeekStripView(
     selectedDate: String,
     today: String,
     datesWithTasks: Set<String> = emptySet(),
+    datesWithRecurringTasks: Set<String> = emptySet(),
+    rangeStartDate: String? = null,
+    rangeEndDate: String? = null,
     onSelectDate: (String) -> Unit
 ) {
     Card(
@@ -732,6 +761,11 @@ fun WeekStripView(
             weekDates.forEach { dateIso ->
                 val isSelected = dateIso == selectedDate
                 val isToday = dateIso == today
+                val isIntermediateInRange = rangeStartDate != null && rangeEndDate != null && dateIso > rangeStartDate && dateIso < rangeEndDate
+                val hasRecurring = datesWithRecurringTasks.contains(dateIso)
+                val hasTasks = datesWithTasks.contains(dateIso)
+                val primaryColor = MaterialTheme.colorScheme.primary
+
                 val dayNum = dateIso.takeLast(2)
                 val dayLetter = try {
                     val d = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateIso)
@@ -749,9 +783,23 @@ fun WeekStripView(
                             when {
                                 isSelected -> MaterialTheme.colorScheme.primary
                                 isToday -> MaterialTheme.colorScheme.primaryContainer
+                                isIntermediateInRange -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
                                 else -> Color.Transparent
                             }
                         )
+                        .drawBehind {
+                            if (isIntermediateInRange && !isSelected) {
+                                val stroke = androidx.compose.ui.graphics.drawscope.Stroke(
+                                    width = 1.5.dp.toPx(),
+                                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
+                                )
+                                drawRoundRect(
+                                    color = primaryColor,
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(12.dp.toPx()),
+                                    style = stroke
+                                )
+                            }
+                        }
                         .clickable { onSelectDate(dateIso) }
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -766,9 +814,32 @@ fun WeekStripView(
                             text = dayNum,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                            color = when {
+                                isSelected -> MaterialTheme.colorScheme.onPrimary
+                                isToday -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.onSurface
+                            }
                         )
-                        if (datesWithTasks.contains(dateIso)) {
+                        if (hasRecurring) {
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(3.5.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(3.5.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.tertiary)
+                                )
+                            }
+                        } else if (hasTasks) {
                             Spacer(modifier = Modifier.height(2.dp))
                             Box(
                                 modifier = Modifier
@@ -785,7 +856,8 @@ fun WeekStripView(
 }
 
 /**
- * Month Grid View.
+ * Requirement #18: Enhanced Month Grid View with dotted circular borders for date ranges
+ * and distinct recurrence markers.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -795,6 +867,9 @@ fun MonthGridView(
     today: String,
     monthIndex: Int,
     datesWithTasks: Set<String> = emptySet(),
+    datesWithRecurringTasks: Set<String> = emptySet(),
+    rangeStartDate: String? = null,
+    rangeEndDate: String? = null,
     firstDayOfWeek: String = "MONDAY",
     onSelectDate: (String) -> Unit
 ) {
@@ -833,6 +908,11 @@ fun MonthGridView(
                 monthDates.forEach { dateIso ->
                     val isSelected = dateIso == selectedDate
                     val isToday = dateIso == today
+                    val isIntermediateInRange = rangeStartDate != null && rangeEndDate != null && dateIso > rangeStartDate && dateIso < rangeEndDate
+                    val hasRecurring = datesWithRecurringTasks.contains(dateIso)
+                    val hasTasks = datesWithTasks.contains(dateIso)
+                    val primaryColor = MaterialTheme.colorScheme.primary
+
                     val dayNum = dateIso.takeLast(2)
                     val isCurrentMonth = DateUtils.getMonthZeroIndexed(dateIso) == monthIndex
 
@@ -845,9 +925,22 @@ fun MonthGridView(
                                 when {
                                     isSelected -> MaterialTheme.colorScheme.primary
                                     isToday -> MaterialTheme.colorScheme.primaryContainer
+                                    isIntermediateInRange -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
                                     else -> Color.Transparent
                                 }
                             )
+                            .drawBehind {
+                                if (isIntermediateInRange && !isSelected) {
+                                    val stroke = androidx.compose.ui.graphics.drawscope.Stroke(
+                                        width = 1.5.dp.toPx(),
+                                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
+                                    )
+                                    drawCircle(
+                                        color = primaryColor,
+                                        style = stroke
+                                    )
+                                }
+                            }
                             .clickable { onSelectDate(dateIso) }
                     ) {
                         Column(
@@ -857,15 +950,34 @@ fun MonthGridView(
                             Text(
                                 text = dayNum.toIntOrNull()?.toString() ?: dayNum,
                                 fontSize = 12.sp,
-                                fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
+                                fontWeight = if (isSelected || isToday || isIntermediateInRange) FontWeight.Bold else FontWeight.Normal,
                                 color = when {
                                     isSelected -> MaterialTheme.colorScheme.onPrimary
-                                    isToday -> MaterialTheme.colorScheme.onPrimaryContainer
+                                    isToday -> MaterialTheme.colorScheme.primary
                                     !isCurrentMonth -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
                                     else -> MaterialTheme.colorScheme.onSurface
                                 }
                             )
-                            if (datesWithTasks.contains(dateIso)) {
+                            if (hasRecurring) {
+                                Spacer(modifier = Modifier.height(1.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(3.5.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary)
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(3.5.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.tertiary)
+                                    )
+                                }
+                            } else if (hasTasks) {
                                 Spacer(modifier = Modifier.height(1.dp))
                                 Box(
                                     modifier = Modifier

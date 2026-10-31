@@ -432,4 +432,24 @@ Phase 1 / Batch 01 implementation has been completed on branch `fix/release3-pha
 3. **Widget Profile Strategy:** Should launcher widgets always mirror the app's currently active profile, or should each widget instance allow selecting its dedicated profile in widget settings?
 
 ---
-*Phase 0 Research and Planning completed. Execution stopped per instructions.*
+
+## 11. Implementation Status: Phase 3 — Task Creation, Medication UX & Deadline Calendar (Completed)
+
+Phase 3 implementation has been completed on branch `feat/release3-phase3-task-medication-ux`:
+
+| Req # | Batch | Feature / Enhancement | Implementation Details | Status |
+|---|---|---|---|---|
+| **#5** | **03A** | Task Title Emoji Suggestions with Manual Override | Bundled offline `TaskEmojiSuggestionEngine` with weighted keyword dictionary covering groceries, fitness, communication, health, work, education, finance, and travel. Integrated into `TaskQuickAddSheet` and `TaskAdvancedEditorSheet` with `EmojiSuggestionRow`. Enforces strict manual override protection (`isEmojiManuallySelected` prevents auto-overwriting user choices). | **RESOLVED & VERIFIED** |
+| **#6** | **03B** | Checkbox Multi-Label Task Selection | Replaced single-click dropdowns with `MultiLabelSelectorBottomSheet` and `SelectedLabelChips`. Supports checking/unchecking multiple labels, quick removal via 'x' icon chips, in-line label creation, and profile workspace isolation. | **RESOLVED & VERIFIED** |
+| **#11** | **03C** | Medication Priority Defaults, Reminder Timing & Details Redesign | When medication reminder toggles on, defaults task priority to P1 unless manually chosen. Disabling and re-enabling preserves and respects user manual priority. Added timing presets (Before Meals 30m, After Meals 30m, Empty Stomach calibrated with `wakeUpTime`, Before Sleep calibrated with `bedTime`) and configurable meal offsets. Redesigned `MedicationCourseCard` with clear visual hierarchy and P1 badge, and built `MedicationDetailsBottomSheet` with dosage, schedule, adherence progress, quick actions, and adherence history log. | **RESOLVED & VERIFIED** |
+| **#18** | **03D** | Always-Visible Optional Deadline & Calendar Markers | Decoupled deadline from task duration in both `TaskQuickAddSheet` and `TaskAdvancedEditorSheet`. Defaults to null/empty for new tasks; allows setting and clearing deadline independently of duration. Enhanced `MonthGridView` and `WeekStripView` with dotted circular range borders (`PathEffect.dashPathEffect`) for intermediate range dates and distinct double-dot recurrence markers for recurring tasks. | **RESOLVED & VERIFIED** |
+| **Catalog** | **UI** | Settings → Reusable UI Registration | Registered 5 new components in `MasterComponentCatalog` (total 52 components) with interactive live previews in `ComponentDetailSheet`: `task_emoji_suggester`, `multi_label_checkbox_selector`, `medication_priority_timing_control`, `medication_detail_card`, and `calendar_deadline_range_marker`. | **VERIFIED & INTEGRATED** |
+
+### Automated Verification Results
+- **Unit Test Suite:** 253 tests executed and PASSED (`BUILD SUCCESSFUL in 40s`).
+- **Phase 3 Test Suite:** `Release3Phase3UnitTest` passed all test cases covering emoji matching/override protection, multi-label toggling/profile scoping, medication P1 defaults/persistence, deadline decoupling, and calendar range/recurrence markers.
+- **Master Catalog Tests:** `ComponentCatalogUnitTest` and `Release3Phase2Batch02CTest` passed verifying 52 catalog items.
+- **Application Assembly:** `./gradlew.bat assembleDebug` completed cleanly with zero compilation errors (`BUILD SUCCESSFUL in 43s`).
+
+---
+*Phase 3 Task Creation, Medication UX & Deadline Calendar completed. Execution stopped per instructions.*

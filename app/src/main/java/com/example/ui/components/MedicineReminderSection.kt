@@ -87,6 +87,8 @@ fun MedicineReminderSection(
     taskTitle: String,
     initialMedication: MedicationItem? = null,
     onMedicationDraftChanged: (MedicationItem?) -> Unit,
+    wakeUpTime: String = "07:00",
+    bedTime: String = "22:30",
     modifier: Modifier = Modifier
 ) {
     // Medication Fields
@@ -122,19 +124,30 @@ fun MedicineReminderSection(
         mutableStateOf(initialMedication?.scheduleConfig?.scheduleType ?: MedicineScheduleType.MEAL_BASED)
     }
 
-    // Meal-based state (6 meal periods with customizable clock time and food relations)
+    // Meal-based state (6 meal periods calibrated with wake/bed preferences and customizable clock time & food relations)
+    val defaultMorningEmptyStomach = remember(wakeUpTime) { wakeUpTime }
+    val defaultBreakfast = remember(wakeUpTime) {
+        val wakeMins = DateUtils.timeToMinutes(wakeUpTime)
+        DateUtils.minutesToTime(wakeMins + 60)
+    }
+    val defaultDinner = remember(bedTime) {
+        val bedMins = DateUtils.timeToMinutes(bedTime)
+        DateUtils.minutesToTime((bedMins - 120).coerceAtLeast(1140))
+    }
+    val defaultBeforeSleep = remember(bedTime) { bedTime }
+
     var mealConfigs by remember {
         mutableStateOf(
             if (initialMedication?.scheduleConfig?.mealPeriods?.isNotEmpty() == true) {
                 initialMedication.scheduleConfig.mealPeriods
             } else {
                 listOf(
-                    MealPeriodConfig(MealPeriod.MORNING_EMPTY_STOMACH, "06:30", FoodRelationship.BEFORE_FOOD, isEnabled = false),
-                    MealPeriodConfig(MealPeriod.BREAKFAST, "08:30", FoodRelationship.AFTER_FOOD, isEnabled = true),
-                    MealPeriodConfig(MealPeriod.LUNCH, "13:00", FoodRelationship.AFTER_FOOD, isEnabled = true),
-                    MealPeriodConfig(MealPeriod.EVENING, "17:30", FoodRelationship.NO_FOOD, isEnabled = false),
-                    MealPeriodConfig(MealPeriod.DINNER, "20:30", FoodRelationship.AFTER_FOOD, isEnabled = true),
-                    MealPeriodConfig(MealPeriod.BEFORE_SLEEP, "22:30", FoodRelationship.NO_FOOD, isEnabled = false)
+                    MealPeriodConfig(MealPeriod.MORNING_EMPTY_STOMACH, defaultMorningEmptyStomach, FoodRelationship.BEFORE_FOOD, offsetMinutes = 30, isEnabled = false),
+                    MealPeriodConfig(MealPeriod.BREAKFAST, defaultBreakfast, FoodRelationship.AFTER_FOOD, offsetMinutes = 30, isEnabled = true),
+                    MealPeriodConfig(MealPeriod.LUNCH, "13:00", FoodRelationship.AFTER_FOOD, offsetMinutes = 30, isEnabled = true),
+                    MealPeriodConfig(MealPeriod.EVENING, "17:30", FoodRelationship.NO_FOOD, offsetMinutes = 0, isEnabled = false),
+                    MealPeriodConfig(MealPeriod.DINNER, defaultDinner, FoodRelationship.AFTER_FOOD, offsetMinutes = 30, isEnabled = true),
+                    MealPeriodConfig(MealPeriod.BEFORE_SLEEP, defaultBeforeSleep, FoodRelationship.NO_FOOD, offsetMinutes = 0, isEnabled = false)
                 )
             }
         )
@@ -487,6 +500,74 @@ fun MedicineReminderSection(
                 // Mode-specific configuration views
                 when (scheduleType) {
                     MedicineScheduleType.MEAL_BASED -> {
+                        // Requirement #11: Quick Timing Presets
+                        Text(
+                            text = "Reminder Timing Presets",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            FilterChip(
+                                selected = mealConfigs.any { it.isEnabled && it.foodRelation == FoodRelationship.BEFORE_FOOD },
+                                onClick = {
+                                    mealConfigs = mealConfigs.map {
+                                        if (it.period == MealPeriod.BREAKFAST || it.period == MealPeriod.LUNCH || it.period == MealPeriod.DINNER) {
+                                            it.copy(isEnabled = true, foodRelation = FoodRelationship.BEFORE_FOOD, offsetMinutes = 30)
+                                        } else it
+                                    }
+                                },
+                                label = { Text("Before Meals (30m)", fontSize = 11.sp) },
+                                modifier = Modifier.testTag("med_preset_before_meals")
+                            )
+
+                            FilterChip(
+                                selected = mealConfigs.any { it.isEnabled && it.foodRelation == FoodRelationship.AFTER_FOOD },
+                                onClick = {
+                                    mealConfigs = mealConfigs.map {
+                                        if (it.period == MealPeriod.BREAKFAST || it.period == MealPeriod.LUNCH || it.period == MealPeriod.DINNER) {
+                                            it.copy(isEnabled = true, foodRelation = FoodRelationship.AFTER_FOOD, offsetMinutes = 30)
+                                        } else it
+                                    }
+                                },
+                                label = { Text("After Meals (30m)", fontSize = 11.sp) },
+                                modifier = Modifier.testTag("med_preset_after_meals")
+                            )
+
+                            FilterChip(
+                                selected = mealConfigs.any { it.period == MealPeriod.MORNING_EMPTY_STOMACH && it.isEnabled },
+                                onClick = {
+                                    mealConfigs = mealConfigs.map {
+                                        if (it.period == MealPeriod.MORNING_EMPTY_STOMACH) {
+                                            it.copy(isEnabled = true, scheduledTime = wakeUpTime, foodRelation = FoodRelationship.BEFORE_FOOD, offsetMinutes = 30)
+                                        } else it
+                                    }
+                                },
+                                label = { Text("🌅 Empty Stomach ($wakeUpTime)", fontSize = 11.sp) },
+                                modifier = Modifier.testTag("med_preset_empty_stomach")
+                            )
+
+                            FilterChip(
+                                selected = mealConfigs.any { it.period == MealPeriod.BEFORE_SLEEP && it.isEnabled },
+                                onClick = {
+                                    mealConfigs = mealConfigs.map {
+                                        if (it.period == MealPeriod.BEFORE_SLEEP) {
+                                            it.copy(isEnabled = true, scheduledTime = bedTime, foodRelation = FoodRelationship.NO_FOOD, offsetMinutes = 0)
+                                        } else it
+                                    }
+                                },
+                                label = { Text("🌙 Before Sleep ($bedTime)", fontSize = 11.sp) },
+                                modifier = Modifier.testTag("med_preset_before_sleep")
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
                         Text(
                             text = "Daily Meal Periods & Food Timing",
                             style = MaterialTheme.typography.labelMedium,
@@ -553,12 +634,42 @@ fun MedicineReminderSection(
                                                         text = { Text(rel.displayName, fontSize = 12.sp) },
                                                         onClick = {
                                                             mealConfigs = mealConfigs.toMutableList().also {
-                                                                it[index] = config.copy(foodRelation = rel)
+                                                                it[index] = config.copy(
+                                                                    foodRelation = rel,
+                                                                    offsetMinutes = if (rel == FoodRelationship.BEFORE_FOOD || rel == FoodRelationship.AFTER_FOOD) 30 else 0
+                                                                )
                                                             }
                                                             activeFoodRelMenuIndex = null
                                                         }
                                                     )
                                                 }
+                                            }
+                                        }
+
+                                        // Configurable offset chip for before/after food
+                                        if (config.foodRelation == FoodRelationship.BEFORE_FOOD || config.foodRelation == FoodRelationship.AFTER_FOOD) {
+                                            Surface(
+                                                onClick = {
+                                                    val nextOffset = when (config.offsetMinutes) {
+                                                        15 -> 30
+                                                        30 -> 45
+                                                        45 -> 60
+                                                        else -> 15
+                                                    }
+                                                    mealConfigs = mealConfigs.toMutableList().also {
+                                                        it[index] = config.copy(offsetMinutes = nextOffset)
+                                                    }
+                                                },
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                                            ) {
+                                                Text(
+                                                    text = "±${config.offsetMinutes}m",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 4.dp)
+                                                )
                                             }
                                         }
 
@@ -569,7 +680,7 @@ fun MedicineReminderSection(
                                             color = MaterialTheme.colorScheme.surfaceVariant
                                         ) {
                                             Text(
-                                                text = "🕒 ",
+                                                text = "🕒 ${config.scheduledTime}",
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
@@ -586,7 +697,7 @@ fun MedicineReminderSection(
                             if (targetConfig != null) {
                                 LifeTimePickerDialog(
                                     initialTime = targetConfig.scheduledTime,
-                                    title = "Set  Time",
+                                    title = "Set ${targetConfig.period.displayName} Time",
                                     onConfirm = { picked ->
                                         mealConfigs = mealConfigs.toMutableList().also { list ->
                                             list[pIndex] = targetConfig.copy(scheduledTime = picked)

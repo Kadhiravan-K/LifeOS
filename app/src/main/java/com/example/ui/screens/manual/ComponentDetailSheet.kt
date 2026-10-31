@@ -1,5 +1,19 @@
 package com.example.ui.screens.manual
 
+import com.example.domain.emoji.TaskEmojiSuggestionEngine
+import com.example.ui.components.EmojiSuggestionRow
+import com.example.ui.components.SelectedLabelChips
+import com.example.ui.components.MultiLabelSelectorBottomSheet
+import com.example.ui.components.MedicineReminderSection
+import com.example.ui.screens.medication.MedicationCourseCard
+import com.example.ui.screens.medication.MedicationDetailsBottomSheet
+import com.example.ui.screens.calendar.MonthGridView
+import com.example.domain.medication.MedicationItem
+import com.example.domain.medication.MedicationScheduleConfig
+import com.example.domain.medication.MedicationDoseItem
+import com.example.domain.medication.DoseStatus
+import com.example.domain.model.LabelItem
+
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
@@ -1811,6 +1825,196 @@ private fun RenderSurveyAndEntryLivePreview(componentId: String) {
                     onPlatformSelected = { platform = it },
                     otherDetail = detail,
                     onDetailChange = { detail = it }
+                )
+            }
+        }
+
+        "task_emoji_suggester" -> {
+            var taskTitle by remember { mutableStateOf("Buy groceries and milk") }
+            var chosenEmoji by remember { mutableStateOf("🛒") }
+            val suggestions = remember(taskTitle) {
+                TaskEmojiSuggestionEngine.suggestEmojis(taskTitle)
+            }
+
+            Column {
+                Text("Interactive Title-based Emoji Suggester:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(8.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    value = taskTitle,
+                    onValueChange = { taskTitle = it },
+                    label = { Text("Task Title") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                EmojiSuggestionRow(
+                    suggestions = suggestions,
+                    currentEmoji = chosenEmoji,
+                    onEmojiSelected = { chosenEmoji = it }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Selected Emoji: $chosenEmoji  |  Matches: ${suggestions.joinToString(" ")}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
+            }
+        }
+
+        "multi_label_checkbox_selector" -> {
+            val sampleLabels = remember {
+                listOf(
+                    LabelItem(id = 1L, name = "Urgent", colorId = "Berry Red"),
+                    LabelItem(id = 2L, name = "Health", colorId = "Green"),
+                    LabelItem(id = 3L, name = "Work", colorId = "Blue"),
+                    LabelItem(id = 4L, name = "Finance", colorId = "Yellow")
+                )
+            }
+            var selectedIds by remember { mutableStateOf(setOf(1L, 2L)) }
+            var showSheet by remember { mutableStateOf(false) }
+
+            Column {
+                Text("Multi-Label Checkbox Selection & Chips:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(8.dp))
+                SelectedLabelChips(
+                    selectedLabels = sampleLabels.filter { selectedIds.contains(it.id) },
+                    onRemoveLabel = { id -> selectedIds = selectedIds - id }
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Button(onClick = { showSheet = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Select Labels (${selectedIds.size})")
+                }
+                if (showSheet) {
+                    MultiLabelSelectorBottomSheet(
+                        availableLabels = sampleLabels,
+                        selectedLabelIds = selectedIds,
+                        onToggleLabel = { id ->
+                            selectedIds = if (selectedIds.contains(id)) selectedIds - id else selectedIds + id
+                        },
+                        onCreateNewLabel = { showSheet = false },
+                        onDismiss = { showSheet = false }
+                    )
+                }
+            }
+        }
+
+        "medication_priority_timing_control" -> {
+            var isMedEnabled by remember { mutableStateOf(true) }
+            Column {
+                Text("Medication Priority Defaults & Timing Controls:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(8.dp))
+                MedicineReminderSection(
+                    isMedicineEnabled = isMedEnabled,
+                    onMedicineEnabledChange = { isMedEnabled = it },
+                    taskTitle = "Amoxicillin 500mg",
+                    wakeUpTime = "06:30",
+                    bedTime = "22:30",
+                    onMedicationDraftChanged = {}
+                )
+            }
+        }
+
+        "medication_detail_card" -> {
+            val sampleMed = remember {
+                MedicationItem(
+                    id = 101L,
+                    taskId = 1L,
+                    name = "Amoxicillin",
+                    form = com.example.domain.medication.MedicationForm.CAPSULE,
+                    dosageAmount = "1",
+                    dosageUnit = "Capsule",
+                    strength = "500mg",
+                    instructions = "Take after breakfast with a full glass of water",
+                    scheduleConfig = MedicationScheduleConfig(
+                        scheduleType = com.example.domain.medication.MedicineScheduleType.MEAL_BASED,
+                        courseDurationDays = 7
+                    )
+                )
+            }
+            val sampleDoses = remember {
+                listOf(
+                    MedicationDoseItem(
+                        id = 1L,
+                        medicationId = 101L,
+                        taskId = 1L,
+                        medicationName = "Amoxicillin",
+                        dosage = "1 Capsule (500mg)",
+                        scheduledDateIso = com.example.utils.DateUtils.todayString(),
+                        scheduledTime = "08:30",
+                        status = DoseStatus.TAKEN,
+                        actionTimestamp = System.currentTimeMillis() - 7200000
+                    ),
+                    MedicationDoseItem(
+                        id = 2L,
+                        medicationId = 101L,
+                        taskId = 1L,
+                        medicationName = "Amoxicillin",
+                        dosage = "1 Capsule (500mg)",
+                        scheduledDateIso = com.example.utils.DateUtils.todayString(),
+                        scheduledTime = "13:30",
+                        status = DoseStatus.SCHEDULED
+                    )
+                )
+            }
+            var showDetailsSheet by remember { mutableStateOf(false) }
+
+            Column {
+                Text("Medication Course Card (Tap for Details Sheet):", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(8.dp))
+                MedicationCourseCard(
+                    medication = sampleMed,
+                    onTogglePause = {},
+                    onLogPrnDose = {},
+                    onClick = { showDetailsSheet = true }
+                )
+                if (showDetailsSheet) {
+                    MedicationDetailsBottomSheet(
+                        medication = sampleMed,
+                        doses = sampleDoses,
+                        onDismiss = { showDetailsSheet = false },
+                        onMarkTaken = {},
+                        onSkip = {},
+                        onTogglePause = {},
+                        onLogPrnDose = {}
+                    )
+                }
+            }
+        }
+
+        "calendar_deadline_range_marker" -> {
+            val today = com.example.utils.DateUtils.todayString()
+            val monthDates = remember(today) {
+                (-5..15).map { com.example.utils.DateUtils.addDays(today, it) }
+            }
+            var selectedDate by remember { mutableStateOf(today) }
+            val rangeStart = remember(today) { com.example.utils.DateUtils.addDays(today, 1) }
+            val rangeEnd = remember(today) { com.example.utils.DateUtils.addDays(today, 5) }
+            val datesWithTasks = remember(today) { setOf(today, com.example.utils.DateUtils.addDays(today, 2), com.example.utils.DateUtils.addDays(today, 6)) }
+            val datesWithRecurring = remember(today) { setOf(com.example.utils.DateUtils.addDays(today, 2), com.example.utils.DateUtils.addDays(today, 6)) }
+
+            Column {
+                Text("Dotted Range Boundaries & Recurrence Indicators:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Range: $rangeStart → $rangeEnd (Intermediate dotted circles)", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(8.dp))
+                MonthGridView(
+                    monthDates = monthDates,
+                    selectedDate = selectedDate,
+                    today = today,
+                    monthIndex = com.example.utils.DateUtils.getMonthZeroIndexed(today),
+                    datesWithTasks = datesWithTasks,
+                    datesWithRecurringTasks = datesWithRecurring,
+                    rangeStartDate = rangeStart,
+                    rangeEndDate = rangeEnd,
+                    onSelectDate = { selectedDate = it }
                 )
             }
         }

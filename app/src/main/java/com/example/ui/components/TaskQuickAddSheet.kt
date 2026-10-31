@@ -101,9 +101,21 @@ fun TaskQuickAddSheet(
     val today = DateUtils.todayString()
     var title by remember { mutableStateOf(initialTask?.title ?: "") }
     var emoji by remember { mutableStateOf(initialTask?.emoji ?: "") }
+    var isEmojiManuallySelected by remember { mutableStateOf(!initialTask?.emoji.isNullOrBlank()) }
+    val suggestedEmojis by remember(title, isEmojiManuallySelected) {
+        androidx.compose.runtime.derivedStateOf {
+            if (isEmojiManuallySelected) emptyList()
+            else com.example.domain.emoji.TaskEmojiSuggestionEngine.suggestEmojis(title)
+        }
+    }
+
     var description by remember { mutableStateOf(initialTask?.description ?: "") }
     var dueDateIso by remember { mutableStateOf(initialTask?.dueDateIso ?: today) }
+    var deadlineIso by remember { mutableStateOf<String?>(initialTask?.deadlineIso) }
     var priority by remember { mutableStateOf(initialTask?.priority ?: TaskPriority.P3) }
+    var isPriorityManuallySet by remember { mutableStateOf(initialTask?.priority != null && initialTask.priority != TaskPriority.P3) }
+    var preservedPriorityBeforeMedicine by remember { mutableStateOf(priority) }
+
     var selectedProjectId by remember { mutableStateOf<Long?>(initialTask?.projectId) }
     var selectedLabelIds by remember { mutableStateOf<Set<Long>>(initialTask?.labels?.map { it.id }?.toSet() ?: emptySet()) }
     var isReminderEnabled by remember { mutableStateOf(initialTask?.isReminderEnabled ?: false) }
@@ -114,7 +126,7 @@ fun TaskQuickAddSheet(
     var showDatePicker by remember { mutableStateOf(false) }
     var showEmojiDialog by remember { mutableStateOf(false) }
     var showProjectDropdown by remember { mutableStateOf(false) }
-    var showLabelDropdown by remember { mutableStateOf(false) }
+    var showMultiLabelSheet by remember { mutableStateOf(false) }
     var showCreateProjectSheet by remember { mutableStateOf(false) }
     var showCreateLabelSheet by remember { mutableStateOf(false) }
 
@@ -131,6 +143,7 @@ fun TaskQuickAddSheet(
         return (initialTask ?: TaskItem(
             title = title.trim(),
             dueDateIso = dueDateIso,
+            deadlineIso = deadlineIso,
             durationMinutes = defaultDuration,
             durationAmount = defaultDuration
         )).copy(
@@ -138,6 +151,7 @@ fun TaskQuickAddSheet(
             emoji = emoji.trim(),
             description = description.trim(),
             dueDateIso = dueDateIso,
+            deadlineIso = deadlineIso,
             priority = priority,
             projectId = selectedProjectId,
             labels = selectedLabels,
@@ -242,6 +256,19 @@ fun TaskQuickAddSheet(
                 )
             }
 
+            // Requirement #5: Responsive horizontal strip of offline suggested emojis
+            if (!isEmojiManuallySelected && suggestedEmojis.isNotEmpty()) {
+                EmojiSuggestionRow(
+                    suggestions = suggestedEmojis,
+                    currentEmoji = emoji,
+                    onEmojiSelected = { chosen ->
+                        emoji = chosen
+                        isEmojiManuallySelected = true
+                    },
+                    modifier = Modifier.padding(vertical = 2.dp)
+                )
+            }
+
             // Optional description
             OutlinedTextField(
                 value = description,
@@ -311,7 +338,10 @@ fun TaskQuickAddSheet(
                 TaskPriority.allPriorities.forEach { p ->
                     val isSel = priority == p
                     Surface(
-                        onClick = { priority = p },
+                        onClick = {
+                            priority = p
+                            isPriorityManuallySet = true
+                        },
                         shape = RoundedCornerShape(8.dp),
                         color = if (isSel) p.composeColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                         border = if (isSel) androidx.compose.foundation.BorderStroke(1.5.dp, p.composeColor) else null,
@@ -395,75 +425,25 @@ fun TaskQuickAddSheet(
                     }
                 }
 
-                // Label selector chip with + Create New Label
-                Box {
-                    Surface(
-                        onClick = { showLabelDropdown = true },
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.testTag("quick_add_label_selector")
+                // Requirement #6: Multi-Label Trigger Chip
+                Surface(
+                    onClick = { showMultiLabelSheet = true },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (selectedLabelIds.isNotEmpty()) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    border = if (selectedLabelIds.isNotEmpty()) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
+                    modifier = Modifier.testTag("quick_add_label_selector")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Label, contentDescription = null, modifier = Modifier.size(13.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (selectedLabelIds.isEmpty()) "Labels" else "${selectedLabelIds.size} labels",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-
-                    DropdownMenu(
-                        expanded = showLabelDropdown,
-                        onDismissRequest = { showLabelDropdown = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Create New Label", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                                }
-                            },
-                            onClick = {
-                                showLabelDropdown = false
-                                showCreateLabelSheet = true
-                            },
-                            modifier = Modifier.testTag("quick_add_create_label_option")
+                        Icon(Icons.Default.Label, contentDescription = null, modifier = Modifier.size(13.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (selectedLabelIds.isEmpty()) "Labels" else "${selectedLabelIds.size} labels",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
                         )
-                        HorizontalDivider()
-                        if (labels.isEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text("No labels yet", color = MaterialTheme.colorScheme.outline) },
-                                onClick = { showLabelDropdown = false }
-                            )
-                        } else {
-                            labels.forEach { lbl ->
-                                val isChecked = selectedLabelIds.contains(lbl.id)
-                                DropdownMenuItem(
-                                    text = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text("#${lbl.name}", color = lbl.composeColor, fontWeight = FontWeight.SemiBold)
-                                            if (isChecked) {
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                                            }
-                                        }
-                                    },
-                                    onClick = {
-                                        selectedLabelIds = if (isChecked) {
-                                            selectedLabelIds - lbl.id
-                                        } else {
-                                            selectedLabelIds + lbl.id
-                                        }
-                                    }
-                                )
-                            }
-                        }
                     }
                 }
 
@@ -518,12 +498,49 @@ fun TaskQuickAddSheet(
                 }
             }
 
+            // Requirement #6: Selected Label Chips with Remove Action
+            val currentSelectedLabels = labels.filter { selectedLabelIds.contains(it.id) }
+            if (currentSelectedLabels.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                SelectedLabelChips(
+                    selectedLabels = currentSelectedLabels,
+                    onRemoveLabel = { removedId ->
+                        selectedLabelIds = selectedLabelIds - removedId
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Requirement #18: Always-visible optional deadline field
+            LifeDatePickerField(
+                selectedDateIso = deadlineIso ?: "",
+                onDateSelected = { deadlineIso = it },
+                label = "Deadline (Optional)",
+                minDateIso = dueDateIso,
+                isNullable = true,
+                onClear = { deadlineIso = null },
+                modifier = Modifier.testTag("quick_add_deadline_field")
+            )
+
             Spacer(modifier = Modifier.height(14.dp))
 
             // Medicine Reminder Section (Toggle & Progressive Disclosure)
             MedicineReminderSection(
                 isMedicineEnabled = isMedicineEnabled,
-                onMedicineEnabledChange = { isMedicineEnabled = it },
+                onMedicineEnabledChange = { enabled ->
+                    isMedicineEnabled = enabled
+                    if (enabled) {
+                        if (!isPriorityManuallySet) {
+                            preservedPriorityBeforeMedicine = priority
+                            priority = TaskPriority.P1
+                        }
+                    } else {
+                        if (!isPriorityManuallySet) {
+                            priority = preservedPriorityBeforeMedicine
+                        }
+                    }
+                },
                 taskTitle = title,
                 initialMedication = null,
                 onMedicationDraftChanged = { medicationDraft = it }
@@ -566,8 +583,29 @@ fun TaskQuickAddSheet(
             currentEmoji = emoji,
             onEmojiSelected = { chosen ->
                 emoji = com.example.utils.EmojiUtils.extractFirstEmoji(chosen) ?: chosen.trim().take(2)
+                isEmojiManuallySelected = true
             },
             onDismiss = { showEmojiDialog = false }
+        )
+    }
+
+    // Requirement #6: Multi-Label Selection Bottom Sheet
+    if (showMultiLabelSheet) {
+        MultiLabelSelectorBottomSheet(
+            availableLabels = labels,
+            selectedLabelIds = selectedLabelIds,
+            onToggleLabel = { id ->
+                selectedLabelIds = if (selectedLabelIds.contains(id)) {
+                    selectedLabelIds - id
+                } else {
+                    selectedLabelIds + id
+                }
+            },
+            onCreateNewLabel = {
+                showMultiLabelSheet = false
+                showCreateLabelSheet = true
+            },
+            onDismiss = { showMultiLabelSheet = false }
         )
     }
 
