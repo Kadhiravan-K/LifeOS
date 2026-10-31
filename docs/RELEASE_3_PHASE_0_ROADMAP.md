@@ -378,19 +378,23 @@ flowchart TD
   - Full backup/restore support in `DataExportImportManager`.
   - Registered as Component #57 in `ComponentCatalog` and tested via `Release3Phase8GlossaryUnitTest`.
 
-#### Phase 9: MCP Layer Prototype
+#### Phase 9: MCP Layer Prototype [COMPLETED & VERIFIED]
 - **Scope:** #3 (Bidirectional MCP server/client).
 - **Dependencies:** Phase 5, Phase 6.
 - **Acceptance Criteria:**
-  - Localhost-only (127.0.0.1) token-authenticated MCP server.
-  - Profile-scoped tool permissions preventing personal data exposure.
+  - Localhost / in-process token-authenticated Model Context Protocol (MCP) JSON-RPC 2.0 protocol engine (`McpProtocolEngine.kt`).
+  - 32-character cryptographically secure bearer token generation and constant-time validation (`McpSecurityManager.kt`).
+  - Profile-scoped tool permissions (`get_tasks`, `create_task`, `list_projects`, `get_daily_summary`, `get_intelligent_suggestions`, `get_profile_context`) preventing personal data exposure.
+  - Interactive on-device developer console / playground in Settings (`McpBridgeScreen.kt`).
+  - 100% offline heuristic workload intelligence engine (`IntelligentPlanningEngine.kt`).
+  - Component #58 registered in `MasterComponentCatalog` and verified via `Release3Phase9McpUnitTest`.
 
-#### Phase 10: User Manual Actions & Streak Display
+#### Phase 10: User Manual Actions & Streak Display [COMPLETED & VERIFIED]
 - **Scope:** #12 (Interactive manual buttons), #22 (Home header streak badge).
 - **Dependencies:** Phase 2.
 - **Acceptance Criteria:**
-  - User Manual guide cards contain working navigation action buttons ("Open Settings", "View QR").
-  - Home Dashboard top bar displays active streak flame badge.
+  - User Manual guide cards contain working navigation action buttons ("Customize Honeycomb Appearance", "Open Productivity Settings", "Configure Time & Calendar", "View Gamification & Habits", "Configure Medication Reminders", "Manage Storage & Backup", "Read Privacy Policy & Terms", "Open Knowledge & Glossary", "Open AI MCP Bridge") with direct routing to subpages.
+  - Home Dashboard top bar displays interactive active streak flame badge ("🔥 Xd") which navigates to Gamification/Habits screen.
 
 #### Phase 11: End-to-End Integration, Regression & Release Readiness
 - **Scope:** Full regression pass, Robolectric suite, release APK build and verification.

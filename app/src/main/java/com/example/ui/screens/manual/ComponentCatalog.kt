@@ -1805,6 +1805,31 @@ GlossaryScreen(
 )
             """.trimIndent(),
             tags = listOf("glossary", "library", "knowledge", "offline", "downloadable", "terms", "dictionary", "modules")
+        ),
+
+        // 58. Bidirectional Local MCP AI Bridge (#3)
+        ComponentEntry(
+            id = "mcp_bridge_controller",
+            name = "Local AI Model Context Protocol Bridge",
+            category = ComponentCategory.SPECIALIZED_LIFEOS,
+            status = ComponentStatus.EXISTING,
+            description = "100% offline bidirectional MCP JSON-RPC 2.0 protocol engine with 32-character bearer token security, profile isolation guard, interactive test console, and local tool execution.",
+            whenToUse = "Use to connect sovereign local AI assistants (Claude Desktop, Cursor, local CLI) to LifeOS data without internet access or telemetry.",
+            sourceFile = "app/src/main/java/com/example/ui/screens/mcp/McpBridgeScreen.kt",
+            composableName = "McpBridgeScreen & McpProtocolEngine",
+            parameters = listOf(
+                ComponentParam("viewModel", "LifeViewModel", "LifeOS view model for MCP state and dispatch"),
+                ComponentParam("onBack", "() -> Unit", "Back navigation callback")
+            ),
+            usageLocations = listOf("SettingsScreen", "McpBridgeScreen", "UserManualScreen"),
+            reuseRecommendations = "Dispatch standard MCP JSON-RPC 2.0 frames via McpProtocolEngine with constant-time token comparison.",
+            codeExample = """
+McpBridgeScreen(
+    viewModel = viewModel,
+    onBack = { currentSubpage = SettingsSubpage.HUB }
+)
+            """.trimIndent(),
+            tags = listOf("mcp", "ai", "model context protocol", "llm", "security", "token", "jsonrpc", "tools", "bridge")
         )
     )
 

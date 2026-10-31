@@ -126,6 +126,42 @@ class UserPreferences(private val context: Context) {
 
         // Batch 05C Honeycomb App-Entry Selector (#9)
         val KEY_SHOW_PROFILE_SELECTOR_ON_LAUNCH = booleanPreferencesKey("show_profile_selector_on_launch")
+
+        // Release 3 Phase 9: Model Context Protocol (MCP) Bridge (#3)
+        val KEY_MCP_ENABLED = booleanPreferencesKey("mcp_bridge_enabled")
+        val KEY_MCP_AUTH_TOKEN = stringPreferencesKey("mcp_auth_token")
+        val KEY_MCP_ALLOWED_PROFILE_ID = longPreferencesKey("mcp_allowed_profile_id")
+    }
+
+    // MCP Bridge Flows
+    val mcpEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_MCP_ENABLED] ?: false
+    }
+
+    val mcpAuthTokenFlow: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[KEY_MCP_AUTH_TOKEN] ?: ""
+    }
+
+    val mcpAllowedProfileIdFlow: Flow<Long> = context.dataStore.data.map { preferences ->
+        preferences[KEY_MCP_ALLOWED_PROFILE_ID] ?: 1L
+    }
+
+    suspend fun setMcpEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_MCP_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setMcpAuthToken(token: String) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_MCP_AUTH_TOKEN] = token
+        }
+    }
+
+    suspend fun setMcpAllowedProfileId(profileId: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_MCP_ALLOWED_PROFILE_ID] = profileId
+        }
     }
 
     // Legal Consent Flows

@@ -2,6 +2,7 @@ package com.example.ui.screens.dashboard
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -188,24 +189,59 @@ fun DashboardScreen(
                 }
             }
 
-            // Overall Progress Circle
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(54.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                CircularProgressIndicator(
-                    progress = { animatedProgress },
-                    strokeWidth = 5.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.fillMaxSize()
-                )
-                Text(
-                    text = "${(animatedProgress * 100).toInt()}%",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+                // Active Streak Badge (Requirement #22)
+                val activeStreak = uiState.habits.maxOfOrNull { it.currentStreak } ?: 0
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (activeStreak > 0) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(1.dp, if (activeStreak > 0) MaterialTheme.colorScheme.error.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onNavigateToGamification?.invoke() ?: onNavigateToHabits() }
+                        .testTag("dashboard_streak_badge")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "🔥",
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "${activeStreak}d",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (activeStreak > 0) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Overall Progress Circle
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(54.dp)
+                ) {
+                    CircularProgressIndicator(
+                        progress = { animatedProgress },
+                        strokeWidth = 5.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    Text(
+                        text = "${(animatedProgress * 100).toInt()}%",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
             }
         }
 

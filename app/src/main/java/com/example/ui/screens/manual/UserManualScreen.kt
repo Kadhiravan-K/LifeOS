@@ -86,7 +86,8 @@ enum class ManualTab(val title: String, val icon: ImageVector) {
 fun UserManualScreen(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
-    initialTab: ManualTab = ManualTab.COMPONENTS
+    initialTab: ManualTab = ManualTab.COMPONENTS,
+    onNavigateToSubpage: ((com.example.ui.screens.settings.SettingsSubpage) -> Unit)? = null
 ) {
     var selectedTab by remember { mutableStateOf(initialTab) }
     var selectedComponent by remember { mutableStateOf<ComponentEntry?>(null) }
@@ -196,7 +197,7 @@ fun UserManualScreen(
                 }
 
                 ManualTab.GUIDES -> {
-                    FeatureGuidesSection()
+                    FeatureGuidesSection(onNavigateSubpage = onNavigateToSubpage)
                 }
             }
         }
@@ -479,7 +480,9 @@ private fun ComponentCatalogCard(
 }
 
 @Composable
-private fun FeatureGuidesSection() {
+private fun FeatureGuidesSection(
+    onNavigateSubpage: ((com.example.ui.screens.settings.SettingsSubpage) -> Unit)? = null
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -492,7 +495,7 @@ private fun FeatureGuidesSection() {
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = "Comprehensive overview of the 100% offline-first productivity system.",
+            text = "Comprehensive overview of the 100% offline-first productivity system with direct action navigation (#12).",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -502,7 +505,9 @@ private fun FeatureGuidesSection() {
         GuideCard(
             icon = Icons.Default.Hexagon,
             title = "1. Quick Reminders (Honeycomb)",
-            description = "High-speed dashboard action canvas supporting 7 layout presets (Standard, Pyramid, Diamond, Heart, Snake, Zigzag, Freeform). Powered by mathematical axial coordinates (X = q + r/2) with zero lateral drift. Custom per-shortcut shapes (Hexagon, Circle, Square) take strict precedence over global defaults."
+            description = "High-speed dashboard action canvas supporting 7 layout presets (Standard, Pyramid, Diamond, Heart, Snake, Zigzag, Freeform). Powered by mathematical axial coordinates with pinch-to-zoom scaling between 0.75x and 1.35x.",
+            actionText = "Customize Honeycomb Appearance",
+            onActionClick = { onNavigateSubpage?.invoke(com.example.ui.screens.settings.SettingsSubpage.APPEARANCE) }
         )
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -510,7 +515,9 @@ private fun FeatureGuidesSection() {
         GuideCard(
             icon = Icons.Default.CheckCircle,
             title = "2. Tasks & Recurrence Engine",
-            description = "Dual-view tasks interface (1-column list vs. 2-column grid). 4-way sorting by Priority, Due Date, Title, or Created Date. RecurrenceEngine evaluates daily, weekly, monthly, and interval-based tasks deterministically across midnight boundaries."
+            description = "Dual-view tasks interface (1-column list vs. 2-column grid). 4-way sorting by Priority, Due Date, Title, or Created Date. RecurrenceEngine evaluates daily, weekly, monthly, and interval-based tasks deterministically across midnight boundaries.",
+            actionText = "Open Productivity Settings",
+            onActionClick = { onNavigateSubpage?.invoke(com.example.ui.screens.settings.SettingsSubpage.PRODUCTIVITY) }
         )
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -518,7 +525,9 @@ private fun FeatureGuidesSection() {
         GuideCard(
             icon = Icons.Default.CalendarMonth,
             title = "3. Calendar System & Dot Parity",
-            description = "Month and week views with synchronized task indicators. Dot indicators strictly match the active day's uncompleted tasks using RecurrenceEngine.isTaskScheduledOnDate and !isCompletedOnDate, eliminating false dots on completed dates."
+            description = "Month and week views with synchronized task indicators. Dot indicators strictly match the active day's uncompleted tasks using RecurrenceEngine.isTaskScheduledOnDate and !isCompletedOnDate, eliminating false dots on completed dates.",
+            actionText = "Configure Time & Calendar",
+            onActionClick = { onNavigateSubpage?.invoke(com.example.ui.screens.settings.SettingsSubpage.GENERAL) }
         )
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -526,7 +535,9 @@ private fun FeatureGuidesSection() {
         GuideCard(
             icon = Icons.Default.LocalFireDepartment,
             title = "4. 75-Day Challenge Discipline",
-            description = "Habit-card aesthetic with daily completion tracking and progress calculation. Restart modal features interactive date selection with today/yesterday chips and custom date picker to anchor challenge timelines accurately."
+            description = "Habit-card aesthetic with daily completion tracking and progress calculation. Restart modal features interactive date selection with today/yesterday chips and custom date picker to anchor challenge timelines accurately.",
+            actionText = "View Gamification & Habits",
+            onActionClick = { onNavigateSubpage?.invoke(com.example.ui.screens.settings.SettingsSubpage.GAMIFICATION) }
         )
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -534,7 +545,9 @@ private fun FeatureGuidesSection() {
         GuideCard(
             icon = Icons.Default.Medication,
             title = "5. Health & Medication Reminders",
-            description = "6 configurable meal period slots with customizable clock times and food relationships (Before/With/After). Custom medication names are protected against task title overwrites via an edit-guard state flag."
+            description = "6 configurable meal period slots with customizable clock times and food relationships (Before/With/After). Custom medication names are protected against task title overwrites via an edit-guard state flag.",
+            actionText = "Configure Medication Reminders",
+            onActionClick = { onNavigateSubpage?.invoke(com.example.ui.screens.settings.SettingsSubpage.NOTIFICATIONS) }
         )
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -542,7 +555,9 @@ private fun FeatureGuidesSection() {
         GuideCard(
             icon = Icons.Default.Storage,
             title = "6. Storage, Data & Trash Retention",
-            description = "Room SQLite v10 database with monotonic migrations. Soft-deleted tasks, habits, projects, and labels dynamically calculate expiration timestamps from user preferences (1-365 days) rather than hardcoded durations."
+            description = "Room SQLite v15 database with monotonic migrations. Soft-deleted tasks, habits, projects, and labels dynamically calculate expiration timestamps from user preferences (1-365 days) rather than hardcoded durations.",
+            actionText = "Manage Storage & Backup",
+            onActionClick = { onNavigateSubpage?.invoke(com.example.ui.screens.settings.SettingsSubpage.DATA_STORAGE) }
         )
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -550,7 +565,29 @@ private fun FeatureGuidesSection() {
         GuideCard(
             icon = Icons.Default.Security,
             title = "7. 100% Offline-First Architecture",
-            description = "LifeOS contains ZERO cloud dependencies, zero analytics trackers, and omits the INTERNET permission entirely from AndroidManifest.xml. All backups are exported strictly through user-chosen local folders via Storage Access Framework (SAF)."
+            description = "LifeOS contains ZERO cloud dependencies, zero analytics trackers, and omits the INTERNET permission entirely from AndroidManifest.xml. All backups are exported strictly through user-chosen local folders via Storage Access Framework (SAF).",
+            actionText = "Read Privacy Policy & Terms",
+            onActionClick = { onNavigateSubpage?.invoke(com.example.ui.screens.settings.SettingsSubpage.LEGAL_PRIVACY) }
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        GuideCard(
+            icon = Icons.Default.MenuBook,
+            title = "8. Knowledge & Glossary Library (#2)",
+            description = "Downloadable data-only JSON knowledge packs with SHA-256 integrity verification. Preloaded with 8 foundational productivity mental models. Zero dynamic code/dex execution.",
+            actionText = "Open Knowledge & Glossary",
+            onActionClick = { onNavigateSubpage?.invoke(com.example.ui.screens.settings.SettingsSubpage.GLOSSARY) }
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        GuideCard(
+            icon = Icons.Default.AutoAwesome,
+            title = "9. Bidirectional Local MCP AI Bridge (#3)",
+            description = "Anthropic Model Context Protocol bridge with 32-character bearer token security and profile isolation guard. Connect local LLMs to LifeOS tasks, projects, and heuristics.",
+            actionText = "Open AI MCP Bridge",
+            onActionClick = { onNavigateSubpage?.invoke(com.example.ui.screens.settings.SettingsSubpage.MCP_BRIDGE) }
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -561,7 +598,9 @@ private fun FeatureGuidesSection() {
 private fun GuideCard(
     icon: ImageVector,
     title: String,
-    description: String
+    description: String,
+    actionText: String? = null,
+    onActionClick: (() -> Unit)? = null
 ) {
     Card(
         shape = RoundedCornerShape(14.dp),
@@ -584,6 +623,16 @@ private fun GuideCard(
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            if (!actionText.isNullOrBlank() && onActionClick != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                FilledTonalButton(
+                    onClick = onActionClick,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text(actionText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
         }
     }
 }

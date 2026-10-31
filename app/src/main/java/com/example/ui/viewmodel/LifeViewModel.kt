@@ -3015,6 +3015,106 @@ class LifeViewModel(
             repository.uninstallGlossaryPack(packId)
         }
     }
+
+    // --- Release 3 Phase 9: Model Context Protocol (MCP) Bridge (#3) ---
+    val mcpEnabled: StateFlow<Boolean> = preferences.mcpEnabledFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val mcpAuthToken: StateFlow<String> = preferences.mcpAuthTokenFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ""
+    )
+
+    val mcpAllowedProfileId: StateFlow<Long> = preferences.mcpAllowedProfileIdFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ProfileEntity.DEFAULT_PERSONAL_PROFILE_ID
+    )
+
+    private val mcpProtocolEngine = com.example.mcp.McpProtocolEngine(object : com.example.mcp.McpDataProvider {
+        override suspend fun getTasks(profileId: Long, status: String?, priority: String?): List<TaskItem> {
+            val all = allTasks.value.filter { it.profileId == profileId }
+            return all.filter { task ->
+                val statusMatch = when (status?.uppercase()) {
+                    "COMPLETED" -> task.isOneTimeCompleted
+                    "PENDING" -> !task.isOneTimeCompleted
+                    else -> true
+                }
+                val priorityMatch = when (priority?.uppercase()) {
+                    "HIGH", "MEDIUM", "LOW" -> task.priority.name.equals(priority, ignoreCase = true)
+                    else -> true
+                }
+                statusMatch && priorityMatch
+            }
+        }
+
+        override suspend fun createTask(profileId: Long, title: String, priority: TaskPriority, notes: String?, dueDate: String?): TaskItem {
+            val effectiveDate = dueDate?.ifBlank { null } ?: java.time.LocalDate.now().toString()
+            val task = TaskItem(
+                profileId = profileId,
+                title = title,
+                priority = priority,
+                notes = notes ?: "",
+                dueDateIso = effectiveDate
+            )
+            val id = repository.insertTask(task)
+            return task.copy(id = id)
+        }
+
+        override suspend fun getProjects(profileId: Long): List<String> {
+            return allProjects.value.filter { it.profileId == profileId }.map { it.name }
+        }
+
+        override suspend fun getHabits(profileId: Long): List<HabitItem> {
+            return habits.value.filter { it.profileId == profileId }
+        }
+
+        override suspend fun getProfileName(profileId: Long): String {
+            return repository.getProfileById(profileId)?.name ?: "Profile $profileId"
+        }
+    })
+
+    fun setMcpEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setMcpEnabled(enabled)
+            if (enabled && mcpAuthToken.value.isBlank()) {
+                val token = com.example.mcp.McpSecurityManager.generateAuthToken()
+                preferences.setMcpAuthToken(token)
+            }
+        }
+    }
+
+    fun regenerateMcpToken(): String {
+        val newToken = com.example.mcp.McpSecurityManager.generateAuthToken()
+        viewModelScope.launch {
+            preferences.setMcpAuthToken(newToken)
+        }
+        return newToken
+    }
+
+    fun setMcpAllowedProfileId(profileId: Long) {
+        viewModelScope.launch {
+            preferences.setMcpAllowedProfileId(profileId)
+        }
+    }
+
+    suspend fun executeMcpRequest(rawJson: String): String {
+        val token = preferences.mcpAuthTokenFlow.first()
+        val enabled = preferences.mcpEnabledFlow.first()
+        val profileId = preferences.mcpAllowedProfileIdFlow.first()
+        val response = mcpProtocolEngine.handleMessage(
+            rawJson = rawJson,
+            providedToken = token,
+            storedToken = token,
+            isBridgeEnabled = enabled,
+            authorizedProfileId = profileId
+        )
+        return response.toJsonString()
+    }
 }
 
 class LifeViewModelFactory(

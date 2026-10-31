@@ -151,7 +151,8 @@ enum class SettingsSubpage {
     DATA_STORAGE,
     LEGAL_PRIVACY,
     USER_MANUAL,
-    GLOSSARY
+    GLOSSARY,
+    MCP_BRIDGE
 }
 
 data class SettingsSearchItem(
@@ -192,6 +193,7 @@ fun getSettingsSearchRegistry(
     SettingsSearchItem("Terms & Conditions", "Review legal terms, offline pledge, and application licensing", "Legal & Privacy", SettingsSubpage.LEGAL_PRIVACY, listOf("terms", "conditions", "legal", "license", "eula")),
     SettingsSearchItem("Privacy Policy", "Offline-first privacy architecture, zero telemetry, local storage", "Legal & Privacy", SettingsSubpage.LEGAL_PRIVACY, listOf("privacy", "policy", "offline", "data", "security", "telemetry")),
     SettingsSearchItem("Knowledge & Glossary Library", "Downloadable offline knowledge packs, productivity mental models & systems thinking", "Knowledge & Reference", SettingsSubpage.GLOSSARY, listOf("glossary", "library", "knowledge", "mental models", "terms", "dictionary", "definitions", "packs")),
+    SettingsSearchItem("AI Model Context Protocol Bridge", "100% offline local MCP bridge, token security & interactive JSON-RPC playground", "Developer & AI", SettingsSubpage.MCP_BRIDGE, listOf("mcp", "ai", "model context protocol", "token", "claude", "cursor", "llm", "bridge", "assistant")),
     SettingsSearchItem("User Manual & UI Components Library", "Explore 36 reusable frontend UI components and documentation", "User Manual", SettingsSubpage.USER_MANUAL, listOf("manual", "help", "guide", "components", "frontend", "ui library", "documentation"))
 )
 
@@ -244,12 +246,20 @@ fun SettingsScreen(
         }
         SettingsSubpage.USER_MANUAL -> {
             com.example.ui.screens.manual.UserManualScreen(
-                onNavigateBack = { currentSubpage = SettingsSubpage.HUB }
+                onNavigateBack = { currentSubpage = SettingsSubpage.HUB },
+                onNavigateToSubpage = { subpage -> currentSubpage = subpage }
             )
             return
         }
         SettingsSubpage.GLOSSARY -> {
             com.example.ui.screens.glossary.GlossaryScreen(
+                viewModel = viewModel,
+                onBack = { currentSubpage = SettingsSubpage.HUB }
+            )
+            return
+        }
+        SettingsSubpage.MCP_BRIDGE -> {
+            com.example.ui.screens.mcp.McpBridgeScreen(
                 viewModel = viewModel,
                 onBack = { currentSubpage = SettingsSubpage.HUB }
             )
@@ -2190,6 +2200,16 @@ private fun SettingsHubView(
                 title = "Knowledge & Glossary Library",
                 subtitle = "Downloadable offline feature library, productivity mental models & systems thinking (#2)",
                 onClick = { onNavigateToSubpage(SettingsSubpage.GLOSSARY) },
+                highlighted = true
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            SettingsNavigationCard(
+                icon = Icons.Default.AutoAwesome,
+                title = "AI Model Context Protocol (MCP)",
+                subtitle = "100% offline local MCP bridge, token security & interactive test console (#3)",
+                onClick = { onNavigateToSubpage(SettingsSubpage.MCP_BRIDGE) },
                 highlighted = true
             )
 
