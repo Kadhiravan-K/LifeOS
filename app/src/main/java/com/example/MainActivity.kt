@@ -75,6 +75,7 @@ class MainActivity : ComponentActivity() {
             }
 
             val isLegalConsentComplete by viewModel.isLegalConsentComplete.collectAsStateWithLifecycle()
+            val hasCompletedOnboarding by viewModel.hasCompletedOnboarding.collectAsStateWithLifecycle()
             val animationSpeed by viewModel.animationSpeedFlow.collectAsStateWithLifecycle()
             val themeCustomization by viewModel.independentThemeCustomizationFlow.collectAsStateWithLifecycle()
 
@@ -85,7 +86,16 @@ class MainActivity : ComponentActivity() {
                 customization = themeCustomization
             ) {
                 com.example.ui.theme.engine.ThemedAtmosphereBackground {
-                    if (!isLegalConsentComplete) {
+                    if (isLegalConsentComplete == null || hasCompletedOnboarding == null) {
+                        androidx.compose.foundation.layout.Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = androidx.compose.ui.Alignment.Center
+                        ) {
+                            androidx.compose.material3.CircularProgressIndicator(
+                                color = androidx.compose.material3.MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    } else if (isLegalConsentComplete == false) {
                         com.example.ui.screens.legal.LegalConsentScreen(
                             onAcceptConsent = { termsVer, privacyVer ->
                                 viewModel.recordLegalConsent(termsVer, privacyVer)
@@ -93,13 +103,12 @@ class MainActivity : ComponentActivity() {
                         )
                     } else {
                         // Release 3 Phase 5 Batch 05C: Entry Routing (#9, #19)
-                        val hasCompletedOnboarding by viewModel.hasCompletedOnboarding.collectAsStateWithLifecycle()
                         val isAppEntryDismissed by viewModel.isAppEntrySelectorDismissed.collectAsStateWithLifecycle()
                         val showOnStartup by viewModel.showProfileSelectorOnLaunchFlow.collectAsStateWithLifecycle()
                         val allProfiles by viewModel.allProfilesFlow.collectAsStateWithLifecycle()
                         val activeProfileId by viewModel.activeProfileIdFlow.collectAsStateWithLifecycle()
 
-                        if (!hasCompletedOnboarding) {
+                        if (hasCompletedOnboarding == false) {
                             com.example.ui.screens.onboarding.OnboardingSurveyScreen(
                                 profileId = activeProfileId,
                                 isEditMode = false,

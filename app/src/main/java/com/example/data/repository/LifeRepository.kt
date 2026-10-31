@@ -196,11 +196,53 @@ class LifeRepository(
         return profileSurveyDao.getSurveyForProfile(profileId)
     }
 
+    suspend fun ensureProfileExists(profileId: Long): ProfileEntity {
+        val existing = profileDao.getProfileById(profileId)
+        if (existing != null) return existing
+
+        val profile = if (profileId == ProfileEntity.DEFAULT_PERSONAL_PROFILE_ID) {
+            ProfileEntity.createDefaultPersonal()
+        } else {
+            ProfileEntity(
+                id = profileId,
+                name = "Profile $profileId",
+                emoji = "👤",
+                colorHex = 4282168054L,
+                type = ProfileEntity.TYPE_CUSTOM,
+                orderIndex = profileDao.getProfileCount(),
+                isDefault = false
+            )
+        }
+        profileDao.insertProfile(profile)
+        return profileDao.getProfileById(profileId) ?: profile
+    }
+
+    suspend fun ensureDefaultPersonalProfileExists() {
+        ensureProfileExists(ProfileEntity.DEFAULT_PERSONAL_PROFILE_ID)
+    }
+
+    fun isProfileOnboardingCompletedFlow(profileId: Long): Flow<Boolean> {
+        return combine(
+            profileSurveyDao.getSurveyForProfileFlow(profileId),
+            preferences.completedOnboardingProfileIds
+        ) { survey, completedIds ->
+            (survey != null && (survey.isCompleted || survey.isSkipped)) || completedIds.contains(profileId)
+        }
+    }
+
+    val activeProfileOnboardingCompletedFlow: Flow<Boolean> = activeProfileIdFlow.flatMapLatest { profileId ->
+        isProfileOnboardingCompletedFlow(profileId)
+    }
+
     suspend fun saveSurvey(survey: com.example.data.local.entities.ProfileSurveyEntity): Long {
-        return profileSurveyDao.insertOrUpdateSurvey(survey)
+        ensureProfileExists(survey.profileId)
+        val result = profileSurveyDao.insertOrUpdateSurvey(survey)
+        preferences.recordProfileOnboardingCompleted(survey.profileId)
+        return result
     }
 
     suspend fun skipSurvey(profileId: Long): Long {
+        ensureProfileExists(profileId)
         val existing = profileSurveyDao.getSurveyForProfile(profileId)
         val skippedSurvey = existing?.copy(
             isSkipped = true,
@@ -213,7 +255,9 @@ class LifeRepository(
             completedAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis()
         )
-        return profileSurveyDao.insertOrUpdateSurvey(skippedSurvey)
+        val result = profileSurveyDao.insertOrUpdateSurvey(skippedSurvey)
+        preferences.recordProfileOnboardingCompleted(profileId)
+        return result
     }
 
     suspend fun updateProfile(profile: ProfileEntity) {

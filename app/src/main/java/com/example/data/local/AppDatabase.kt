@@ -711,6 +711,22 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "lifeos_database.db"
                 )
+                    .addCallback(object : RoomDatabase.Callback() {
+                        override fun onCreate(db: SupportSQLiteDatabase) {
+                            super.onCreate(db)
+                            db.execSQL("""
+                                INSERT OR IGNORE INTO `profiles` (`id`, `name`, `emoji`, `colorHex`, `type`, `orderIndex`, `isDefault`, `createdAt`, `updatedAt`)
+                                VALUES (1, 'Personal', '👤', 4282168054, 'PERSONAL', 0, 1, 1730000000000, 1730000000000)
+                            """.trimIndent())
+                        }
+                        override fun onOpen(db: SupportSQLiteDatabase) {
+                            super.onOpen(db)
+                            db.execSQL("""
+                                INSERT OR IGNORE INTO `profiles` (`id`, `name`, `emoji`, `colorHex`, `type`, `orderIndex`, `isDefault`, `createdAt`, `updatedAt`)
+                                VALUES (1, 'Personal', '👤', 4282168054, 'PERSONAL', 0, 1, 1730000000000, 1730000000000)
+                            """.trimIndent())
+                        }
+                    })
                     .addMigrations(
                         MIGRATION_1_2,
                         MIGRATION_2_3,

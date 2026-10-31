@@ -96,6 +96,7 @@ fun OnboardingSurveyScreen(
 ) {
     var currentStep by rememberSaveable { mutableIntStateOf(1) }
     val totalSteps = 5
+    var isSubmitting by rememberSaveable { mutableStateOf(false) }
 
     // Field states initialized from existing survey if available
     var displayName by rememberSaveable { mutableStateOf(initialSurvey?.displayName ?: "") }
@@ -130,6 +131,20 @@ fun OnboardingSurveyScreen(
             completedAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis()
         )
+    }
+
+    val handleSkipAll = {
+        if (!isSubmitting) {
+            isSubmitting = true
+            onSkipAll()
+        }
+    }
+
+    val handleComplete = {
+        if (!isSubmitting) {
+            isSubmitting = true
+            onComplete(buildSurveyResult())
+        }
     }
 
     Scaffold(
@@ -173,7 +188,8 @@ fun OnboardingSurveyScreen(
                     )
 
                     TextButton(
-                        onClick = onSkipAll,
+                        onClick = handleSkipAll,
+                        enabled = !isSubmitting,
                         modifier = Modifier.testTag("survey_skip_all_button")
                     ) {
                         Text(
@@ -216,9 +232,10 @@ fun OnboardingSurveyScreen(
                                 if (currentStep < totalSteps) {
                                     currentStep++
                                 } else {
-                                    onComplete(buildSurveyResult())
+                                    handleComplete()
                                 }
                             },
+                            enabled = !isSubmitting,
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("survey_skip_step_button"),
@@ -243,9 +260,10 @@ fun OnboardingSurveyScreen(
                                 if (currentStep < totalSteps) {
                                     currentStep++
                                 } else {
-                                    onComplete(buildSurveyResult())
+                                    handleComplete()
                                 }
                             },
+                            enabled = !isSubmitting,
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("survey_next_button"),

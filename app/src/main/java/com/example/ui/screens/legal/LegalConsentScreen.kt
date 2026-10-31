@@ -94,6 +94,7 @@ fun LegalConsentScreen(
     var privacyAcknowledged by remember { mutableStateOf(false) }
     var viewingDocument by remember { mutableStateOf(LegalDocumentType.NONE) }
     var showDeclineDialog by remember { mutableStateOf(false) }
+    var isSubmitting by remember { mutableStateOf(false) }
 
     // Intercept hardware/gesture Back button: never allow bypassing the acceptance gate
     BackHandler {
@@ -365,11 +366,12 @@ fun LegalConsentScreen(
                     .padding(top = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                val canContinue = termsAccepted && privacyAcknowledged
+                val canContinue = termsAccepted && privacyAcknowledged && !isSubmitting
 
                 Button(
                     onClick = {
                         if (canContinue) {
+                            isSubmitting = true
                             onAcceptConsent(
                                 LegalDocuments.CURRENT_TERMS_VERSION,
                                 LegalDocuments.CURRENT_PRIVACY_VERSION

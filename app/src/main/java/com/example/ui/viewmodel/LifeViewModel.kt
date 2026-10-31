@@ -221,9 +221,10 @@ class LifeViewModel(
             }
         }
         viewModelScope.launch {
-            // Guarantee Release 2 upgraded users with existing data do not see onboarding survey
-            if (!preferences.hasCompletedOnboarding.first() && repository.hasAnyExistingUserData()) {
-                preferences.setHasCompletedOnboarding(true)
+            // Guarantee default profile exists and Release 2 upgraded users with existing data do not see onboarding survey
+            repository.ensureDefaultPersonalProfileExists()
+            if (repository.hasAnyExistingUserData()) {
+                preferences.recordProfileOnboardingCompleted(com.example.data.local.entities.ProfileEntity.DEFAULT_PERSONAL_PROFILE_ID)
             }
             repository.seedDefaultHoneycombShortcuts()
             repository.seedDefaultProjectsAndLabels()
@@ -434,11 +435,13 @@ class LifeViewModel(
     )
 
     // Legal Consent Flows (Requirement #22)
-    val isLegalConsentComplete: StateFlow<Boolean> = preferences.isLegalConsentComplete.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = false
-    )
+    val isLegalConsentComplete: StateFlow<Boolean?> = preferences.isLegalConsentComplete
+        .map<Boolean, Boolean?> { it }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = null
+        )
 
     val acceptedTermsVersion: StateFlow<String?> = preferences.acceptedTermsVersion.stateIn(
         scope = viewModelScope,
@@ -2001,39 +2004,51 @@ class LifeViewModel(
 
     fun saveProfileSurvey(survey: com.example.data.local.entities.ProfileSurveyEntity) {
         viewModelScope.launch {
-            repository.saveSurvey(survey)
-            preferences.setHasCompletedOnboarding(true)
+            try {
+                repository.saveSurvey(survey)
+                dismissAppEntryProfileSelector()
 
-            // Sync user preferences if provided
-            survey.displayName?.let { name ->
-                if (name.isNotBlank()) {
-                    preferences.setUserName(name)
-                    val activeProfile = repository.getProfileById(survey.profileId)
-                    if (activeProfile != null) {
-                        repository.updateProfile(activeProfile.copy(name = name))
+                // Sync user preferences if provided
+                survey.displayName?.let { name ->
+                    if (name.isNotBlank()) {
+                        preferences.setUserName(name)
+                        val activeProfile = repository.getProfileById(survey.profileId)
+                        if (activeProfile != null) {
+                            repository.updateProfile(activeProfile.copy(name = name))
+                        }
                     }
                 }
-            }
 
-            survey.dailyWaterGoalMl?.let { goal ->
-                if (goal in com.example.data.local.entities.ProfileSurveyEntity.MIN_WATER_GOAL_ML..com.example.data.local.entities.ProfileSurveyEntity.MAX_WATER_GOAL_ML) {
-                    preferences.setWaterGoalMl(goal)
+                survey.dailyWaterGoalMl?.let { goal ->
+                    if (goal in com.example.data.local.entities.ProfileSurveyEntity.MIN_WATER_GOAL_ML..com.example.data.local.entities.ProfileSurveyEntity.MAX_WATER_GOAL_ML) {
+                        preferences.setWaterGoalMl(goal)
+                    }
                 }
-            }
 
-            survey.sleepingTime?.let { sleep ->
-                if (sleep.isNotBlank()) {
-                    preferences.setBedTime(sleep)
+                survey.sleepingTime?.let { sleep ->
+                    if (sleep.isNotBlank()) {
+                        preferences.setBedTime(sleep)
+                    }
                 }
+                com.example.widgets.WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
+            } catch (e: Exception) {
+                android.util.Log.e("LifeViewModel", "Failed to save profile survey", e)
+                preferences.recordProfileOnboardingCompleted(survey.profileId)
+                dismissAppEntryProfileSelector()
             }
-            com.example.widgets.WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 
     fun skipProfileSurvey(profileId: Long) {
         viewModelScope.launch {
-            repository.skipSurvey(profileId)
-            preferences.setHasCompletedOnboarding(true)
+            try {
+                repository.skipSurvey(profileId)
+                dismissAppEntryProfileSelector()
+            } catch (e: Exception) {
+                android.util.Log.e("LifeViewModel", "Failed to skip profile survey", e)
+                preferences.recordProfileOnboardingCompleted(profileId)
+                dismissAppEntryProfileSelector()
+            }
         }
     }
 
@@ -2523,11 +2538,13 @@ class LifeViewModel(
         initialValue = StreakResult(0, 0, false)
     )
 
-    val hasCompletedOnboarding: StateFlow<Boolean> = preferences.hasCompletedOnboarding.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = false
-    )
+    val hasCompletedOnboarding: StateFlow<Boolean?> = repository.activeProfileOnboardingCompletedFlow
+        .map<Boolean, Boolean?> { it }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = null
+        )
 
     val installedTemplateIds: StateFlow<Set<String>> = preferences.installedTemplateIds.stateIn(
         scope = viewModelScope,
@@ -2562,7 +2579,12 @@ class LifeViewModel(
 
     fun setHasCompletedOnboarding(completed: Boolean) {
         viewModelScope.launch {
-            preferences.setHasCompletedOnboarding(completed)
+            val activeId = repository.getActiveProfileId()
+            if (completed) {
+                preferences.recordProfileOnboardingCompleted(activeId)
+            } else {
+                preferences.setHasCompletedOnboarding(false)
+            }
         }
     }
 

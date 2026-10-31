@@ -474,4 +474,40 @@ Phase 4 implementation has been completed on branch `feat/release3-phase4-planni
 - **Application Assembly:** `./gradlew.bat assembleDebug` completed cleanly with zero compilation errors (`BUILD SUCCESSFUL in 46s`).
 
 ---
-*Phase 4 Planning Boards & Flexible Monthly Recurrence completed. Execution stopped per instructions.*
+
+## 13. P0 Hotfix: Onboarding Loop & App Auto-Exit Fix (Completed)
+
+### Problem Diagnosis
+During clean/fresh installations on physical Android devices:
+1. `AppDatabase.getInstance` initialized a fresh Room v13 database where tables were created directly from entity annotations without running migrations.
+2. The default Personal profile (`id = 1`) was previously only inserted in `MIGRATION_10_11`. On a fresh installation, the `profiles` table was empty.
+3. Upon completing survey Step 5, `LifeViewModel.saveProfileSurvey` called `repository.saveSurvey(survey)` with `survey.profileId = 1L`.
+4. `ProfileSurveyEntity` specifies a strict foreign key `ForeignKey(entity = ProfileEntity::class, parentColumns = ["id"], childColumns = ["profileId"])`. Because the `profiles` table had no row with `id = 1`, SQLite threw `SQLiteConstraintException: FOREIGN KEY constraint failed (code 787)`.
+5. The uncaught exception in `viewModelScope.launch` crashed the process (`FATAL EXCEPTION: main`), causing the app to auto-exit.
+6. Because the process terminated abruptly, onboarding completion was never written to DataStore.
+7. Upon relaunch, `isLegalConsentComplete` and `hasCompletedOnboarding` defaulted to `false` during the initial asynchronous disk read, causing a brief flash of Terms & Conditions before dropping the user back into the uncompleted Onboarding Survey, resulting in an infinite loop.
+
+### Comprehensive Fix Architecture
+1. **Database & Repository Default Profile Seeding:**
+   - Added `RoomDatabase.Callback` in `AppDatabase.getInstance` with `onCreate` and `onOpen` inserting default Personal profile (`id = 1`, `name = 'Personal'`, `emoji = '👤'`, `type = 'PERSONAL'`, `isDefault = 1`) via `INSERT OR IGNORE`.
+   - Added `LifeRepository.ensureProfileExists(profileId)` and `ensureDefaultPersonalProfileExists()` called prior to saving/skipping surveys, guaranteeing foreign key integrity under all circumstances.
+2. **Profile-Specific Onboarding Persistence (#9, #19):**
+   - Added `KEY_COMPLETED_PROFILE_IDS` and `recordProfileOnboardingCompleted(profileId)` to `UserPreferences`.
+   - Implemented reactive `isProfileOnboardingCompletedFlow(profileId)` and `activeProfileOnboardingCompletedFlow` in `LifeRepository`, ensuring independent onboarding completion state per profile without cross-profile corruption.
+3. **Startup Routing & Loading State:**
+   - In `LifeViewModel`, updated `isLegalConsentComplete` and `hasCompletedOnboarding` to nullable `StateFlow<Boolean?>` with `initialValue = null`.
+   - In `MainActivity`, when either state is `null`, renders an elegant themed loading surface, preventing any brief flash of Terms or Survey before preferences load from disk.
+   - When survey is completed or skipped, `dismissAppEntryProfileSelector()` is invoked so the user proceeds directly to the Dashboard (`MainScreen`).
+4. **Debounced UI Actions:**
+   - Added `isSubmitting` guards to `LegalConsentScreen` ("Agree & Continue") and `OnboardingSurveyScreen` ("Get Started", "Skip Step", "Skip All") preventing duplicate click dispatches.
+5. **Exception Handling & Graceful Degradation:**
+   - Wrapped survey save and skip in try/catch blocks with logging and fallback persistence.
+
+### Verification Results
+- **Automated Regression Suite:** `Release3OnboardingLoopFixUnitTest` (6 tests) PASSED.
+- **Full Test Suite:** 273 total unit tests PASSED cleanly.
+- **Android Test Compilation:** `./gradlew.bat compileDebugAndroidTestKotlin` PASSED.
+- **APK Packaging:** `./gradlew.bat assembleDebug` completed cleanly with debug APK at `app/build/outputs/apk/debug/app-debug.apk` (25.6 MB).
+
+---
+*P0 Onboarding Loop & App Auto-Exit Fix completed. Execution stopped per instructions.*

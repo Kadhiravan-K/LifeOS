@@ -68,6 +68,7 @@ class UserPreferences(private val context: Context) {
 
         // Clean Onboarding & Templates
         val KEY_HAS_COMPLETED_ONBOARDING = booleanPreferencesKey("has_completed_onboarding")
+        val KEY_COMPLETED_PROFILE_IDS = stringPreferencesKey("completed_onboarding_profile_ids")
         val KEY_INSTALLED_TEMPLATE_IDS = stringPreferencesKey("installed_template_ids_json")
 
         // Gamification Feedback Preferences
@@ -252,6 +253,11 @@ class UserPreferences(private val context: Context) {
         preferences[KEY_HAS_COMPLETED_ONBOARDING] ?: false
     }
 
+    val completedOnboardingProfileIds: Flow<Set<Long>> = context.dataStore.data.map { preferences ->
+        val raw = preferences[KEY_COMPLETED_PROFILE_IDS] ?: ""
+        if (raw.isBlank()) emptySet() else raw.split(",").mapNotNull { it.trim().toLongOrNull() }.toSet()
+    }
+
     val showProfileSelectorOnLaunch: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[KEY_SHOW_PROFILE_SELECTOR_ON_LAUNCH] ?: true
     }
@@ -271,6 +277,16 @@ class UserPreferences(private val context: Context) {
 
     suspend fun setHasCompletedOnboarding(completed: Boolean) {
         context.dataStore.edit { it[KEY_HAS_COMPLETED_ONBOARDING] = completed }
+    }
+
+    suspend fun recordProfileOnboardingCompleted(profileId: Long) {
+        context.dataStore.edit { prefs ->
+            val raw = prefs[KEY_COMPLETED_PROFILE_IDS] ?: ""
+            val set = if (raw.isBlank()) mutableSetOf() else raw.split(",").mapNotNull { it.trim().toLongOrNull() }.toMutableSet()
+            set.add(profileId)
+            prefs[KEY_COMPLETED_PROFILE_IDS] = set.joinToString(",")
+            prefs[KEY_HAS_COMPLETED_ONBOARDING] = true
+        }
     }
 
     suspend fun setShowProfileSelectorOnLaunch(show: Boolean) {
