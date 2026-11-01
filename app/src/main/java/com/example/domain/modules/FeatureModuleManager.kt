@@ -319,10 +319,8 @@ object FeatureModuleManager {
                 )
             }
 
-            // Transactional update: delete old pack items, insert new pack & items
-            dao.insertPack(packEntity)
-            dao.deleteItemsForPack(manifest.id)
-            dao.insertItems(itemEntities)
+            // Transactional update: atomically insert pack, clear obsolete items, and insert new items
+            dao.installPackTransaction(packEntity, itemEntities)
 
             Result.success(
                 FeatureModule(

@@ -668,7 +668,7 @@ class McpProtocolEngine(
                             direction = "INBOUND_SERVER",
                             eventType = "WRITE_OP",
                             toolOrResource = "create_task",
-                            details = "Created task #${created.id} '${created.title}'",
+                            details = "Created task #${created.id}",
                             status = "SUCCESS"
                         )
                     )
@@ -734,7 +734,7 @@ class McpProtocolEngine(
                             direction = "INBOUND_SERVER",
                             eventType = "WRITE_OP",
                             toolOrResource = "create_project",
-                            details = "Created project #$id '$name'",
+                            details = "Created project #$id",
                             status = "SUCCESS"
                         )
                     )

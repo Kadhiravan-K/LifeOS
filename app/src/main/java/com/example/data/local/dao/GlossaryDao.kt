@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import com.example.data.local.entities.GlossaryItemEntity
 import com.example.data.local.entities.GlossaryPackEntity
@@ -80,6 +81,13 @@ interface GlossaryDao {
 
     @Query("DELETE FROM glossary_items WHERE packId = :packId")
     suspend fun deleteItemsForPack(packId: String)
+
+    @Transaction
+    suspend fun installPackTransaction(pack: GlossaryPackEntity, items: List<GlossaryItemEntity>) {
+        insertPack(pack)
+        deleteItemsForPack(pack.id)
+        insertItems(items)
+    }
 
     // --- Profile-Isolated User Data (Bookmarks & Personal Notes) (#2, #8) ---
 
