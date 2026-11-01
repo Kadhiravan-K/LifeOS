@@ -3304,35 +3304,59 @@ class LifeRepository(
         }
     }
 
-    // --- Release 3 Phase 8: Downloadable Glossary Library (#2) ---
+    // --- Release 3 Phase 8: Downloadable Feature Modules & Glossary (#2, #10) ---
     val allGlossaryPacksFlow: Flow<List<com.example.domain.glossary.GlossaryPack>> = glossaryDao.getAllPacksFlow().map { list ->
         list.map { com.example.domain.glossary.GlossaryModuleManager.run { it.toDomain() } }
     }
 
-    val allGlossaryTermsFlow: Flow<List<com.example.domain.glossary.GlossaryTerm>> = glossaryDao.getAllItemsFlow().map { list ->
-        list.map { com.example.domain.glossary.GlossaryModuleManager.run { it.toDomain() } }
+    val allGlossaryTermsFlow: Flow<List<com.example.domain.glossary.GlossaryTerm>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        combine(glossaryDao.getAllItemsFlow(), glossaryDao.getUserDataForProfileFlow(profileId)) { items, userDataList ->
+            val userMap = userDataList.associateBy { it.termId }
+            items.map { item ->
+                val ud = userMap[item.id]
+                com.example.domain.glossary.GlossaryModuleManager.run {
+                    item.toDomain(
+                        isBookmarkedProfile = ud?.isBookmarked ?: false,
+                        personalNoteProfile = ud?.personalNote ?: "",
+                        lastViewedAtProfile = ud?.lastViewedAt ?: 0L
+                    )
+                }
+            }
+        }
+    }
+
+    val allFeatureModulesFlow: Flow<List<com.example.domain.modules.FeatureModule>> = allGlossaryPacksFlow.map {
+        com.example.domain.modules.FeatureModuleManager.resolveAllModules(glossaryDao)
     }
 
     fun getGlossaryTermsForPack(packId: String): Flow<List<com.example.domain.glossary.GlossaryTerm>> {
-        return glossaryDao.getItemsForPackFlow(packId).map { list ->
-            list.map { com.example.domain.glossary.GlossaryModuleManager.run { it.toDomain() } }
+        return activeProfileIdFlow.flatMapLatest { profileId ->
+            combine(glossaryDao.getItemsForPackFlow(packId), glossaryDao.getUserDataForProfileFlow(profileId)) { items, userDataList ->
+                val userMap = userDataList.associateBy { it.termId }
+                items.map { item ->
+                    val ud = userMap[item.id]
+                    com.example.domain.glossary.GlossaryModuleManager.run {
+                        item.toDomain(
+                            isBookmarkedProfile = ud?.isBookmarked ?: false,
+                            personalNoteProfile = ud?.personalNote ?: "",
+                            lastViewedAtProfile = ud?.lastViewedAt ?: 0L
+                        )
+                    }
+                }
+            }
         }
     }
 
-    fun searchGlossaryTerms(query: String): Flow<List<com.example.domain.glossary.GlossaryTerm>> {
-        return glossaryDao.searchItemsFlow(query).map { list ->
-            list.map { com.example.domain.glossary.GlossaryModuleManager.run { it.toDomain() } }
-        }
+    suspend fun setGlossaryBookmark(profileId: Long, termId: Long, isBookmarked: Boolean) {
+        glossaryDao.setBookmark(profileId, termId, isBookmarked)
     }
 
-    fun getBookmarkedGlossaryTerms(): Flow<List<com.example.domain.glossary.GlossaryTerm>> {
-        return glossaryDao.getBookmarkedItemsFlow().map { list ->
-            list.map { com.example.domain.glossary.GlossaryModuleManager.run { it.toDomain() } }
-        }
+    suspend fun setGlossaryPersonalNote(profileId: Long, termId: Long, note: String) {
+        glossaryDao.setPersonalNote(profileId, termId, note)
     }
 
-    suspend fun toggleGlossaryBookmark(termId: Long, isBookmarked: Boolean) {
-        glossaryDao.toggleBookmark(termId, isBookmarked)
+    suspend fun recordGlossaryTermView(profileId: Long, termId: Long) {
+        glossaryDao.recordTermView(profileId, termId)
     }
 
     suspend fun installGlossaryPack(
@@ -3350,6 +3374,25 @@ class LifeRepository(
 
     suspend fun uninstallGlossaryPack(packId: String) {
         com.example.domain.glossary.GlossaryModuleManager.uninstallPack(glossaryDao, packId)
+    }
+
+    suspend fun installFeatureModule(
+        manifest: com.example.domain.modules.ModuleManifest,
+        packJson: com.example.domain.glossary.GlossaryPackJson,
+        expectedSha256: String? = null,
+        rawContent: String? = null
+    ): Result<com.example.domain.modules.FeatureModule> {
+        return com.example.domain.modules.FeatureModuleManager.installModule(
+            dao = glossaryDao,
+            manifest = manifest,
+            packJson = packJson,
+            expectedSha256 = expectedSha256,
+            rawContent = rawContent
+        )
+    }
+
+    suspend fun uninstallFeatureModule(moduleId: String): Result<Unit> {
+        return com.example.domain.modules.FeatureModuleManager.uninstallModule(glossaryDao, moduleId)
     }
 }
 

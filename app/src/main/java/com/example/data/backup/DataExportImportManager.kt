@@ -569,6 +569,23 @@ object DataExportImportManager {
         }
         root.put("glossary_items", glossaryItemsArr)
 
+        // Export Profile-Isolated Glossary User Data (Bookmarks & Personal Notes) (#2, #8)
+        val glossaryUserData = database.glossaryDao().getAllUserDataList()
+        val glossaryUserDataArr = JSONArray()
+        for (ud in glossaryUserData) {
+            val obj = JSONObject().apply {
+                put("id", ud.id)
+                put("profileId", ud.profileId)
+                put("termId", ud.termId)
+                put("isBookmarked", ud.isBookmarked)
+                put("personalNote", ud.personalNote)
+                put("lastViewedAt", ud.lastViewedAt)
+                put("updatedAt", ud.updatedAt)
+            }
+            glossaryUserDataArr.put(obj)
+        }
+        root.put("glossary_user_data", glossaryUserDataArr)
+
         // 15. Medications (#11)
         val medications = database.medicationDao().getAllMedicationsList()
         val medsArr = JSONArray()
@@ -1102,6 +1119,26 @@ object DataExportImportManager {
                     itemsList.add(item)
                 }
                 database.glossaryDao().insertItems(itemsList)
+            }
+
+            val glossaryUserDataArr = root.optJSONArray("glossary_user_data")
+            if (glossaryUserDataArr != null) {
+                val userDataList = mutableListOf<com.example.data.local.entities.GlossaryUserDataEntity>()
+                for (i in 0 until glossaryUserDataArr.length()) {
+                    val obj = glossaryUserDataArr.getJSONObject(i)
+                    val profileId = obj.optLong("profileId", 1L)
+                    val ud = com.example.data.local.entities.GlossaryUserDataEntity(
+                        id = 0L,
+                        profileId = profileId,
+                        termId = obj.getLong("termId"),
+                        isBookmarked = obj.optBoolean("isBookmarked", false),
+                        personalNote = obj.optString("personalNote", ""),
+                        lastViewedAt = obj.optLong("lastViewedAt", 0L),
+                        updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                    )
+                    userDataList.add(ud)
+                }
+                database.glossaryDao().insertUserDataList(userDataList)
             }
 
             // Import Plans (#10)

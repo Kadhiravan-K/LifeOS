@@ -15,6 +15,8 @@ data class GlossaryTerm(
     val relatedTerms: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
     val isBookmarked: Boolean = false,
+    val personalNote: String = "",
+    val lastViewedAt: Long = 0L,
     val createdAt: Long = System.currentTimeMillis()
 )
 
@@ -41,7 +43,7 @@ data class GlossaryPack(
 data class GlossaryPackJson(
     val id: String,
     val title: String,
-    val description: String,
+    val description: String = "",
     val category: String,
     val version: Int = 1,
     val author: String = "LifeOS Community",

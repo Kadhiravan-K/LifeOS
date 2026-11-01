@@ -359,10 +359,10 @@ class RoomMigrationRobolectricUnitTest {
         val v10Db = factory.create(v10Config).writableDatabase
         v10Db.close()
 
-        // 2. Open DB at version 15, applying all migrations from 10 to 15
+        // 2. Open DB at version 17, applying all migrations from 10 to 17
         val v15Config = SupportSQLiteOpenHelper.Configuration.builder(context)
             .name(dbName)
-            .callback(object : SupportSQLiteOpenHelper.Callback(16) {
+            .callback(object : SupportSQLiteOpenHelper.Callback(17) {
                 override fun onCreate(db: SupportSQLiteDatabase) {}
 
                 override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -372,6 +372,7 @@ class RoomMigrationRobolectricUnitTest {
                     if (oldVersion <= 13) MIGRATION_13_14.migrate(db)
                     if (oldVersion <= 14) MIGRATION_14_15.migrate(db)
                     if (oldVersion <= 15) MIGRATION_15_16.migrate(db)
+                    if (oldVersion <= 16) MIGRATION_16_17.migrate(db)
                 }
             })
             .build()
@@ -420,6 +421,11 @@ class RoomMigrationRobolectricUnitTest {
         val customPropCursor = v15Db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='project_custom_properties'")
         assertTrue("project_custom_properties table must exist in v16", customPropCursor.moveToFirst())
         customPropCursor.close()
+
+        // 9. Verify glossary_user_data table exists from MIGRATION_16_17
+        val userDataCursor = v15Db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='glossary_user_data'")
+        assertTrue("glossary_user_data table must exist in v17", userDataCursor.moveToFirst())
+        userDataCursor.close()
 
         v15Db.close()
         context.deleteDatabase(dbName)

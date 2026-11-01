@@ -805,6 +805,35 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
     }
 }
 
+val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `glossary_user_data` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `profileId` INTEGER NOT NULL DEFAULT 1,
+                `termId` INTEGER NOT NULL,
+                `isBookmarked` INTEGER NOT NULL DEFAULT 0,
+                `personalNote` TEXT NOT NULL DEFAULT '',
+                `lastViewedAt` INTEGER NOT NULL DEFAULT 0,
+                `updatedAt` INTEGER NOT NULL,
+                FOREIGN KEY(`profileId`) REFERENCES `profiles`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`termId`) REFERENCES `glossary_items`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_glossary_user_data_profileId` ON `glossary_user_data` (`profileId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_glossary_user_data_termId` ON `glossary_user_data` (`termId`)")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_glossary_user_data_profileId_termId` ON `glossary_user_data` (`profileId`, `termId`)")
+
+        // Migrate any pre-existing bookmarks from glossary_items into glossary_user_data for profile 1
+        db.execSQL("""
+            INSERT OR IGNORE INTO `glossary_user_data` (`profileId`, `termId`, `isBookmarked`, `personalNote`, `lastViewedAt`, `updatedAt`)
+            SELECT 1, `id`, 1, '', 0, 1730000000000
+            FROM `glossary_items`
+            WHERE `isBookmarked` = 1
+        """.trimIndent())
+    }
+}
+
 @Database(
     entities = [
         ProfileEntity::class,
@@ -843,9 +872,10 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
         com.example.data.local.entities.ProjectCustomStatusEntity::class,
         com.example.data.local.entities.ProjectCustomPropertyEntity::class,
         com.example.data.local.entities.GlossaryPackEntity::class,
-        com.example.data.local.entities.GlossaryItemEntity::class
+        com.example.data.local.entities.GlossaryItemEntity::class,
+        com.example.data.local.entities.GlossaryUserDataEntity::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -910,7 +940,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_12_13,
                         MIGRATION_13_14,
                         MIGRATION_14_15,
-                        MIGRATION_15_16
+                        MIGRATION_15_16,
+                        MIGRATION_16_17
                     )
                     .build()
                 INSTANCE = instance

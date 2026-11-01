@@ -337,7 +337,11 @@ object GlossaryModuleManager {
         sizeBytes = sizeBytes
     )
 
-    fun GlossaryItemEntity.toDomain(): GlossaryTerm {
+    fun GlossaryItemEntity.toDomain(
+        isBookmarkedProfile: Boolean? = null,
+        personalNoteProfile: String? = null,
+        lastViewedAtProfile: Long? = null
+    ): GlossaryTerm {
         val examples = try {
             val arr = JSONArray(examplesJson)
             List(arr.length()) { arr.getString(it) }
@@ -364,7 +368,9 @@ object GlossaryModuleManager {
             examples = examples,
             relatedTerms = related,
             tags = tags,
-            isBookmarked = isBookmarked,
+            isBookmarked = isBookmarkedProfile ?: isBookmarked,
+            personalNote = personalNoteProfile ?: "",
+            lastViewedAt = lastViewedAtProfile ?: 0L,
             createdAt = createdAt
         )
     }

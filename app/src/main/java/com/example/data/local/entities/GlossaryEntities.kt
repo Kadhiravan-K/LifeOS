@@ -59,3 +59,42 @@ data class GlossaryItemEntity(
     val isBookmarked: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 )
+
+/**
+ * Profile-isolated user state for a glossary term (#2, #8).
+ * Ensures bookmarks, personal notes, and view timestamps are strictly scoped
+ * to individual profiles while shared reference definitions remain global.
+ */
+@Entity(
+    tableName = "glossary_user_data",
+    foreignKeys = [
+        ForeignKey(
+            entity = ProfileEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["profileId"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = GlossaryItemEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["termId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [
+        Index("profileId"),
+        Index("termId"),
+        Index(value = ["profileId", "termId"], unique = true)
+    ]
+)
+data class GlossaryUserDataEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val profileId: Long = 1,
+    val termId: Long,
+    val isBookmarked: Boolean = false,
+    val personalNote: String = "",
+    val lastViewedAt: Long = 0L,
+    val updatedAt: Long = System.currentTimeMillis()
+)
+

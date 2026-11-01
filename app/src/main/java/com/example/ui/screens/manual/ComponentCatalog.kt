@@ -1830,6 +1830,35 @@ McpBridgeScreen(
 )
             """.trimIndent(),
             tags = listOf("mcp", "ai", "model context protocol", "llm", "security", "token", "jsonrpc", "tools", "bridge")
+        ),
+
+        // 59. Downloadable Feature Module Card (#2, #10)
+        ComponentEntry(
+            id = "feature_module_card",
+            name = "Feature Module Manager Card",
+            category = ComponentCategory.SPECIALIZED_LIFEOS,
+            status = ComponentStatus.EXISTING,
+            description = "Declarative downloadable content module card featuring SHA-256 verification badge, package size calculation, item count, version tracking, and lifecycle installation/uninstallation controls.",
+            whenToUse = "Use to display downloadable offline feature modules, knowledge packs, and extension datasets.",
+            sourceFile = "app/src/main/java/com/example/ui/components/FeatureModuleCard.kt",
+            composableName = "FeatureModuleCard",
+            parameters = listOf(
+                ComponentParam("module", "FeatureModule", "Feature module domain model with status and manifest"),
+                ComponentParam("onInstall", "() -> Unit", "Callback to install module"),
+                ComponentParam("onUninstall", "() -> Unit", "Callback to uninstall module"),
+                ComponentParam("onUpdate", "() -> Unit", "Callback to update module")
+            ),
+            usageLocations = listOf("GlossaryScreen", "GlossaryPackManagerContent"),
+            reuseRecommendations = "Use for any declarative offline packs or modules adhering to ModuleManifest schema.",
+            codeExample = """
+FeatureModuleCard(
+    module = module,
+    onInstall = { viewModel.installFeatureModule(module.manifest, packJson) },
+    onUninstall = { viewModel.uninstallFeatureModule(module.id) },
+    onUpdate = { viewModel.installFeatureModule(module.manifest, packJson) }
+)
+            """.trimIndent(),
+            tags = listOf("module", "feature", "downloadable", "sha256", "integrity", "offline", "pack", "card")
         )
     )
 

@@ -50,6 +50,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,6 +66,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.domain.glossary.GlossaryModuleManager
 import com.example.domain.glossary.GlossaryPack
 import com.example.domain.glossary.GlossaryTerm
+import com.example.domain.modules.FeatureModule
+import com.example.domain.modules.FeatureModuleManager
+import com.example.domain.modules.ModuleManifest
+import com.example.ui.components.FeatureModuleCard
 import com.example.ui.viewmodel.LifeViewModel
 
 /**
@@ -79,6 +84,7 @@ fun GlossaryScreen(
 ) {
     val allTerms by viewModel.allGlossaryTerms.collectAsStateWithLifecycle()
     val allPacks by viewModel.allGlossaryPacks.collectAsStateWithLifecycle()
+    val allFeatureModules by viewModel.allFeatureModules.collectAsStateWithLifecycle()
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
@@ -275,12 +281,20 @@ fun GlossaryScreen(
 
     // Detail Dialog
     selectedTermForDetail?.let { term ->
+        LaunchedEffect(term.id) {
+            viewModel.recordGlossaryTermView(term.id)
+        }
         GlossaryTermDetailDialog(
             term = term,
             onDismiss = { selectedTermForDetail = null },
             onToggleBookmark = {
-                viewModel.toggleGlossaryBookmark(term.id, !term.isBookmarked)
-                selectedTermForDetail = term.copy(isBookmarked = !term.isBookmarked)
+                val next = !term.isBookmarked
+                viewModel.toggleGlossaryBookmark(term.id, next)
+                selectedTermForDetail = term.copy(isBookmarked = next)
+            },
+            onSavePersonalNote = { note ->
+                viewModel.saveGlossaryPersonalNote(term.id, note)
+                selectedTermForDetail = term.copy(personalNote = note)
             },
             onSelectRelatedTerm = { relTerm ->
                 searchQuery = relTerm
@@ -297,13 +311,12 @@ fun GlossaryScreen(
             sheetState = sheetState
         ) {
             GlossaryPackManagerContent(
-                installedPacks = allPacks,
-                catalogPacks = GlossaryModuleManager.CATALOG_MODULES,
-                onInstallPack = { packJson ->
-                    viewModel.installGlossaryPack(packJson)
+                featureModules = allFeatureModules,
+                onInstallModule = { manifest, packJson ->
+                    viewModel.installFeatureModule(manifest, packJson)
                 },
-                onUninstallPack = { packId ->
-                    viewModel.uninstallGlossaryPack(packId)
+                onUninstallModule = { moduleId ->
+                    viewModel.uninstallFeatureModule(moduleId)
                 },
                 onOpenImportDialog = {
                     showImportJsonDialog = true
@@ -385,6 +398,22 @@ fun GlossaryTermCard(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (term.personalNote.isNotBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            modifier = Modifier.padding(end = 4.dp)
+                        ) {
+                            Text(
+                                text = "📝 Note",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
                     Surface(
                         shape = RoundedCornerShape(6.dp),
                         color = MaterialTheme.colorScheme.primaryContainer,
@@ -456,8 +485,12 @@ fun GlossaryTermDetailDialog(
     term: GlossaryTerm,
     onDismiss: () -> Unit,
     onToggleBookmark: () -> Unit,
+    onSavePersonalNote: (String) -> Unit,
     onSelectRelatedTerm: (String) -> Unit
 ) {
+    var isEditingNote by remember { mutableStateOf(false) }
+    var noteText by remember(term.id, term.personalNote) { mutableStateOf(term.personalNote) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -545,7 +578,7 @@ fun GlossaryTermDetailDialog(
                     }
                 }
 
-                // Examples
+                // Practical Examples
                 if (term.examples.isNotEmpty()) {
                     Column {
                         Text(
@@ -567,6 +600,74 @@ fun GlossaryTermDetailDialog(
                                 )
                             }
                         }
+                    }
+                }
+
+                // Profile-isolated Personal Note
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Personal Reflection (Profile Isolated)",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        if (isEditingNote) {
+                            TextButton(
+                                onClick = {
+                                    onSavePersonalNote(noteText)
+                                    isEditingNote = false
+                                },
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text("Save", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            TextButton(
+                                onClick = { isEditingNote = true },
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text(if (noteText.isBlank()) "+ Add Note" else "Edit", fontSize = 11.sp)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    if (isEditingNote) {
+                        OutlinedTextField(
+                            value = noteText,
+                            onValueChange = { noteText = it },
+                            placeholder = { Text("Record personal insights or study notes...") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(90.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                    } else if (noteText.isNotBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = noteText,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(10.dp)
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "No personal reflections for this profile yet. Tap '+ Add Note' to create one.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
                     }
                 }
 
@@ -616,10 +717,9 @@ fun GlossaryTermDetailDialog(
  */
 @Composable
 fun GlossaryPackManagerContent(
-    installedPacks: List<GlossaryPack>,
-    catalogPacks: List<com.example.domain.glossary.GlossaryPackJson>,
-    onInstallPack: (com.example.domain.glossary.GlossaryPackJson) -> Unit,
-    onUninstallPack: (String) -> Unit,
+    featureModules: List<FeatureModule>,
+    onInstallModule: (ModuleManifest, com.example.domain.glossary.GlossaryPackJson) -> Unit,
+    onUninstallModule: (String) -> Unit,
     onOpenImportDialog: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
@@ -638,12 +738,12 @@ fun GlossaryPackManagerContent(
         ) {
             Column {
                 Text(
-                    text = "📦 Knowledge Pack Modules",
+                    text = "📦 Feature Modules & Packs",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Verified offline content packs (#2)",
+                    text = "Verified offline declarative packs (#2, #10)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -664,89 +764,23 @@ fun GlossaryPackManagerContent(
         }
 
         Text(
-            text = "Curated Knowledge Catalog",
+            text = "Curated Feature Modules (${featureModules.size})",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
 
-        catalogPacks.forEach { packJson ->
-            val isInstalled = installedPacks.any { it.id == packJson.id }
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isInstalled) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surfaceVariant
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = packJson.title,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.surface
-                        ) {
-                            Text(
-                                text = "${packJson.terms.size} terms",
-                                fontSize = 10.sp,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
+        val catalogMap = remember {
+            FeatureModuleManager.CURATED_CATALOG.associate { it.first.id to it.second }
+        }
 
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = packJson.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "by ${packJson.author}",
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-
-                        if (isInstalled) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TextButton(
-                                    onClick = { onUninstallPack(packJson.id) }
-                                ) {
-                                    Text("Uninstall", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
-                                }
-                                Button(
-                                    onClick = { onInstallPack(packJson) },
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.height(32.dp)
-                                ) {
-                                    Text("Reinstall", fontSize = 11.sp)
-                                }
-                            }
-                        } else {
-                            Button(
-                                onClick = { onInstallPack(packJson) },
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.height(32.dp)
-                            ) {
-                                Text("Install Pack", fontSize = 11.sp)
-                            }
-                        }
-                    }
-                }
-            }
+        featureModules.forEach { module ->
+            val packJson = catalogMap[module.id] ?: return@forEach
+            FeatureModuleCard(
+                module = module,
+                onInstall = { onInstallModule(module.manifest, packJson) },
+                onUninstall = { onUninstallModule(module.id) },
+                onUpdate = { onInstallModule(module.manifest, packJson) }
+            )
         }
     }
 }

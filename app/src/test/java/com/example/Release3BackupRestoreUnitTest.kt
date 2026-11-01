@@ -7,6 +7,7 @@ import com.example.data.backup.DataExportImportManager
 import com.example.data.local.AppDatabase
 import com.example.data.local.entities.GlossaryItemEntity
 import com.example.data.local.entities.GlossaryPackEntity
+import com.example.data.local.entities.GlossaryUserDataEntity
 import com.example.data.local.entities.HabitEntity
 import com.example.data.local.entities.LabelEntity
 import com.example.data.local.entities.MedicationEntity
@@ -283,6 +284,17 @@ class Release3BackupRestoreUnitTest {
         sourceDb.glossaryDao().insertPack(pack)
         sourceDb.glossaryDao().insertItems(listOf(term))
 
+        val userData = GlossaryUserDataEntity(
+            id = 1L,
+            profileId = 1L,
+            termId = 1L,
+            isBookmarked = true,
+            personalNote = "Important personal rule for sprint planning",
+            lastViewedAt = 1730000000000L,
+            updatedAt = 1730000000000L
+        )
+        sourceDb.glossaryDao().insertUserDataList(listOf(userData))
+
         // 2. Export all data to JSON
         val exportedJson = DataExportImportManager.exportAllData(sourceDb)
         assertNotNull(exportedJson)
@@ -365,6 +377,13 @@ class Release3BackupRestoreUnitTest {
         assertEquals(1, restoredCustomProps.size)
         assertEquals("Sprint Target", restoredCustomProps[0].name)
         assertEquals("TEXT", restoredCustomProps[0].propertyType)
+
+        val restoredUserData = targetDb.glossaryDao().getAllUserDataList()
+        assertEquals(1, restoredUserData.size)
+        assertEquals(1L, restoredUserData[0].profileId)
+        assertEquals(1L, restoredUserData[0].termId)
+        assertTrue(restoredUserData[0].isBookmarked)
+        assertEquals("Important personal rule for sprint planning", restoredUserData[0].personalNote)
     }
 
     @Test

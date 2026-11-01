@@ -3056,7 +3056,7 @@ class LifeViewModel(
         return repository.getPriceHistoryFlow(subscriptionId)
     }
 
-    // --- Release 3 Phase 8: Downloadable Glossary Library (#2) ---
+    // --- Release 3 Phase 8: Downloadable Feature Modules & Glossary (#2, #10) ---
     val allGlossaryPacks: StateFlow<List<com.example.domain.glossary.GlossaryPack>> = repository.allGlossaryPacksFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -3069,9 +3069,30 @@ class LifeViewModel(
         initialValue = emptyList()
     )
 
+    val allFeatureModules: StateFlow<List<com.example.domain.modules.FeatureModule>> = repository.allFeatureModulesFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     fun toggleGlossaryBookmark(termId: Long, isBookmarked: Boolean) {
         viewModelScope.launch {
-            repository.toggleGlossaryBookmark(termId, isBookmarked)
+            val currentProfileId = activeProfileIdFlow.value
+            repository.setGlossaryBookmark(currentProfileId, termId, isBookmarked)
+        }
+    }
+
+    fun saveGlossaryPersonalNote(termId: Long, note: String) {
+        viewModelScope.launch {
+            val currentProfileId = activeProfileIdFlow.value
+            repository.setGlossaryPersonalNote(currentProfileId, termId, note)
+        }
+    }
+
+    fun recordGlossaryTermView(termId: Long) {
+        viewModelScope.launch {
+            val currentProfileId = activeProfileIdFlow.value
+            repository.recordGlossaryTermView(currentProfileId, termId)
         }
     }
 
@@ -3090,6 +3111,29 @@ class LifeViewModel(
     fun uninstallGlossaryPack(packId: String) {
         viewModelScope.launch {
             repository.uninstallGlossaryPack(packId)
+        }
+    }
+
+    fun installFeatureModule(
+        manifest: com.example.domain.modules.ModuleManifest,
+        packJson: com.example.domain.glossary.GlossaryPackJson,
+        expectedSha256: String? = null,
+        rawContent: String? = null,
+        onResult: (Result<com.example.domain.modules.FeatureModule>) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val res = repository.installFeatureModule(manifest, packJson, expectedSha256, rawContent)
+            onResult(res)
+        }
+    }
+
+    fun uninstallFeatureModule(
+        moduleId: String,
+        onResult: (Result<Unit>) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val res = repository.uninstallFeatureModule(moduleId)
+            onResult(res)
         }
     }
 
