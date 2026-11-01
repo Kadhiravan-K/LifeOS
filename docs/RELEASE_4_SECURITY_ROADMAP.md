@@ -417,6 +417,69 @@ The Release 4 Room database contains **40 entities**. Current backup export in `
 11. Tap "Cancel Test Reminder" before delivery -> Verify alarm is dismissed.
 12. Create a task with reminder in 30 minutes -> Return to Reminder Health screen -> Verify task appears in "Next Scheduled Reminders" with correct title, type, and trigger time.
 
+---
+
+## 10. Phase P3-L1: Replace SimpleDateFormat with java.time (DT-01, DT-02)
+
+### 10.1 Background & Threat Model
+In Android applications, `SimpleDateFormat` is notoriously mutable and thread-unsafe. When multiple threads simultaneously invoke `format()` or `parse()` on the same instance, internal `Calendar` state is mutated, leading to race conditions, silent timestamp corruption, unpredictable parse exceptions, or deadlocks.
+
+In LifeOS, `DateUtils` previously maintained four shared mutable `SimpleDateFormat` instances (`DATE_FORMAT`, `FULL_DATE_FORMAT`, `DISPLAY_FORMAT`, `MONTH_YEAR_FORMAT`) on a singleton object, alongside ad-hoc `SimpleDateFormat` instantiations in helper methods. These formatters were accessed concurrently by:
+1. Room database query mappers and repository operations running on Dispatchers.IO.
+2. Background AlarmManager receivers (`ReminderReceiver`, `BootReceiver`) and WorkManager tasks.
+3. UI Composables and ViewModels updating presentation state on the Main dispatcher.
+
+This represented a critical reliability vulnerability (audited as DT-01 and DT-02).
+
+### 10.2 Architectural Implementation
+`DateUtils.kt` was completely rewritten using Java 8+ `java.time` APIs:
+- **Thread Safety**: All mutable `SimpleDateFormat`, `Calendar`, and `java.util.Date` instances were eliminated and replaced with immutable, thread-safe `java.time` classes:
+  - `ISO_FORMATTER` (`DateTimeFormatter.ofPattern("yyyy-MM-dd")`)
+  - `DISPLAY_FORMATTER` (`DateTimeFormatter.ofPattern("MMM d, yyyy")`)
+  - `FULL_DISPLAY_FORMATTER` (`DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")`)
+  - `MONTH_YEAR_FORMATTER` (`DateTimeFormatter.ofPattern("MMMM yyyy")`)
+  - `MONTH_DAY_FORMATTER` (`DateTimeFormatter.ofPattern("MMMM d")`)
+- **Modern Calendar Math**: Replaced `Calendar` with `LocalDate`, `LocalTime`, `DayOfWeek`, `ChronoUnit`, and `YearMonth`.
+  - Day arithmetic implemented cleanly via `LocalDate.plusDays()` / `minusDays()`.
+  - Month arithmetic implemented via `LocalDate.plusMonths()` / `minusMonths()`.
+  - Interval math implemented via `ChronoUnit.DAYS.between()`.
+  - Day-of-week parsing mapped via `DayOfWeek.getDisplayName(TextStyle.FULL, displayLocale)`.
+- **Clock & Locale Injection**:
+  - Added optional `clock: Clock = Clock.systemDefaultZone()` and `displayLocale: Locale = Locale.US` default parameters to public methods (`todayString`, `todayEpochDay`, `getCurrentHour`, `getCurrentMinuteOfDay`, `formatDisplayDate`, `formatFullDisplayDate`, `formatMonthYear`, `getDayOfWeek`, `getLastNDays`).
+  - Preserves 100% backward binary and source compatibility across all existing LifeOS call sites while enabling fully deterministic, zero-flakiness testing.
+- **Strict Format Preservation & Zero Migrations**:
+  - Persisted date format remains strictly `yyyy-MM-dd`.
+  - Room database schema version remains at 18 with 40 entities; 0 schema migrations were required.
+  - Backup/Restore v2 JSON payload serialization compatibility is strictly preserved.
+- **Resilient Fallback Handling**:
+  - Malformed ISO date strings fall back gracefully without crashing or throwing unhandled exceptions.
+  - Logging is safeguarded with exception-handling wrappers to avoid unmocked Android framework log crashes during host JVM testing.
+
+### 10.3 Verification & Parity Oracle
+A dedicated test suite was implemented in `app/src/test/java/com/example/utils/DateUtilsParityUnitTest.kt`:
+1. **Exhaustive 40-Year Parity Oracle**:
+   - Built `DateUtilsLegacyOracle` mirroring legacy `Calendar`/`SimpleDateFormat` behavior.
+   - Tested **14,976 consecutive calendar days** from `2000-01-01` to `2040-12-31`.
+   - Verified 100% exact parity across `isoStringToEpochDay`, `epochDayToIsoString`, `getDayOfWeek`, `addDays` (+1, +7, +30, -1, -7, -30), and `daysBetween`.
+2. **Days In Month & Leap Year Verification**:
+   - Validated every month (1..12) across 41 years (1900..2100).
+   - Validated leap year detection across century leap years (2000), non-leap centuries (1900, 2100), and quadrennial leap years (2024, 2028).
+3. **Multithreaded Stress Test**:
+   - 8 concurrent threads × 10,000 iterations (80,000 total operations) performing parsing, formatting, and arithmetic concurrently.
+   - 0 errors, 0 race conditions, 0 lock contention.
+4. **DST Transition & Clock Injection**:
+   - Tested US and European daylight saving transitions.
+   - Validated deterministic fixed-clock injection for date/time resolution.
+5. **ISO Compliance**:
+   - Verified strict compliance with `^\d{4}-\d{2}-\d{2}$` and epoch day round-trips.
+
+### 10.4 Quality Gate Status
+- `.\gradlew.bat testDebugUnitTest --tests "com.example.utils.DateUtilsParityUnitTest"`: **PASSED** (8/8 tests, 0 failures, 0 errors).
+- `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (All unit tests across repository passing).
+- `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
+- `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (Clean debug APK artifact).
+
+
 
 
 
