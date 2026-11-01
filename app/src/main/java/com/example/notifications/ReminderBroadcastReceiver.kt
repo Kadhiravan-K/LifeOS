@@ -31,6 +31,9 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         const val ACTION_MEDICINE_SNOOZE = "com.example.lifeos.ACTION_MEDICINE_SNOOZE"
         const val ACTION_MEDICINE_SKIP = "com.example.lifeos.ACTION_MEDICINE_SKIP"
 
+        // Diagnostics Test Action
+        const val ACTION_TEST_REMINDER = "com.example.lifeos.ACTION_TEST_REMINDER"
+
         val ALLOWED_ACTIONS: Set<String> = setOf(
             ACTION_DAILY_REMINDER,
             ACTION_TASK_REMINDER,
@@ -40,7 +43,8 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             ACTION_MEDICINE_REMINDER,
             ACTION_MEDICINE_TAKEN,
             ACTION_MEDICINE_SNOOZE,
-            ACTION_MEDICINE_SKIP
+            ACTION_MEDICINE_SKIP,
+            ACTION_TEST_REMINDER
         )
 
         /**
@@ -159,6 +163,13 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                 ReminderActionHandler.cancelMedicineNotification(context, doseId)
                 runAsync {
                     ReminderActionHandler.handleMedicineSkip(context, doseId)
+                }
+            }
+
+            ACTION_TEST_REMINDER -> {
+                Log.i("ReminderReceiver", "Received ACTION_TEST_REMINDER; delivering test reminder notification")
+                runAsync {
+                    ReminderActionHandler.handleTestReminder(context)
                 }
             }
         }

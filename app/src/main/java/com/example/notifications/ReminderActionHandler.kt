@@ -51,6 +51,10 @@ object ReminderActionHandler {
         nm?.cancel(notificationId)
     }
 
+    fun handleTestReminder(context: Context) {
+        NotificationHelper.showTestReminderNotification(context)
+    }
+
     suspend fun handleDailyReminder(context: Context) {
         val preferences = UserPreferences(context.applicationContext)
         val isDailySummaryEnabled = preferences.notifDailySummaryEnabled.first()

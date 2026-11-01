@@ -344,6 +344,79 @@ The Release 4 Room database contains **40 entities**. Current backup export in `
 ### 8.7 Remaining Android-Version Limitations
 - On heavily customized OEM Android skins (MIUI, ColorOS, EMUI), background alarm delivery may still be delayed by proprietary aggressive battery managers unless the user manually enables autostart / excludes LifeOS from battery optimization.
 
+## 9. Phase P2-L3: Reminder Health Screen (F-04 / IMP-02)
+
+### 9.1 Overview & Architectural Objectives
+- Implemented dedicated user-facing diagnostic screen `ReminderHealthScreen.kt` accessible from **Settings -> Notifications & Smart Alerts -> Reminder Health & Diagnostics**.
+- Centralized real-time health checks for reminder and notification reliability across Android 8.0 through Android 14+.
+- Guaranteed zero database schema mutations (Database remains at version 18 with 40 entities, no new tables).
+- Zero external network dependencies, privacy-respecting and fully offline.
+
+### 9.2 Six Diagnostic Sections Implemented
+1. **Notification Permission**:
+   - Status checked via `NotificationManagerCompat.from(context).areNotificationsEnabled()`.
+   - Explains notifications are disabled globally if false, with one-tap action opening `Settings.ACTION_APP_NOTIFICATION_SETTINGS`.
+2. **Notification Channels**:
+   - Audits all 9 LifeOS notification channels registered in `NotificationHelper` (`tasks`, `subtasks`, `medicine`, `daily_digest`, `system_alerts`, `backup_restore`, `timer`, `screentime`, `export_import`).
+   - For each channel, reports whether it exists, is user-muted (`importance == IMPORTANCE_NONE`), or active.
+   - Provides direct link to individual channel settings via `Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS`.
+3. **Exact Alarm Status**:
+   - Queries `AlarmManager.canScheduleExactAlarms()` on Android 12+ (API 31+).
+   - Reports `Granted`, `Not granted`, or `Not needed` (API < 31).
+   - Provides direct intent link to `Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM`.
+4. **Battery Optimisation Status**:
+   - Checks `PowerManager.isIgnoringBatteryOptimizations(packageName)`.
+   - Clear diagnostic explanation of Doze mode and manufacturer background restrictions.
+   - Actionable button opening `Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` without automatically triggering aggressive prompts.
+5. **Upcoming Scheduled Reminders (Next 5)**:
+   - Exposes `ReminderScheduler.getUpcomingReminders(context, limit = 5)` performing read-only query on active tasks and medication dose items across the 7-day horizon.
+   - Filters out completed (`isOneTimeCompleted == true`), archived (`isArchived == true`), and soft-deleted records.
+   - Computes explicit trigger epoch timestamps and returns items strictly sorted chronologically (`triggerEpochMillis ASC`).
+   - No DB records created, altered, or deleted.
+6. **Test Reminder Functionality**:
+   - "Send test reminder in 1 minute" action using `ACTION_TEST_REMINDER` broadcast intent.
+   - Uses dedicated isolated PendingIntent request code `77777` and notification ID `77777`.
+   - Idempotent and cancelable at any time without impacting any real user tasks or medication reminders.
+   - Zero database mutations.
+
+### 9.3 Lifecycle & Navigation Integration
+- Screen observes `Lifecycle.Event.ON_RESUME` via Compose `DisposableEffect` so returning from Android System Settings instantly refreshes diagnostic indicators without app restart.
+- Integrated into `SettingsScreen.kt` as `SettingsSubpage.REMINDER_HEALTH` with full routing and search registry coverage.
+- Powered by `LifeViewModel.reminderHealthState` `StateFlow` running checks off the UI thread via `Dispatchers.IO`.
+
+### 9.4 Automated Test Evidence
+- **Automated Test Suite**:
+  - `ReminderHealthStateUnitTest` (9 tests passed):
+    - `testEmptyUpcomingReminders`: Empty database returns empty list without crashing.
+    - `testUpcomingRemindersChronologicalOrderingAndLimit`: Enforces limit of 5 and strict ascending chronological ordering.
+    - `testCompletedAndArchivedTasksExcludedFromUpcoming`: Inactive tasks excluded from diagnostic query.
+    - `testMedicationDoseAppearsInUpcomingReminders`: Today's medication dose correctly surfaced.
+    - `testTestReminderLifecycleAndIsolation`: Verifies test reminder schedules, flags active, cancels, with zero DB writes.
+    - `testRepeatedTestReminderSchedulingIsIdempotent`: Overwrites existing test alarm without duplicate entries.
+    - `testBatteryOptimizationCheckDoesNotThrow`: Battery check safe on all Android versions.
+    - `testNotificationChannelsCheckReturnsAllCategories`: Audits all 9 LifeOS channels.
+    - `testViewModelReminderHealthStateRefresh`: `LifeViewModel` StateFlow integration and state refresh.
+- **Full Notification Test Suite**:
+  - All tests in `com.example.notifications.*` passed (`ReminderHealthStateUnitTest`, `ReminderSchedulerUnitTest`, `BootRescheduleReceiverRobolectricTest`, `MaintenanceWorkerUnitTest`, `PreciseRemindersSettingsUnitTest`, `ReminderReceiverSecurityTest`, `ReminderReceiverAsyncTest`).
+- **Build Quality**:
+  - `.\gradlew.bat testDebugUnitTest --tests "com.example.notifications.*"`: **BUILD SUCCESSFUL** (0 failures).
+  - `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
+  - `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (clean APK packaging).
+
+### 9.5 Manual QA Checklist
+1. Open LifeOS Settings -> Notifications & Smart Alerts.
+2. Tap "Reminder Health & Diagnostics".
+3. Verify all 6 diagnostic cards are present (Notification Permission, Notification Channels, Exact-Alarm Permission, Battery Optimisation, Next Scheduled Reminders, Test Reminder).
+4. Tap "System Settings" under Notification Permission -> disable notifications -> return to LifeOS -> verify status dynamically updates to "Disabled". Re-enable notifications and return.
+5. In Notification Channels section, verify 9 channels are listed.
+6. Verify Exact-Alarm status card matches device capability.
+7. Verify Battery Optimisation card shows status and explanation of Doze mode.
+8. Tap "Send Test Reminder in 1 Min" -> Verify "Active (Due in ~60s)" banner and "Cancel Test Reminder" button appear.
+9. Verify that during test reminder countdown, no new tasks or medication records are created in the database.
+10. Wait 1 minute -> Verify test notification arrives with title "LifeOS Test Reminder" and "Diagnostics" channel.
+11. Tap "Cancel Test Reminder" before delivery -> Verify alarm is dismissed.
+12. Create a task with reminder in 30 minutes -> Return to Reminder Health screen -> Verify task appears in "Next Scheduled Reminders" with correct title, type, and trigger time.
+
 
 
 

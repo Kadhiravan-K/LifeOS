@@ -49,9 +49,11 @@ import com.example.mcp.McpToolCallResult
 import com.example.domain.projectworkspace.ProjectCustomProperty
 import com.example.domain.schedule.ScheduleConflict
 import com.example.domain.schedule.ScheduleConflictEngine
+import com.example.notifications.ChannelHealthStatus
 import com.example.notifications.ExactAlarmStatus
 import com.example.notifications.NotificationHelper
 import com.example.notifications.ReminderScheduler
+import com.example.notifications.ScheduledReminderItem
 import com.example.utils.DateUtils
 import com.example.ui.theme.engine.ThemeDefinition
 import com.example.ui.theme.engine.ThemeId
@@ -222,8 +224,54 @@ class LifeViewModel(
     private val _exactAlarmStatus = MutableStateFlow(ExactAlarmStatus.NOT_NEEDED)
     val exactAlarmStatus: StateFlow<ExactAlarmStatus> = _exactAlarmStatus.asStateFlow()
 
+    data class ReminderHealthState(
+        val areNotificationsEnabled: Boolean = true,
+        val exactAlarmStatus: ExactAlarmStatus = ExactAlarmStatus.NOT_NEEDED,
+        val isIgnoringBatteryOptimizations: Boolean = true,
+        val channels: List<ChannelHealthStatus> = emptyList(),
+        val upcomingReminders: List<ScheduledReminderItem> = emptyList(),
+        val isTestReminderScheduled: Boolean = false,
+        val isLoading: Boolean = false
+    )
+
+    private val _reminderHealthState = MutableStateFlow(ReminderHealthState(isLoading = true))
+    val reminderHealthState: StateFlow<ReminderHealthState> = _reminderHealthState.asStateFlow()
+
     fun refreshExactAlarmStatus(context: Context = getApplication<Application>()) {
         _exactAlarmStatus.value = ReminderScheduler.checkExactAlarmStatus(context)
+    }
+
+    fun refreshReminderHealth(context: Context = getApplication<Application>()): kotlinx.coroutines.Job {
+        refreshExactAlarmStatus(context)
+        return viewModelScope.launch(Dispatchers.IO) {
+            val notifEnabled = ReminderScheduler.checkNotificationPermission(context)
+            val exactAlarm = ReminderScheduler.checkExactAlarmStatus(context)
+            val batteryOpt = ReminderScheduler.checkBatteryOptimizationStatus(context)
+            val channels = ReminderScheduler.checkAllChannelsStatus(context)
+            val upcoming = ReminderScheduler.getUpcomingReminders(context, limit = 5)
+            val isTestScheduled = ReminderScheduler.isTestReminderScheduled(context)
+
+            _reminderHealthState.value = ReminderHealthState(
+                areNotificationsEnabled = notifEnabled,
+                exactAlarmStatus = exactAlarm,
+                isIgnoringBatteryOptimizations = batteryOpt,
+                channels = channels,
+                upcomingReminders = upcoming,
+                isTestReminderScheduled = isTestScheduled,
+                isLoading = false
+            )
+        }
+    }
+
+    fun scheduleTestReminder(context: Context = getApplication<Application>(), delaySeconds: Long = 60L): Boolean {
+        val success = ReminderScheduler.scheduleTestReminder(context, delaySeconds)
+        refreshReminderHealth(context)
+        return success
+    }
+
+    fun cancelTestReminder(context: Context = getApplication<Application>()) {
+        ReminderScheduler.cancelTestReminder(context)
+        refreshReminderHealth(context)
     }
 
     fun checkDateRollover(): Boolean {
@@ -243,6 +291,7 @@ class LifeViewModel(
 
     init {
         refreshExactAlarmStatus(getApplication<Application>())
+        refreshReminderHealth(getApplication<Application>())
         WidgetRefreshCoordinator.init(getApplication())
         viewModelScope.launch {
             while (isActive) {

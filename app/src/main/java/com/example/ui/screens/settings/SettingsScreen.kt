@@ -159,7 +159,8 @@ enum class SettingsSubpage {
     LEGAL_PRIVACY,
     USER_MANUAL,
     GLOSSARY,
-    MCP_BRIDGE
+    MCP_BRIDGE,
+    REMINDER_HEALTH
 }
 
 data class SettingsSearchItem(
@@ -188,6 +189,7 @@ fun getSettingsSearchRegistry(
     SettingsSearchItem("Smart Alarms & Notifications", "P1 alarms, medication reminders, snooze intervals, and sound alerts", "Notifications & Alerts", SettingsSubpage.NOTIFICATIONS, listOf("alarm", "notification", "p1", "snooze", "quiet hours", "sound")),
     SettingsSearchItem("Medication Reminders", "Schedule dosage times, interval alerts, and override quiet hours", "Notifications & Alerts", SettingsSubpage.NOTIFICATIONS, listOf("medicine", "medication", "pills", "dose", "prescription"), onDirectAction = onNavigateToMedication),
     SettingsSearchItem("Quiet Hours Schedule", "Mute non-critical notifications during sleep hours", "Notifications & Alerts", SettingsSubpage.NOTIFICATIONS, listOf("quiet hours", "sleep", "do not disturb", "mute", "silence")),
+    SettingsSearchItem("Reminder Health & Diagnostics", "Verify permissions, alarm quotas, battery restrictions, and inspect upcoming triggers", "Notifications & Alerts", SettingsSubpage.REMINDER_HEALTH, listOf("health", "diagnostics", "permission", "battery", "exact alarm", "test reminder", "upcoming", "troubleshooting")),
     SettingsSearchItem("Projects & Labels Manager", "Organize tasks by color-coded projects and custom tag labels", "Organization & Essentials", SettingsSubpage.PROJECTS_LABELS, listOf("projects", "labels", "tags", "categories", "folders")),
     SettingsSearchItem("Trackers & Subscriptions (My Essentials)", "Monitor monthly subscriptions, water intake, and recurring expenses", "Organization & Essentials", SettingsSubpage.TRACKERS_SUBSCRIPTIONS, listOf("essentials", "subscriptions", "expenses", "finance", "trackers", "spending")),
     SettingsSearchItem("Daily Schedule (Wake & Bed Time)", "Set wake up and bedtime hours for productivity planning", "Productivity & Schedule", SettingsSubpage.PRODUCTIVITY, listOf("schedule", "wake", "bed", "sleep", "routine", "hours")),
@@ -269,6 +271,13 @@ fun SettingsScreen(
             com.example.ui.screens.mcp.McpBridgeScreen(
                 viewModel = viewModel,
                 onBack = { currentSubpage = SettingsSubpage.HUB }
+            )
+            return
+        }
+        SettingsSubpage.REMINDER_HEALTH -> {
+            ReminderHealthScreen(
+                onBack = { currentSubpage = SettingsSubpage.NOTIFICATIONS },
+                viewModel = viewModel
             )
             return
         }
@@ -1340,6 +1349,40 @@ fun SettingsScreen(
                                 Text("Enable in Settings")
                             }
                         }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Reminder Health & Diagnostics Navigation Card (F-04 / IMP-02)
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { currentSubpage = SettingsSubpage.REMINDER_HEALTH }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("🩺 Reminder Health & Diagnostics", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Inspect permissions, channels, battery optimization, and preview upcoming scheduled reminders.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Open Reminder Health",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
 
