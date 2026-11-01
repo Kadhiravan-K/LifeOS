@@ -259,7 +259,7 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
                     context,
                     appWidgetId * 100 + i,
                     toggleIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
                 rv.setOnClickPendingIntent(tileContainerIds[i], togglePi)
             } else {
@@ -404,6 +404,10 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action == ACTION_WIDGET_TOGGLE_TASK) {
+            // Validate URI scheme to ensure intent originated from legitimate LifeOS widget PendingIntent
+            if (intent.data?.scheme != "lifeos") {
+                return
+            }
             val shortcutId = intent.getLongExtra("extra_shortcut_id", -1L)
             val fallbackType = intent.getStringExtra("extra_type") ?: "TASK"
             val fallbackTaskId = intent.getLongExtra("extra_task_id", -1L)

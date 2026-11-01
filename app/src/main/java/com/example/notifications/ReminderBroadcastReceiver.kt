@@ -36,6 +36,49 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         const val ACTION_MEDICINE_TAKEN = "com.example.lifeos.ACTION_MEDICINE_TAKEN"
         const val ACTION_MEDICINE_SNOOZE = "com.example.lifeos.ACTION_MEDICINE_SNOOZE"
         const val ACTION_MEDICINE_SKIP = "com.example.lifeos.ACTION_MEDICINE_SKIP"
+
+        /**
+         * Reschedules daily reminders, active task reminders, and scheduled medication doses
+         * upon device reboot.
+         */
+        fun rescheduleAllAlarmsOnBoot(context: Context) {
+            val database = AppDatabase.getInstance(context.applicationContext)
+            val preferences = UserPreferences(context.applicationContext)
+            val entitlementRepo = com.example.ui.theme.engine.LocalPremiumEntitlementRepository(context.applicationContext)
+            val repository = LifeRepository(database, preferences, entitlementRepo)
+
+            NotificationHelper.scheduleDailyReminder(context, 8, 0)
+            CoroutineScope(Dispatchers.IO).launch {
+                val todayIso = DateUtils.todayString()
+                val tasks = repository.getTasksForDateFlow(todayIso).first()
+                tasks.filter { (it.isReminderEnabled || it.reminders.isNotEmpty() || it.priority == com.example.domain.model.TaskPriority.P1) && !it.isCompletedForDate }.forEach { task ->
+                    NotificationHelper.scheduleAllTaskReminders(context, task, todayIso)
+                }
+
+                // Reschedule active medicine doses for today
+                val doses = database.medicationDao().getDosesForDate(todayIso)
+                val overrideQuiet = preferences.medicineOverrideQuietHours.first()
+                doses.filter { it.status == "SCHEDULED" }.forEach { doseEntity ->
+                    val item = MedicationDoseItem(
+                        id = doseEntity.id,
+                        medicationId = doseEntity.medicationId,
+                        taskId = doseEntity.taskId,
+                        medicationName = doseEntity.medicationName,
+                        medicationForm = MedicationForm.fromString(doseEntity.medicationForm),
+                        dosage = doseEntity.dosage,
+                        instructions = doseEntity.instructions,
+                        scheduledDateIso = doseEntity.scheduledDateIso,
+                        scheduledTime = doseEntity.scheduledTime,
+                        status = DoseStatus.valueOf(doseEntity.status)
+                    )
+                    NotificationHelper.scheduleMedicineDoseAlarm(
+                        context = context,
+                        dose = item,
+                        overrideQuietHours = overrideQuiet
+                    )
+                }
+            }
+        }
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -56,37 +99,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
 
         when (receivedAction) {
             Intent.ACTION_BOOT_COMPLETED -> {
-                NotificationHelper.scheduleDailyReminder(context, 8, 0)
-                CoroutineScope(Dispatchers.IO).launch {
-                    val todayIso = DateUtils.todayString()
-                    val tasks = repository.getTasksForDateFlow(todayIso).first()
-                    tasks.filter { (it.isReminderEnabled || it.reminders.isNotEmpty() || it.priority == com.example.domain.model.TaskPriority.P1) && !it.isCompletedForDate }.forEach { task ->
-                        NotificationHelper.scheduleAllTaskReminders(context, task, todayIso)
-                    }
-
-                    // Reschedule active medicine doses for today
-                    val doses = database.medicationDao().getDosesForDate(todayIso)
-                    val overrideQuiet = preferences.medicineOverrideQuietHours.first()
-                    doses.filter { it.status == "SCHEDULED" }.forEach { doseEntity ->
-                        val item = MedicationDoseItem(
-                            id = doseEntity.id,
-                            medicationId = doseEntity.medicationId,
-                            taskId = doseEntity.taskId,
-                            medicationName = doseEntity.medicationName,
-                            medicationForm = MedicationForm.fromString(doseEntity.medicationForm),
-                            dosage = doseEntity.dosage,
-                            instructions = doseEntity.instructions,
-                            scheduledDateIso = doseEntity.scheduledDateIso,
-                            scheduledTime = doseEntity.scheduledTime,
-                            status = DoseStatus.valueOf(doseEntity.status)
-                        )
-                        NotificationHelper.scheduleMedicineDoseAlarm(
-                            context = context,
-                            dose = item,
-                            overrideQuietHours = overrideQuiet
-                        )
-                    }
-                }
+                rescheduleAllAlarmsOnBoot(context)
             }
 
             ACTION_DAILY_REMINDER -> {

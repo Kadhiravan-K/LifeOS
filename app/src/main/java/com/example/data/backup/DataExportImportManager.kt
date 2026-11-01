@@ -26,6 +26,7 @@ import com.example.data.local.entities.BillingOccurrenceEntity
 import com.example.data.local.entities.SubscriptionPaymentEntity
 import com.example.data.local.entities.PriceHistoryEntity
 import com.example.data.local.entities.WaterLogEntity
+import androidx.room.withTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -652,9 +653,10 @@ object DataExportImportManager {
     suspend fun importData(database: AppDatabase, jsonStr: String): Boolean = withContext(Dispatchers.IO) {
         if (jsonStr.isBlank() || jsonStr.length > 50_000_000) return@withContext false
         try {
-            val root = JSONObject(jsonStr)
+            database.withTransaction {
+                val root = JSONObject(jsonStr)
 
-            // Import Profiles
+                // Import Profiles
             val profsArr = root.optJSONArray("profiles")
             if (profsArr != null) {
                 for (i in 0 until profsArr.length()) {
@@ -1294,7 +1296,8 @@ object DataExportImportManager {
                 }
             }
 
-            true
+                true
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             false

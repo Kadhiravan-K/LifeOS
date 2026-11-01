@@ -203,7 +203,7 @@ fun DashboardScreen(
                     border = BorderStroke(1.dp, if (activeStreak > 0) MaterialTheme.colorScheme.error.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
-                        .defaultMinSize(minHeight = 44.dp, minWidth = 44.dp)
+                        .defaultMinSize(minHeight = 48.dp, minWidth = 48.dp)
                         .clickable { onNavigateToGamification?.invoke() ?: onNavigateToHabits() }
                         .semantics {
                             contentDescription = if (activeStreak > 0) {

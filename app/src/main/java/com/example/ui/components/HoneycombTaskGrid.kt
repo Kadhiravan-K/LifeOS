@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -318,7 +319,8 @@ fun HoneycombTaskGrid(
                                         onZoomChange.invoke(newScale)
                                     },
                                     modifier = Modifier
-                                        .size(32.dp)
+                                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                        .semantics { contentDescription = "Zoom Out" }
                                         .testTag("honeycomb_zoom_out_button")
                                 ) {
                                     Text(
@@ -335,7 +337,7 @@ fun HoneycombTaskGrid(
                                         onZoomChange.invoke(newScale)
                                     },
                                     modifier = Modifier
-                                        .size(32.dp)
+                                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                         .testTag("honeycomb_zoom_in_button")
                                 ) {
                                     Icon(
@@ -349,7 +351,7 @@ fun HoneycombTaskGrid(
                                 IconButton(
                                     onClick = { onZoomChange.invoke(1.0f) },
                                     modifier = Modifier
-                                        .size(32.dp)
+                                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                         .testTag("honeycomb_zoom_reset_button")
                                 ) {
                                     Icon(

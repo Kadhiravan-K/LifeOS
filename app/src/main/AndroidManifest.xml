@@ -29,22 +29,20 @@
             </intent-filter>
         </activity>
 
+        <!-- System Boot Receiver (Guarded strictly by system RECEIVE_BOOT_COMPLETED permission) -->
         <receiver
-            android:name=".notifications.ReminderBroadcastReceiver"
-            android:exported="true">
+            android:name=".notifications.BootCompletedReceiver"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="com.example.lifeos.ACTION_DAILY_REMINDER" />
-                <action android:name="com.example.lifeos.ACTION_TASK_REMINDER" />
-                <action android:name="com.example.lifeos.ACTION_TASK_COMPLETE" />
-                <action android:name="com.example.lifeos.ACTION_TASK_SNOOZE" />
-                <action android:name="com.example.lifeos.ACTION_TASK_DISMISS" />
-                <action android:name="com.example.lifeos.ACTION_MEDICINE_REMINDER" />
-                <action android:name="com.example.lifeos.ACTION_MEDICINE_TAKEN" />
-                <action android:name="com.example.lifeos.ACTION_MEDICINE_SNOOZE" />
-                <action android:name="com.example.lifeos.ACTION_MEDICINE_SKIP" />
             </intent-filter>
         </receiver>
+
+        <!-- Internal LifeOS Reminders & Alarms Receiver (Completely private / unexported) -->
+        <receiver
+            android:name=".notifications.ReminderBroadcastReceiver"
+            android:exported="false" />
 
         <!-- LifeOS Quick Reminders Home-Screen Widget -->
         <receiver
