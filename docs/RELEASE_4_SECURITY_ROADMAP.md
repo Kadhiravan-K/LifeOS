@@ -178,4 +178,72 @@ The Release 4 Room database contains **40 entities**. Current backup export in `
   - `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (clean APK packaging).
   - `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
 
+---
+
+## 7. Phase P2-L1: Receiver Security, goAsync(), and Widget Action Hardening (Completed)
+
+### 7.1 Component Isolation & Receiver Hardening (SEC-01)
+- **Non-Exported Reminder Component**:
+  - `ReminderBroadcastReceiver` is unexported (`android:exported="false"`), preventing arbitrary external applications from triggering notification alerts or snoozing/completing user tasks.
+  - All `PendingIntent` creation sites across notifications and widgets enforce explicit targeting (`Intent(context, TargetClass::class.java)`) and immutable flags (`FLAG_IMMUTABLE` / `FLAG_UPDATE_CURRENT`).
+- **Strict Intent Action Whitelist**:
+  - `ReminderBroadcastReceiver.onReceive()` strictly evaluates inbound actions against a closed set:
+    `ACTION_DAILY_REMINDER`, `ACTION_TASK_REMINDER`, `ACTION_TASK_COMPLETE`, `ACTION_TASK_SNOOZE`, `ACTION_MEDICINE_REMINDER`, `ACTION_MEDICINE_TAKEN`, `ACTION_MEDICINE_SNOOZE`, `ACTION_MEDICINE_SKIP`.
+  - Unknown, null, or foreign actions are immediately rejected and logged without processing.
+- **Dedicated Boot Completion Handling**:
+  - System boot completion is isolated to `BootCompletedReceiver`, protected by `android.permission.RECEIVE_BOOT_COMPLETED`.
+  - Re-scheduling of active alarms delegates cleanly to `ReminderActionHandler.rescheduleAllAlarmsOnBoot(context)`.
+
+### 7.2 Asynchronous Receiver Architecture & ANR Prevention (REM-01)
+- **`runAsync` Coroutine Extension**:
+  - Implemented `BroadcastReceiver.runAsync(timeoutMs = 9_000L)` and `runAsyncInternal()` in `com.example.notifications.BroadcastReceiverExtensions.kt`.
+  - Synchronously invokes `goAsync()` on the main thread, holding a `BroadcastReceiver.PendingResult` to inform the Android OS of active background processing.
+  - Offloads database I/O, notification posting, and alarm scheduling to `Dispatchers.IO`.
+  - Enforces bounded execution with `withTimeout(timeoutMs)` (9,000ms ceiling, safely preventing the Android 10-second BroadcastQueue ANR threshold).
+  - Guarantees `pendingResult.finish()` is invoked exactly once inside a `finally` block under all execution outcomes: normal completion, timeout cancellation, or unhandled exception.
+  - Built-in headless test resilience: logging calls gracefully catch unmocked `android.util.Log` exceptions during pure JVM unit testing.
+- **Adoption Across Receivers & AppWidget Providers**:
+  - Fully integrated in `ReminderBroadcastReceiver`, `BootCompletedReceiver`, and `QuickRemindersActionReceiver`.
+  - Integrated into widget update cycles across `QuickRemindersWidgetProvider`, `SubscriptionWidgetProvider`, `TrackerWidgetProvider`, and `ProductivityRadarWidgetProvider`.
+
+### 7.3 Reminder Domain Action Handler (RFR-04)
+- Extracted domain business logic out of `ReminderBroadcastReceiver` into dedicated `ReminderActionHandler`.
+- Manages complete lifecycle for daily reminders, task alarms, snooze intervals, task completions, and medication doses.
+- Eliminates receiver bloat while ensuring high testability and clean domain separation.
+
+### 7.4 Quick Reminders Widget Task Resolution & Action Hardening (SEC-02 / WID-01)
+- **Resolution Strategy**:
+  - Primary resolution: Resolves tasks strictly by numeric ID (`targetId`) parsed from the URI or intent extras.
+  - Fallback resolution: Looks up tasks by exact title (case-insensitive) ONLY if exactly one task matches.
+  - Disambiguation: If 0 or >1 tasks match the title, resolution is rejected. Substring matching is strictly eliminated.
+- **Elimination of Silent Task Creation**:
+  - Completely removed `getOrCreateTaskForShortcut`.
+  - Unlinked, corrupt, or unresolvable shortcuts fail safely without silently injecting unexpected tasks into the user's database.
+
+### 7.5 Verification & Test Evidence
+- **Automated Test Suites**:
+  1. `ReminderReceiverSecurityTest` (6 tests):
+     - `testUnknownActionRejected`: Rejects unapproved action strings.
+     - `testNullActionHandledSafely`: Handles null actions without crashing.
+     - `testBootCompletedNotHandledByReminderReceiver`: Confirms `ACTION_BOOT_COMPLETED` is discarded by reminder receiver.
+     - `testAllowedActionsAreWhitelisted`: Verifies all approved actions pass through.
+     - `testPendingIntentTargetingIsExplicit`: Confirms explicit component targeting.
+     - `testPendingIntentUsesImmutableFlag`: Enforces immutable PendingIntent creation.
+  2. `ReminderReceiverAsyncTest` (4 tests):
+     - `testFinishCalledOnSuccess`: Verifies coroutine block execution and single finish call.
+     - `testFinishCalledOnException`: Verifies exception handling and guaranteed finish call.
+     - `testFinishCalledOnTimeout`: Verifies cancellation and guaranteed finish call on timeout.
+     - `testMultipleBranchesFinishExactlyOnce`: Verifies determinism across branching logic.
+  3. `WidgetTileResolutionTest` (5 tests):
+     - `testExactIdMatchResolvesCorrectly`: Fast-path numeric ID lookup.
+     - `testExactUniqueTitleMatchResolvesCorrectly`: Unique exact title resolution.
+     - `testAmbiguousTitleMatchRejectsResolution`: Rejects multiple matching titles.
+     - `testSubstringTitleMatchRejectsResolution`: Rejects substring matching.
+     - `testNonExistentTitleRejectsWithoutCreation`: Verifies non-creation for non-existent shortcuts.
+- **Build Quality**:
+  - `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (0 failures across all unit test suites).
+  - `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
+  - `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (clean APK compilation and packaging).
+
+
 

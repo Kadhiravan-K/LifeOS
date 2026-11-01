@@ -11,9 +11,7 @@ import com.example.MainActivity
 import com.example.R
 import com.example.data.local.AppDatabase
 import com.example.data.local.entities.TrackerEntity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.example.notifications.runAsync
 
 class TrackerWidgetProvider : AppWidgetProvider() {
 
@@ -37,49 +35,42 @@ class TrackerWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        val pendingResult = goAsync()
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val database = AppDatabase.getInstance(context)
-                val list = database.trackerDao().getAllTrackersList().filter { !it.isArchived }
+        runAsync(timeoutMs = 9_000L) {
+            val database = AppDatabase.getInstance(context)
+            val list = database.trackerDao().getAllTrackersList().filter { !it.isArchived }
 
-                val summaryText = if (list.isEmpty()) {
-                    "No active trackers.\nTap to setup essentials in LifeOS."
-                } else {
-                    list.take(4).joinToString("\n\n") { t ->
-                        val stockStr = if (t.currentStock > 0) " • 📦 ${t.currentStock}" else ""
-                        val targetStr = if (t.trackDistance) {
-                            t.distanceUnit.lowercase()
-                        } else if (t.trackDuration) {
-                            "Duration cycle"
-                        } else {
-                            "Active"
-                        }
-                        "${t.emoji} ${t.title}${stockStr}\n   $targetStr"
+            val summaryText = if (list.isEmpty()) {
+                "No active trackers.\nTap to setup essentials in LifeOS."
+            } else {
+                list.take(4).joinToString("\n\n") { t ->
+                    val stockStr = if (t.currentStock > 0) " • 📦 ${t.currentStock}" else ""
+                    val targetStr = if (t.trackDistance) {
+                        t.distanceUnit.lowercase()
+                    } else if (t.trackDuration) {
+                        "Duration cycle"
+                    } else {
+                        "Active"
                     }
+                    "${t.emoji} ${t.title}${stockStr}\n   $targetStr"
                 }
+            }
 
-                for (widgetId in appWidgetIds) {
-                    val views = RemoteViews(context.packageName, R.layout.widget_essentials_tracker)
-                    views.setTextViewText(R.id.widget_tracker_content, summaryText)
+            for (widgetId in appWidgetIds) {
+                val views = RemoteViews(context.packageName, R.layout.widget_essentials_tracker)
+                views.setTextViewText(R.id.widget_tracker_content, summaryText)
 
-                    val openIntent = Intent(context, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    }
-                    val pendingIntent = PendingIntent.getActivity(
-                        context,
-                        widgetId,
-                        openIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                    views.setOnClickPendingIntent(R.id.widget_tracker_root, pendingIntent)
-
-                    appWidgetManager.updateAppWidget(widgetId, views)
+                val openIntent = Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("TrackerWidgetProvider", "Failed to update tracker widget", e)
-            } finally {
-                pendingResult.finish()
+                val pendingIntent = PendingIntent.getActivity(
+                    context,
+                    widgetId,
+                    openIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.widget_tracker_root, pendingIntent)
+
+                appWidgetManager.updateAppWidget(widgetId, views)
             }
         }
     }

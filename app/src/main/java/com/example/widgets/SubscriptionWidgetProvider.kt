@@ -11,9 +11,7 @@ import com.example.MainActivity
 import com.example.R
 import com.example.data.local.AppDatabase
 import com.example.data.local.entities.SubscriptionEntity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.example.notifications.runAsync
 
 class SubscriptionWidgetProvider : AppWidgetProvider() {
 
@@ -37,43 +35,36 @@ class SubscriptionWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        val pendingResult = goAsync()
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val database = AppDatabase.getInstance(context)
-                val list = database.subscriptionDao().getAllSubscriptionsList().filter { it.status == "ACTIVE" || it.status == "TRIAL" }
+        runAsync(timeoutMs = 9_000L) {
+            val database = AppDatabase.getInstance(context)
+            val list = database.subscriptionDao().getAllSubscriptionsList().filter { it.status == "ACTIVE" || it.status == "TRIAL" }
 
-                val summaryText = if (list.isEmpty()) {
-                    "No upcoming subscriptions.\nTap to organize recurring bills."
-                } else {
-                    list.take(4).joinToString("\n\n") { s ->
-                        val dueStr = if (!s.nextRenewalDateIso.isBlank()) "Due: ${s.nextRenewalDateIso}" else "Active"
-                        val freqStr = s.frequency.lowercase()
-                        "${s.emoji} ${s.title} (${s.currency} ${s.amount})\n   $dueStr • $freqStr"
-                    }
+            val summaryText = if (list.isEmpty()) {
+                "No upcoming subscriptions.\nTap to organize recurring bills."
+            } else {
+                list.take(4).joinToString("\n\n") { s ->
+                    val dueStr = if (!s.nextRenewalDateIso.isBlank()) "Due: ${s.nextRenewalDateIso}" else "Active"
+                    val freqStr = s.frequency.lowercase()
+                    "${s.emoji} ${s.title} (${s.currency} ${s.amount})\n   $dueStr • $freqStr"
                 }
+            }
 
-                for (widgetId in appWidgetIds) {
-                    val views = RemoteViews(context.packageName, R.layout.widget_essentials_subscription)
-                    views.setTextViewText(R.id.widget_sub_content, summaryText)
+            for (widgetId in appWidgetIds) {
+                val views = RemoteViews(context.packageName, R.layout.widget_essentials_subscription)
+                views.setTextViewText(R.id.widget_sub_content, summaryText)
 
-                    val openIntent = Intent(context, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    }
-                    val pendingIntent = PendingIntent.getActivity(
-                        context,
-                        widgetId,
-                        openIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                    views.setOnClickPendingIntent(R.id.widget_sub_root, pendingIntent)
-
-                    appWidgetManager.updateAppWidget(widgetId, views)
+                val openIntent = Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("SubscriptionWidget", "Failed to update subscription widget", e)
-            } finally {
-                pendingResult.finish()
+                val pendingIntent = PendingIntent.getActivity(
+                    context,
+                    widgetId,
+                    openIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.widget_sub_root, pendingIntent)
+
+                appWidgetManager.updateAppWidget(widgetId, views)
             }
         }
     }

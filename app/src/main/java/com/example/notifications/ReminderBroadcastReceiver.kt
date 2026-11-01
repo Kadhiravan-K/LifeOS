@@ -1,27 +1,21 @@
 package com.example.notifications
 
-import android.app.AlarmManager
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
-import com.example.data.local.AppDatabase
-import com.example.data.preferences.UserPreferences
-import com.example.data.repository.LifeRepository
-import com.example.domain.medication.AlertStyle
-import com.example.domain.medication.DoseStatus
-import com.example.domain.medication.IntervalModel
-import com.example.domain.medication.MedicationDoseItem
-import com.example.domain.medication.MedicationForm
-import com.example.domain.medication.MedicineScheduleType
+import android.util.Log
 import com.example.utils.DateUtils
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 
+/**
+ * Internal BroadcastReceiver for LifeOS reminders and alarms (SEC-01).
+ *
+ * Security Architecture:
+ * - Marked android:exported="false" in AndroidManifest.xml.
+ * - System alarms and notifications target this receiver explicitly via Explicit PendingIntents.
+ * - External components cannot inject or broadcast intents to this receiver.
+ * - Enforces strict action whitelisting and parameter validation before execution.
+ * - Delegates all asynchronous domain operations to ReminderActionHandler via runAsync() (REM-01 / RFR-04).
+ */
 class ReminderBroadcastReceiver : BroadcastReceiver() {
 
     companion object {
@@ -37,354 +31,134 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         const val ACTION_MEDICINE_SNOOZE = "com.example.lifeos.ACTION_MEDICINE_SNOOZE"
         const val ACTION_MEDICINE_SKIP = "com.example.lifeos.ACTION_MEDICINE_SKIP"
 
+        val ALLOWED_ACTIONS: Set<String> = setOf(
+            ACTION_DAILY_REMINDER,
+            ACTION_TASK_REMINDER,
+            ACTION_TASK_COMPLETE,
+            ACTION_TASK_SNOOZE,
+            ACTION_TASK_DISMISS,
+            ACTION_MEDICINE_REMINDER,
+            ACTION_MEDICINE_TAKEN,
+            ACTION_MEDICINE_SNOOZE,
+            ACTION_MEDICINE_SKIP
+        )
+
         /**
-         * Reschedules daily reminders, active task reminders, and scheduled medication doses
-         * upon device reboot.
+         * Delegation hook for boot rescheduling (RFR-04).
          */
-        fun rescheduleAllAlarmsOnBoot(context: Context) {
-            val database = AppDatabase.getInstance(context.applicationContext)
-            val preferences = UserPreferences(context.applicationContext)
-            val entitlementRepo = com.example.ui.theme.engine.LocalPremiumEntitlementRepository(context.applicationContext)
-            val repository = LifeRepository(database, preferences, entitlementRepo)
-
-            NotificationHelper.scheduleDailyReminder(context, 8, 0)
-            CoroutineScope(Dispatchers.IO).launch {
-                val todayIso = DateUtils.todayString()
-                val tasks = repository.getTasksForDateFlow(todayIso).first()
-                tasks.filter { (it.isReminderEnabled || it.reminders.isNotEmpty() || it.priority == com.example.domain.model.TaskPriority.P1) && !it.isCompletedForDate }.forEach { task ->
-                    NotificationHelper.scheduleAllTaskReminders(context, task, todayIso)
-                }
-
-                // Reschedule active medicine doses for today
-                val doses = database.medicationDao().getDosesForDate(todayIso)
-                val overrideQuiet = preferences.medicineOverrideQuietHours.first()
-                doses.filter { it.status == "SCHEDULED" }.forEach { doseEntity ->
-                    val item = MedicationDoseItem(
-                        id = doseEntity.id,
-                        medicationId = doseEntity.medicationId,
-                        taskId = doseEntity.taskId,
-                        medicationName = doseEntity.medicationName,
-                        medicationForm = MedicationForm.fromString(doseEntity.medicationForm),
-                        dosage = doseEntity.dosage,
-                        instructions = doseEntity.instructions,
-                        scheduledDateIso = doseEntity.scheduledDateIso,
-                        scheduledTime = doseEntity.scheduledTime,
-                        status = DoseStatus.valueOf(doseEntity.status)
-                    )
-                    NotificationHelper.scheduleMedicineDoseAlarm(
-                        context = context,
-                        dose = item,
-                        overrideQuietHours = overrideQuiet
-                    )
-                }
-            }
+        suspend fun rescheduleAllAlarmsOnBoot(context: Context) {
+            ReminderActionHandler.rescheduleAllAlarmsOnBoot(context)
         }
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        val receivedAction = intent.action ?: return
-
-        // Security hardening: For internal LifeOS actions, reject any intent targeted from other packages
-        if (receivedAction != Intent.ACTION_BOOT_COMPLETED) {
-            val pkg = intent.`package` ?: intent.component?.packageName
-            if (pkg != null && pkg != context.packageName) {
-                return
-            }
+        val action = intent.action
+        if (action.isNullOrBlank() || action !in ALLOWED_ACTIONS) {
+            Log.w("ReminderReceiver", "Rejected unauthorized or unknown action: '$action'")
+            return
         }
 
-        val database = AppDatabase.getInstance(context.applicationContext)
-        val preferences = UserPreferences(context.applicationContext)
-        val entitlementRepo = com.example.ui.theme.engine.LocalPremiumEntitlementRepository(context.applicationContext)
-        val repository = LifeRepository(database, preferences, entitlementRepo)
-
-        when (receivedAction) {
-            Intent.ACTION_BOOT_COMPLETED -> {
-                rescheduleAllAlarmsOnBoot(context)
-            }
-
+        when (action) {
             ACTION_DAILY_REMINDER -> {
-                CoroutineScope(Dispatchers.IO).launch {
-                    val isDailySummaryEnabled = preferences.notifDailySummaryEnabled.first()
-                    if (isDailySummaryEnabled) {
-                        NotificationHelper.showDailyDigestNotification(
-                            context = context,
-                            title = "⚡ LifeOS Daily Momentum",
-                            message = "Check off your daily habits, top priorities, and 75-Day Challenge rules for today!"
-                        )
-                    }
+                runAsync {
+                    ReminderActionHandler.handleDailyReminder(context)
                 }
             }
 
             ACTION_TASK_REMINDER -> {
-                val taskId = intent.getLongExtra(NotificationHelper.EXTRA_TASK_ID, -1L)
-                val title = intent.getStringExtra(NotificationHelper.EXTRA_TASK_TITLE) ?: "Task Reminder"
-                val emoji = intent.getStringExtra(NotificationHelper.EXTRA_TASK_EMOJI) ?: "✅"
-                val dateIso = intent.getStringExtra(NotificationHelper.EXTRA_DATE_ISO) ?: DateUtils.todayString()
-                val dueTime = intent.getStringExtra("extra_due_time")
-                val isP1 = intent.getBooleanExtra("extra_is_p1", false)
-                val snoozeCount = intent.getIntExtra("extra_snooze_count", 0)
-
-                if (taskId != -1L) {
-                    CoroutineScope(Dispatchers.IO).launch {
-                        val isTasksNotifEnabled = preferences.notifTasksEnabled.first()
-                        val isP1AlarmPrefEnabled = preferences.p1AlarmEnabled.first()
-                        if (isTasksNotifEnabled || (isP1 && isP1AlarmPrefEnabled)) {
-                            NotificationHelper.showTaskReminderNotification(
-                                context = context,
-                                taskId = taskId,
-                                title = title,
-                                emoji = emoji,
-                                dueTime = dueTime,
-                                dateIso = dateIso,
-                                isP1 = isP1,
-                                snoozeCount = snoozeCount
-                            )
-                        }
-                    }
+                runAsync {
+                    ReminderActionHandler.handleTaskReminder(context, intent)
                 }
             }
 
             ACTION_TASK_COMPLETE -> {
                 val taskId = intent.getLongExtra(NotificationHelper.EXTRA_TASK_ID, -1L)
                 val dateIso = intent.getStringExtra(NotificationHelper.EXTRA_DATE_ISO) ?: DateUtils.todayString()
+                if (taskId <= 0L) {
+                    Log.w("ReminderReceiver", "Rejected ACTION_TASK_COMPLETE with invalid taskId: $taskId")
+                    return
+                }
 
-                if (taskId != -1L) {
-                    val notificationId = (taskId.toInt() * 31) + dateIso.hashCode().and(0x7FFFFFFF) % 10000
-                    val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                    nm.cancel(notificationId)
+                // Immediately cancel notification on main thread
+                ReminderActionHandler.cancelTaskNotification(context, taskId, dateIso)
 
-                    CoroutineScope(Dispatchers.IO).launch {
-                        repository.toggleTaskCompletion(taskId, dateIso)
-                        com.example.widgets.QuickRemindersWidgetProvider.notifyDataChanged(context)
-                    }
+                runAsync {
+                    ReminderActionHandler.handleTaskComplete(context, taskId, dateIso)
                 }
             }
 
             ACTION_TASK_DISMISS -> {
                 val taskId = intent.getLongExtra(NotificationHelper.EXTRA_TASK_ID, -1L)
                 val dateIso = intent.getStringExtra(NotificationHelper.EXTRA_DATE_ISO) ?: DateUtils.todayString()
-
-                if (taskId != -1L) {
-                    val notificationId = (taskId.toInt() * 31) + dateIso.hashCode().and(0x7FFFFFFF) % 10000
-                    val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                    nm.cancel(notificationId)
+                if (taskId <= 0L) {
+                    Log.w("ReminderReceiver", "Rejected ACTION_TASK_DISMISS with invalid taskId: $taskId")
+                    return
                 }
+                ReminderActionHandler.cancelTaskNotification(context, taskId, dateIso)
             }
 
             ACTION_TASK_SNOOZE -> {
                 val taskId = intent.getLongExtra(NotificationHelper.EXTRA_TASK_ID, -1L)
-                val title = intent.getStringExtra(NotificationHelper.EXTRA_TASK_TITLE) ?: "Task Reminder"
-                val emoji = intent.getStringExtra(NotificationHelper.EXTRA_TASK_EMOJI) ?: "✅"
                 val dateIso = intent.getStringExtra(NotificationHelper.EXTRA_DATE_ISO) ?: DateUtils.todayString()
-                val isP1 = intent.getBooleanExtra("extra_is_p1", false)
-                val snoozeCount = intent.getIntExtra("extra_snooze_count", 0)
-                val explicitSnoozeMins = intent.getIntExtra("extra_snooze_minutes", -1)
-
-                if (taskId != -1L) {
-                    val notificationId = (taskId.toInt() * 31) + dateIso.hashCode().and(0x7FFFFFFF) % 10000
-                    val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                    nm.cancel(notificationId)
-
-                    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
-                    if (alarmManager != null) {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            val maxSnooze = if (isP1) preferences.p1MaxSnoozeCount.first() else 5
-                            if (snoozeCount >= maxSnooze) {
-                                return@launch
-                            }
-                            val snoozeMins = if (explicitSnoozeMins > 0) {
-                                explicitSnoozeMins
-                            } else if (isP1) {
-                                preferences.p1SnoozeMinutes.first()
-                            } else {
-                                preferences.defaultSnoozeMinutes.first()
-                            }
-                            val snoozeTrigger = System.currentTimeMillis() + (snoozeMins * 60 * 1000L)
-                            val snoozeIntent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
-                                action = ACTION_TASK_REMINDER
-                                putExtra(NotificationHelper.EXTRA_TASK_ID, taskId)
-                                putExtra(NotificationHelper.EXTRA_TASK_TITLE, title)
-                                putExtra(NotificationHelper.EXTRA_TASK_EMOJI, emoji)
-                                putExtra(NotificationHelper.EXTRA_DATE_ISO, dateIso)
-                                putExtra("extra_is_p1", isP1)
-                                putExtra("extra_snooze_count", snoozeCount + 1)
-                            }
-                            val pending = PendingIntent.getBroadcast(
-                                context,
-                                notificationId + 300000,
-                                snoozeIntent,
-                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                            )
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                if (alarmManager.canScheduleExactAlarms()) {
-                                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, snoozeTrigger, pending)
-                                } else {
-                                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, snoozeTrigger, pending)
-                                }
-                            } else {
-                                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, snoozeTrigger, pending)
-                            }
-                        }
-                    }
+                if (taskId <= 0L) {
+                    Log.w("ReminderReceiver", "Rejected ACTION_TASK_SNOOZE with invalid taskId: $taskId")
+                    return
+                }
+                ReminderActionHandler.cancelTaskNotification(context, taskId, dateIso)
+                runAsync {
+                    ReminderActionHandler.handleTaskSnooze(context, intent)
                 }
             }
 
-            // ==========================================
-            // MEDICINE ACTIONS
-            // ==========================================
-
             ACTION_MEDICINE_REMINDER -> {
                 val doseId = intent.getLongExtra(NotificationHelper.EXTRA_DOSE_ID, -1L)
-                val medicationId = intent.getLongExtra(NotificationHelper.EXTRA_MEDICATION_ID, -1L)
-                val taskId = intent.getLongExtra(NotificationHelper.EXTRA_TASK_ID, -1L)
-                val name = intent.getStringExtra(NotificationHelper.EXTRA_MEDICATION_NAME) ?: "Medication"
-                val form = intent.getStringExtra(NotificationHelper.EXTRA_MEDICATION_FORM) ?: "TABLET"
-                val dosage = intent.getStringExtra(NotificationHelper.EXTRA_MEDICATION_DOSAGE) ?: "1 dose"
-                val instructions = intent.getStringExtra(NotificationHelper.EXTRA_MEDICATION_INSTRUCTIONS) ?: ""
-                val scheduledTime = intent.getStringExtra(NotificationHelper.EXTRA_SCHEDULED_TIME) ?: "08:00"
-                val dateIso = intent.getStringExtra(NotificationHelper.EXTRA_DATE_ISO) ?: DateUtils.todayString()
-
-                if (doseId != -1L) {
-                    CoroutineScope(Dispatchers.IO).launch {
-                        val isMedNotifEnabled = preferences.notifMedicineEnabled.first()
-                        if (!isMedNotifEnabled) return@launch
-
-                        val doseEntity = database.medicationDao().getDoseById(doseId)
-                        // Only show if not already taken or skipped
-                        if (doseEntity == null || doseEntity.status == "TAKEN" || doseEntity.status == "SKIPPED") {
-                            return@launch
-                        }
-
-                        val privacyEnabled = preferences.notificationPrivacyEnabled.first()
-                        val defaultStyleStr = preferences.defaultAlertStyle.first()
-                        val alertStyle = try { AlertStyle.valueOf(defaultStyleStr) } catch (e: Exception) { AlertStyle.STANDARD }
-
-                        NotificationHelper.showMedicineReminderNotification(
-                            context = context,
-                            doseId = doseId,
-                            medicationId = medicationId,
-                            taskId = taskId,
-                            name = name,
-                            form = form,
-                            dosage = dosage,
-                            instructions = instructions,
-                            scheduledTime = scheduledTime,
-                            dateIso = dateIso,
-                            privacySafe = privacyEnabled,
-                            alertStyle = alertStyle
-                        )
-
-                        // Follow-up scheduling if enabled
-                        val isFollowUpOn = preferences.followUpEnabled.first()
-                        val maxFollowUps = preferences.maxFollowUpCount.first()
-                        if (isFollowUpOn && doseEntity.followUpCount < maxFollowUps) {
-                            database.medicationDao().incrementFollowUpCount(doseId)
-                            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
-                            if (alarmManager != null) {
-                                val followUpTrigger = System.currentTimeMillis() + (15 * 60 * 1000L)
-                                val followUpIntent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
-                                    action = ACTION_MEDICINE_REMINDER
-                                    putExtras(intent)
-                                }
-                                val pendingFollowUp = PendingIntent.getBroadcast(
-                                    context,
-                                    (doseId.toInt() * 37) + 80000 + doseEntity.followUpCount,
-                                    followUpIntent,
-                                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                                )
-                                try {
-                                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, followUpTrigger, pendingFollowUp)
-                                } catch (e: Exception) {}
-                            }
-                        }
-                    }
+                if (doseId <= 0L) {
+                    Log.w("ReminderReceiver", "Rejected ACTION_MEDICINE_REMINDER with invalid doseId: $doseId")
+                    return
+                }
+                runAsync {
+                    ReminderActionHandler.handleMedicineReminder(context, intent)
                 }
             }
 
             ACTION_MEDICINE_TAKEN -> {
                 val doseId = intent.getLongExtra(NotificationHelper.EXTRA_DOSE_ID, -1L)
+                if (doseId <= 0L) {
+                    Log.w("ReminderReceiver", "Rejected ACTION_MEDICINE_TAKEN with invalid doseId: $doseId")
+                    return
+                }
+                ReminderActionHandler.cancelMedicineNotification(context, doseId)
+
                 val medicationId = intent.getLongExtra(NotificationHelper.EXTRA_MEDICATION_ID, -1L)
                 val taskId = intent.getLongExtra(NotificationHelper.EXTRA_TASK_ID, -1L)
                 val dateIso = intent.getStringExtra(NotificationHelper.EXTRA_DATE_ISO) ?: DateUtils.todayString()
 
-                if (doseId != -1L) {
-                    val notificationId = (doseId.toInt() * 37) + 50000
-                    val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                    nm.cancel(notificationId)
-
-                    CoroutineScope(Dispatchers.IO).launch {
-                        // Idempotent: record taken in medication_doses
-                        database.medicationDao().updateDoseStatus(
-                            id = doseId,
-                            status = DoseStatus.TAKEN.name,
-                            timestamp = System.currentTimeMillis(),
-                            notes = "Dose confirmed taken at ${DateUtils.currentTimeString()}"
-                        )
-
-                        // If all doses for today are taken, mark parent task completed for date
-                        if (medicationId != -1L && taskId != -1L) {
-                            val todayDoses = database.medicationDao().getDosesForDate(dateIso).filter { it.medicationId == medicationId }
-                            if (todayDoses.isNotEmpty() && todayDoses.all { it.status == "TAKEN" || it.status == "SKIPPED" }) {
-                                repository.markTaskCompletedForDate(taskId, dateIso)
-                            }
-                        }
-                    }
+                runAsync {
+                    ReminderActionHandler.handleMedicineTaken(context, doseId, medicationId, taskId, dateIso)
                 }
             }
 
             ACTION_MEDICINE_SNOOZE -> {
                 val doseId = intent.getLongExtra(NotificationHelper.EXTRA_DOSE_ID, -1L)
-                if (doseId != -1L) {
-                    val notificationId = (doseId.toInt() * 37) + 50000
-                    val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                    nm.cancel(notificationId)
-
-                    CoroutineScope(Dispatchers.IO).launch {
-                        database.medicationDao().incrementSnoozeCount(doseId)
-                        val snoozeMins = preferences.defaultSnoozeMinutes.first()
-                        val snoozeTrigger = System.currentTimeMillis() + (snoozeMins * 60 * 1000L)
-
-                        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
-                        if (alarmManager != null) {
-                            val snoozeIntent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
-                                action = ACTION_MEDICINE_REMINDER
-                                putExtras(intent)
-                            }
-                            val pending = PendingIntent.getBroadcast(
-                                context,
-                                (doseId.toInt() * 37) + 90000,
-                                snoozeIntent,
-                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                            )
-                            try {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
-                                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, snoozeTrigger, pending)
-                                } else {
-                                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, snoozeTrigger, pending)
-                                }
-                            } catch (e: Exception) {
-                                alarmManager.set(AlarmManager.RTC_WAKEUP, snoozeTrigger, pending)
-                            }
-                        }
-                    }
+                if (doseId <= 0L) {
+                    Log.w("ReminderReceiver", "Rejected ACTION_MEDICINE_SNOOZE with invalid doseId: $doseId")
+                    return
+                }
+                ReminderActionHandler.cancelMedicineNotification(context, doseId)
+                runAsync {
+                    ReminderActionHandler.handleMedicineSnooze(context, intent)
                 }
             }
 
             ACTION_MEDICINE_SKIP -> {
                 val doseId = intent.getLongExtra(NotificationHelper.EXTRA_DOSE_ID, -1L)
-                if (doseId != -1L) {
-                    val notificationId = (doseId.toInt() * 37) + 50000
-                    val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                    nm.cancel(notificationId)
-
-                    CoroutineScope(Dispatchers.IO).launch {
-                        database.medicationDao().updateDoseStatus(
-                            id = doseId,
-                            status = DoseStatus.SKIPPED.name,
-                            timestamp = System.currentTimeMillis(),
-                            notes = "Skipped by user at ${DateUtils.currentTimeString()}"
-                        )
-                    }
+                if (doseId <= 0L) {
+                    Log.w("ReminderReceiver", "Rejected ACTION_MEDICINE_SKIP with invalid doseId: $doseId")
+                    return
+                }
+                ReminderActionHandler.cancelMedicineNotification(context, doseId)
+                runAsync {
+                    ReminderActionHandler.handleMedicineSkip(context, doseId)
                 }
             }
         }

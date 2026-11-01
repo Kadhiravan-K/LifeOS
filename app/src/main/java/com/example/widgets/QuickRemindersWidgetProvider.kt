@@ -25,6 +25,7 @@ import com.example.domain.model.ChallengeDailyLog
 import com.example.domain.model.HabitItem
 import com.example.domain.model.RecurrenceType
 import com.example.domain.model.TodoistColorPalette
+import com.example.notifications.runAsync
 import com.example.ui.theme.engine.LocalPremiumEntitlementRepository
 import com.example.utils.DateUtils
 import kotlinx.coroutines.CoroutineScope
@@ -120,8 +121,15 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        for (appWidgetId in appWidgetIds) {
-            updateAppWidget(context, appWidgetManager, appWidgetId)
+        runAsync(timeoutMs = 9_000L) {
+            for (appWidgetId in appWidgetIds) {
+                try {
+                    val views = buildWidgetViews(context, appWidgetId)
+                    appWidgetManager.updateAppWidget(appWidgetId, views)
+                } catch (e: Exception) {
+                    android.util.Log.e("QuickRemindersWidget", "Error updating widget id $appWidgetId", e)
+                }
+            }
         }
     }
 
@@ -132,19 +140,7 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
         newOptions: Bundle?
     ) {
         super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
-        updateAppWidget(context, appWidgetManager, appWidgetId)
-    }
-
-    /**
-     * Launches data load on IO thread, then calls appWidgetManager.updateAppWidget.
-     * Never blocks the main thread.
-     */
-    private fun updateAppWidget(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetId: Int
-    ) {
-        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+        runAsync(timeoutMs = 9_000L) {
             try {
                 val views = buildWidgetViews(context, appWidgetId)
                 appWidgetManager.updateAppWidget(appWidgetId, views)
@@ -322,12 +318,15 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
             when (sc.type) {
                 "TASK" -> {
                     typeDefaultColor = 0xFF3B82F6L
-                    val matchedTask = tasks.find {
-                        it.id.toString() == sc.targetId ||
-                        it.title.equals(sc.targetId, ignoreCase = true) ||
-                        it.title.contains(sc.targetId, ignoreCase = true) ||
-                        it.title.equals(sc.title, ignoreCase = true) ||
-                        it.title.contains(sc.title, ignoreCase = true)
+                    val numericId = sc.targetId.toLongOrNull()
+                    val matchedTask = if (numericId != null && numericId > 0L) {
+                        tasks.find { it.id == numericId }
+                    } else {
+                        val candidateTitle = sc.targetId.ifBlank { sc.title }
+                        if (candidateTitle.isNotBlank()) {
+                            val matches = tasks.filter { it.title.equals(candidateTitle, ignoreCase = true) }
+                            if (matches.size == 1) matches.first() else null
+                        } else null
                     }
                     if (matchedTask != null) {
                         taskId = matchedTask.id
@@ -341,12 +340,15 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
                 }
                 "HABIT" -> {
                     typeDefaultColor = 0xFF10B981L
-                    val matchedHabit = habits.find {
-                        it.id.toString() == sc.targetId ||
-                        it.title.equals(sc.targetId, ignoreCase = true) ||
-                        it.title.contains(sc.targetId, ignoreCase = true) ||
-                        it.title.equals(sc.title, ignoreCase = true) ||
-                        it.title.contains(sc.title, ignoreCase = true)
+                    val numericId = sc.targetId.toLongOrNull()
+                    val matchedHabit = if (numericId != null && numericId > 0L) {
+                        habits.find { it.id == numericId }
+                    } else {
+                        val candidateTitle = sc.targetId.ifBlank { sc.title }
+                        if (candidateTitle.isNotBlank()) {
+                            val matches = habits.filter { it.title.equals(candidateTitle, ignoreCase = true) }
+                            if (matches.size == 1) matches.first() else null
+                        } else null
                     }
                     isCompleted = matchedHabit?.completedDatesJson?.contains(todayIso) == true
                 }
@@ -362,12 +364,15 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
                     if (ruleCompleted) {
                         isCompleted = true
                     } else {
-                        // Fallback: check if backed by a Task entity
-                        val matchedTask = tasks.find {
-                            it.id.toString() == sc.targetId ||
-                            it.title.equals(sc.targetId, ignoreCase = true) ||
-                            it.title.equals(sc.title, ignoreCase = true) ||
-                            it.title.contains(sc.title, ignoreCase = true)
+                        val numericId = sc.targetId.toLongOrNull()
+                        val matchedTask = if (numericId != null && numericId > 0L) {
+                            tasks.find { it.id == numericId }
+                        } else {
+                            val candidateTitle = sc.targetId.ifBlank { sc.title }
+                            if (candidateTitle.isNotBlank()) {
+                                val matches = tasks.filter { it.title.equals(candidateTitle, ignoreCase = true) }
+                                if (matches.size == 1) matches.first() else null
+                            } else null
                         }
                         if (matchedTask != null) {
                             taskId = matchedTask.id

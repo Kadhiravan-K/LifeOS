@@ -23,10 +23,8 @@ import com.example.domain.model.PlanLevel
 import com.example.domain.model.PlanMilestone
 import com.example.domain.model.TaskItem
 import com.example.domain.model.TaskPriority
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import com.example.notifications.runAsync
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.cos
@@ -194,8 +192,7 @@ class ProductivityRadarWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        val pendingResult = goAsync()
-        CoroutineScope(Dispatchers.IO).launch {
+        runAsync(timeoutMs = 9_000L) {
             try {
                 val db = AppDatabase.getInstance(context)
                 val prefs = UserPreferences(context)
@@ -388,8 +385,6 @@ class ProductivityRadarWidgetProvider : AppWidgetProvider() {
                 }
             } catch (_: Exception) {
                 // Graceful degradation on database busy or cold start
-            } finally {
-                pendingResult.finish()
             }
         }
     }

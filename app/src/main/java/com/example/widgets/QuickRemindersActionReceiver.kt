@@ -12,6 +12,7 @@ import com.example.data.repository.JsonMappers
 import com.example.data.repository.LifeRepository
 import com.example.domain.model.HabitItem
 import com.example.domain.model.RecurrenceType
+import com.example.notifications.runAsync
 import com.example.ui.theme.engine.LocalPremiumEntitlementRepository
 import com.example.utils.DateUtils
 import kotlinx.coroutines.CoroutineScope
@@ -87,108 +88,114 @@ class QuickRemindersActionReceiver : BroadcastReceiver() {
         val rawTargetId = intent.getStringExtra(EXTRA_TARGET_ID) ?: ""
         val fallbackTargetId = rawTargetId.take(256).trim()
 
-        val pendingResult = goAsync()
-        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
-            try {
-                val db = AppDatabase.getInstance(context.applicationContext)
-                val prefs = UserPreferences(context.applicationContext)
-                val entitlementRepo = LocalPremiumEntitlementRepository(context.applicationContext)
-                val repository = LifeRepository(db, prefs, entitlementRepo)
-                val todayIso = DateUtils.todayString()
+        runAsync(timeoutMs = 9_000L) {
+            val db = AppDatabase.getInstance(context.applicationContext)
+            val prefs = UserPreferences(context.applicationContext)
+            val entitlementRepo = LocalPremiumEntitlementRepository(context.applicationContext)
+            val repository = LifeRepository(db, prefs, entitlementRepo)
+            val todayIso = DateUtils.todayString()
 
-                val sc = if (shortcutId > 0L) {
-                    db.honeycombShortcutDao().getShortcutById(shortcutId)
-                } else null
+            val sc = if (shortcutId > 0L) {
+                db.honeycombShortcutDao().getShortcutById(shortcutId)
+            } else null
 
-                val effectiveType = sc?.type ?: fallbackType
-                val effectiveTargetId = sc?.targetId ?: fallbackTargetId
-                val effectiveTitle = sc?.title ?: effectiveTargetId
+            val effectiveType = sc?.type ?: fallbackType
+            val effectiveTargetId = sc?.targetId ?: fallbackTargetId
+            val effectiveTitle = sc?.title ?: effectiveTargetId
 
-                // Enforce allowed type whitelist
-                if (effectiveType !in ALLOWED_TYPES) {
-                    return@launch
-                }
-
-                when (effectiveType) {
-                    "TASK" -> {
-                        val validTaskId = if (fallbackTaskId > 0L) {
-                            fallbackTaskId
-                        } else {
-                            val candidateId = effectiveTargetId.toLongOrNull()
-                            if (candidateId != null && candidateId > 0L) {
-                                candidateId
-                            } else {
-                                val task = repository.getOrCreateTaskForShortcut(
-                                    title = effectiveTitle.ifBlank { "Discipline" }.take(100),
-                                    emoji = sc?.emoji ?: "📌",
-                                    category = "Routines",
-                                    recurrence = RecurrenceType.DAILY
-                                )
-                                task.id
-                            }
-                        }
-                        if (validTaskId > 0L) {
-                            repository.toggleTaskCompletion(validTaskId, todayIso)
-                        }
-                    }
-                    "HABIT" -> {
-                        val habitId = effectiveTargetId.toLongOrNull()
-                        val matchedHabitId = if (habitId != null && habitId > 0L) {
-                            habitId
-                        } else {
-                            val habits = db.habitDao().getAllHabitsList()
-                            val found = habits.find {
-                                it.id.toString() == effectiveTargetId ||
-                                it.title.equals(effectiveTargetId, ignoreCase = true) ||
-                                it.title.equals(effectiveTitle, ignoreCase = true)
-                            }
-                            found?.id ?: repository.insertHabit(
-                                HabitItem(
-                                    title = effectiveTitle.ifBlank { "Routine Habit" }.take(100),
-                                    emoji = sc?.emoji ?: "⚡",
-                                    colorHex = sc?.customColorHex ?: 0xFF10B981L
-                                )
-                            )
-                        }
-                        if (matchedHabitId > 0L) {
-                            repository.toggleHabitCompletion(matchedHabitId, todayIso)
-                        }
-                    }
-                    "WATER" -> {
-                        repository.addWater(250, todayIso)
-                    }
-                    "CHALLENGE_RULE" -> {
-                        val activeChallenge = db.challengeDao().getActiveChallenge()
-                        val rules = activeChallenge?.let { JsonMappers.parseChallengeRules(it.rulesJson) } ?: emptyList()
-                        val matchedRule = rules.find {
-                            it.id == effectiveTargetId ||
-                            it.title.equals(effectiveTargetId, ignoreCase = true) ||
-                            it.title.equals(effectiveTitle, ignoreCase = true)
-                        }
-                        if (matchedRule != null) {
-                            repository.toggleChallengeRule(matchedRule.id, todayIso)
-                        } else {
-                            val task = repository.getOrCreateTaskForShortcut(
-                                title = effectiveTitle.ifBlank { "Discipline" }.take(100),
-                                emoji = sc?.emoji ?: "🎯",
-                                category = "Routines",
-                                recurrence = RecurrenceType.DAILY
-                            )
-                            repository.toggleTaskCompletion(task.id, todayIso)
-                        }
-                    }
-                }
-
-                // 1. Notify global coordinator for in-app and widget sync
-                WidgetRefreshCoordinator.notifyAllWidgetsChanged(context.applicationContext)
-
-                // 2. Refresh active QuickRemindersWidgetProvider instances
-                QuickRemindersWidgetProvider.notifyDataChanged(context.applicationContext)
-            } catch (e: Exception) {
-                android.util.Log.e("QuickRemindersAction", "Failed executing widget action", e)
-            } finally {
-                pendingResult.finish()
+            // Enforce allowed type whitelist
+            if (effectiveType !in ALLOWED_TYPES) {
+                return@runAsync
             }
+
+            when (effectiveType) {
+                "TASK" -> {
+                    // Resolve task by numeric targetId wherever available.
+                    // For legacy title-only shortcuts, permit matching only when exactly one task has a case-insensitive exact title match.
+                    // Never use substring matching and do not silently create a new task.
+                    val validTaskId: Long? = if (fallbackTaskId > 0L) {
+                        val task = db.taskDao().getTaskById(fallbackTaskId)
+                        task?.id
+                    } else {
+                        val candidateId = effectiveTargetId.toLongOrNull()
+                        if (candidateId != null && candidateId > 0L) {
+                            val task = db.taskDao().getTaskById(candidateId)
+                            task?.id
+                        } else {
+                            val candidateTitle = effectiveTargetId.ifBlank { effectiveTitle }
+                            if (candidateTitle.isNotBlank()) {
+                                val allTasks = db.taskDao().getAllTasksList()
+                                val matches = allTasks.filter { it.title.equals(candidateTitle, ignoreCase = true) }
+                                if (matches.size == 1) matches.first().id else null
+                            } else null
+                        }
+                    }
+
+                    if (validTaskId != null && validTaskId > 0L) {
+                        repository.toggleTaskCompletion(validTaskId, todayIso)
+                    } else {
+                        android.util.Log.w("QuickRemindersAction", "Task shortcut '$effectiveTitle' (targetId: $effectiveTargetId) is ambiguous or cannot be resolved; ignoring action.")
+                    }
+                }
+                "HABIT" -> {
+                    val habitId = effectiveTargetId.toLongOrNull()
+                    val matchedHabitId: Long? = if (habitId != null && habitId > 0L) {
+                        val habit = db.habitDao().getHabitById(habitId)
+                        habit?.id
+                    } else {
+                        val candidateTitle = effectiveTargetId.ifBlank { effectiveTitle }
+                        if (candidateTitle.isNotBlank()) {
+                            val habits = db.habitDao().getAllHabitsList()
+                            val matches = habits.filter { it.title.equals(candidateTitle, ignoreCase = true) }
+                            if (matches.size == 1) matches.first().id else null
+                        } else null
+                    }
+
+                    if (matchedHabitId != null && matchedHabitId > 0L) {
+                        repository.toggleHabitCompletion(matchedHabitId, todayIso)
+                    } else {
+                        android.util.Log.w("QuickRemindersAction", "Habit shortcut '$effectiveTitle' (targetId: $effectiveTargetId) is ambiguous or cannot be resolved; ignoring action.")
+                    }
+                }
+                "WATER" -> {
+                    repository.addWater(250, todayIso)
+                }
+                "CHALLENGE_RULE" -> {
+                    val activeChallenge = db.challengeDao().getActiveChallenge()
+                    val rules = activeChallenge?.let { JsonMappers.parseChallengeRules(it.rulesJson) } ?: emptyList()
+                    val matchedRule = rules.find {
+                        it.id == effectiveTargetId ||
+                        it.title.equals(effectiveTargetId, ignoreCase = true) ||
+                        it.title.equals(effectiveTitle, ignoreCase = true)
+                    }
+                    if (matchedRule != null) {
+                        repository.toggleChallengeRule(matchedRule.id, todayIso)
+                    } else {
+                        val numericId = effectiveTargetId.toLongOrNull()
+                        val matchedTask = if (numericId != null && numericId > 0L) {
+                            db.taskDao().getTaskById(numericId)
+                        } else {
+                            val candidateTitle = effectiveTargetId.ifBlank { effectiveTitle }
+                            if (candidateTitle.isNotBlank()) {
+                                val allTasks = db.taskDao().getAllTasksList()
+                                val matches = allTasks.filter { it.title.equals(candidateTitle, ignoreCase = true) }
+                                if (matches.size == 1) matches.first() else null
+                            } else null
+                        }
+                        if (matchedTask != null) {
+                            repository.toggleTaskCompletion(matchedTask.id, todayIso)
+                        } else {
+                            android.util.Log.w("QuickRemindersAction", "Challenge rule shortcut '$effectiveTitle' is ambiguous or cannot be resolved; ignoring action.")
+                        }
+                    }
+                }
+            }
+
+            // 1. Notify global coordinator for in-app and widget sync
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(context.applicationContext)
+
+            // 2. Refresh active QuickRemindersWidgetProvider instances
+            QuickRemindersWidgetProvider.notifyDataChanged(context.applicationContext)
         }
     }
 }
