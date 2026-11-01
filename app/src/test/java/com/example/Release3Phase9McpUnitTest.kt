@@ -59,6 +59,11 @@ class Release3Phase9McpUnitTest {
         }
         override suspend fun updateServer(server: McpServerEntity) {}
         override suspend fun deleteServer(id: Long) { servers.removeAll { it.id == id } }
+        override suspend fun deleteServersForProfile(profileId: Long): Int {
+            val count = servers.count { it.profileId == profileId }
+            servers.removeAll { it.profileId == profileId }
+            return count
+        }
         override suspend fun updateServerStatus(id: Long, status: String, errorMessage: String?, lastConnectedAt: Long?, toolsCount: Int) {
             val idx = servers.indexOfFirst { it.id == id }
             if (idx != -1) {

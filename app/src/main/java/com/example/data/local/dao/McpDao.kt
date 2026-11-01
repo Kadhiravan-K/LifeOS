@@ -35,6 +35,9 @@ interface McpDao {
     @Query("DELETE FROM mcp_servers WHERE id = :id")
     suspend fun deleteServer(id: Long)
 
+    @Query("DELETE FROM mcp_servers WHERE profileId = :profileId")
+    suspend fun deleteServersForProfile(profileId: Long): Int
+
     @Query("""
         UPDATE mcp_servers 
         SET status = :status, errorMessage = :errorMessage, lastConnectedAt = :lastConnectedAt, discoveredToolsCount = :toolsCount 

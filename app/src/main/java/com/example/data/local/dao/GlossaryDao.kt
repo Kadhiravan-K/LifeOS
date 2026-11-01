@@ -127,4 +127,7 @@ interface GlossaryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUserDataList(list: List<GlossaryUserDataEntity>)
+
+    @Query("DELETE FROM glossary_user_data WHERE profileId = :profileId")
+    suspend fun deleteUserDataForProfile(profileId: Long): Int
 }

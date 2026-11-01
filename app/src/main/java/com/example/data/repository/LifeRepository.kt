@@ -197,6 +197,9 @@ class LifeRepository(
             projectWorkspaceDao.deleteAllViewsForProfile(id)
             projectWorkspaceDao.deleteAllCustomStatusesForProfile(id)
             projectWorkspaceDao.deleteAllCustomPropertiesForProfile(id)
+            database.glossaryDao().deleteUserDataForProfile(id)
+            database.mcpDao().deleteServersForProfile(id)
+            database.mcpDao().clearAuditLogs(id)
         }
         return deleted > 0
     }
