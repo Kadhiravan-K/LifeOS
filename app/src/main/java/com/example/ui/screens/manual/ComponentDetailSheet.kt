@@ -13,6 +13,12 @@ import com.example.domain.medication.MedicationScheduleConfig
 import com.example.domain.medication.MedicationDoseItem
 import com.example.domain.medication.DoseStatus
 import com.example.domain.model.LabelItem
+import com.example.domain.modules.FeatureModule
+import com.example.domain.modules.ModuleStatus
+import com.example.domain.modules.ModuleManifest
+import com.example.ui.components.FeatureModuleCard
+import com.example.data.local.entities.McpServerEntity
+import com.example.ui.components.McpServerCard
 
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -1460,7 +1466,10 @@ private fun RenderComponentLivePreview(componentId: String) {
             RenderProfileLivePreview(componentId)
         }
 
-        "app_entry_profile_selector", "onboarding_survey_screen", "survey_time_picker", "survey_water_goal", "survey_discovery_selector" -> {
+        "app_entry_profile_selector", "onboarding_survey_screen", "survey_time_picker", "survey_water_goal", "survey_discovery_selector",
+        "task_emoji_suggester", "multi_label_checkbox_selector", "medication_priority_timing_control", "medication_detail_card",
+        "calendar_deadline_range_marker", "planning_boards", "monthly_window_recurrence", "advanced_project_workspace",
+        "productivity_radar_chart", "glossary_reader_module", "mcp_bridge_controller", "feature_module_card", "mcp_server_card" -> {
             RenderSurveyAndEntryLivePreview(componentId)
         }
 
@@ -2174,6 +2183,78 @@ private fun RenderSurveyAndEntryLivePreview(componentId: String) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
+            }
+        }
+
+        "feature_module_card" -> {
+            var sampleModule by remember {
+                mutableStateOf(
+                    FeatureModule(
+                        manifest = ModuleManifest(
+                            id = "mental_models_pack",
+                            name = "Productivity Mental Models",
+                            description = "Foundational cognitive frameworks including First Principles, Second-Order Thinking, and Inversion.",
+                            category = "Mental Models & Logic",
+                            version = 1,
+                            versionName = "1.0.0",
+                            sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                            packageSizeBytes = 18432L,
+                            itemCount = 12
+                        ),
+                        status = ModuleStatus.AVAILABLE,
+                        isVerified = true
+                    )
+                )
+            }
+            Column {
+                Text("Interactive Feature Module Card (tap Install/Uninstall to test status toggle):", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(8.dp))
+                FeatureModuleCard(
+                    module = sampleModule,
+                    onInstall = {
+                        sampleModule = sampleModule.copy(status = ModuleStatus.INSTALLED, installedVersion = 1, installedAt = System.currentTimeMillis())
+                    },
+                    onUninstall = {
+                        sampleModule = sampleModule.copy(status = ModuleStatus.AVAILABLE, installedVersion = null, installedAt = null)
+                    },
+                    onUpdate = {}
+                )
+            }
+        }
+
+        "mcp_server_card" -> {
+            var sampleServer by remember {
+                mutableStateOf(
+                    McpServerEntity(
+                        id = 1L,
+                        profileId = 1L,
+                        name = "Local Ollama Bridge",
+                        endpoint = "http://127.0.0.1:11434/mcp",
+                        transport = "HTTP_SSE",
+                        status = "CONNECTED",
+                        discoveredToolsCount = 5,
+                        lastConnectedAt = System.currentTimeMillis()
+                    )
+                )
+            }
+            Column {
+                Text("Interactive MCP Server Card (tap Connect/Disconnect/Discover to test reactive states):", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(8.dp))
+                McpServerCard(
+                    server = sampleServer,
+                    onConnect = {
+                        sampleServer = sampleServer.copy(status = "CONNECTED", lastConnectedAt = System.currentTimeMillis())
+                    },
+                    onDisconnect = {
+                        sampleServer = sampleServer.copy(status = "DISCONNECTED")
+                    },
+                    onDiscoverTools = {
+                        sampleServer = sampleServer.copy(discoveredToolsCount = sampleServer.discoveredToolsCount + 1)
+                    },
+                    onDelete = {
+                        sampleServer = sampleServer.copy(status = "DISCONNECTED", discoveredToolsCount = 0)
+                    }
+                )
             }
         }
     }

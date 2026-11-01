@@ -22,21 +22,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Hexagon
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -130,7 +132,7 @@ fun UserManualScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack, modifier = Modifier.testTag("manual_back_btn")) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -140,7 +142,7 @@ fun UserManualScreen(
                             modifier = Modifier.testTag("gallery_view_toggle")
                         ) {
                             Icon(
-                                imageVector = if (isCompactView) Icons.Default.ViewList else Icons.Default.GridView,
+                                imageVector = if (isCompactView) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
                                 contentDescription = "Toggle Density"
                             )
                         }
@@ -555,7 +557,7 @@ private fun FeatureGuidesSection(
         GuideCard(
             icon = Icons.Default.Storage,
             title = "6. Storage, Data & Trash Retention",
-            description = "Room SQLite v15 database with monotonic migrations. Soft-deleted tasks, habits, projects, and labels dynamically calculate expiration timestamps from user preferences (1-365 days) rather than hardcoded durations.",
+            description = "Room SQLite v18 database with monotonic migrations. Soft-deleted tasks, habits, projects, and labels dynamically calculate expiration timestamps from user preferences (1-365 days) rather than hardcoded durations.",
             actionText = "Manage Storage & Backup",
             onActionClick = { onNavigateSubpage?.invoke(com.example.ui.screens.settings.SettingsSubpage.DATA_STORAGE) }
         )
@@ -588,6 +590,26 @@ private fun FeatureGuidesSection(
             description = "Anthropic Model Context Protocol bridge with 32-character bearer token security and profile isolation guard. Connect local LLMs to LifeOS tasks, projects, and heuristics.",
             actionText = "Open AI MCP Bridge",
             onActionClick = { onNavigateSubpage?.invoke(com.example.ui.screens.settings.SettingsSubpage.MCP_BRIDGE) }
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        GuideCard(
+            icon = Icons.Default.Person,
+            title = "10. Multi-Profile Workspaces & Onboarding (#14, #19)",
+            description = "App-Entry Honeycomb Portal providing total workspace isolation between Personal, Work, and Custom profiles. Multi-profile survey questionnaire captures personalized display names, sleep rhythms, and hydration targets without telemetry.",
+            actionText = "Manage Profile & Workspaces",
+            onActionClick = { onNavigateSubpage?.invoke(com.example.ui.screens.settings.SettingsSubpage.GENERAL) }
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        GuideCard(
+            icon = Icons.Default.Folder,
+            title = "11. Advanced Project Workspace (#20)",
+            description = "Notion-inspired multi-view database powering structured workflows across Table, Kanban Board, Calendar, List, and Gallery views. Supports custom status workflows, typed property columns, and profile-scoped project containers.",
+            actionText = "Manage Projects & Workspace",
+            onActionClick = { onNavigateSubpage?.invoke(com.example.ui.screens.settings.SettingsSubpage.PROJECTS_LABELS) }
         )
 
         Spacer(modifier = Modifier.height(24.dp))

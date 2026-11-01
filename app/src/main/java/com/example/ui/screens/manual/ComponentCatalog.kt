@@ -1902,7 +1902,7 @@ McpServerCard(
         return if (status == null) items else items.filter { it.status == status }
     }
 
-    fun search(query: String, category: ComponentCategory = ComponentCategory.ALL, status: ComponentStatus? = null): List<ComponentEntry> {
+    fun search(query: String = "", category: ComponentCategory = ComponentCategory.ALL, status: ComponentStatus? = null): List<ComponentEntry> {
         val q = query.trim().lowercase()
         return items.filter { item ->
             val matchesCategory = (category == ComponentCategory.ALL || item.category == category)

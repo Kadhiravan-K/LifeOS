@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -56,6 +57,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -200,7 +203,15 @@ fun DashboardScreen(
                     border = BorderStroke(1.dp, if (activeStreak > 0) MaterialTheme.colorScheme.error.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
+                        .defaultMinSize(minHeight = 44.dp, minWidth = 44.dp)
                         .clickable { onNavigateToGamification?.invoke() ?: onNavigateToHabits() }
+                        .semantics {
+                            contentDescription = if (activeStreak > 0) {
+                                "$activeStreak day active streak. Tap to view habits and gamification."
+                            } else {
+                                "Zero active streak. Tap to view habits and gamification."
+                            }
+                        }
                         .testTag("dashboard_streak_badge")
                 ) {
                     Row(
