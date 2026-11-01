@@ -6,6 +6,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.example.data.preferences.UserPreferences
 import com.example.data.repository.LifeRepository
 import com.example.data.local.entities.ProfileEntity
@@ -2866,6 +2868,53 @@ class LifeViewModel(
             WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
         return result
+    }
+
+    fun validateBackupJson(jsonStr: String): DataExportImportManager.ValidationResult {
+        return DataExportImportManager.validateBackup(jsonStr)
+    }
+
+    suspend fun restoreBackupV2(jsonStr: String): DataExportImportManager.RestoreResult {
+        val result = DataExportImportManager.restoreData(
+            AppDatabase.getInstance(getApplication()),
+            jsonStr,
+            getApplication()
+        )
+        if (result is DataExportImportManager.RestoreResult.Success) {
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
+        }
+        return result
+    }
+
+    suspend fun exportBackupToUri(uri: android.net.Uri): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val contentResolver = getApplication<android.app.Application>().contentResolver
+            contentResolver.openOutputStream(uri)?.use { os ->
+                DataExportImportManager.exportToStream(AppDatabase.getInstance(getApplication()), os)
+                true
+            } ?: false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun importBackupFromUri(uri: android.net.Uri): DataExportImportManager.RestoreResult = withContext(Dispatchers.IO) {
+        try {
+            val contentResolver = getApplication<android.app.Application>().contentResolver
+            contentResolver.openInputStream(uri)?.use { inputStream ->
+                val result = DataExportImportManager.importFromStream(
+                    AppDatabase.getInstance(getApplication()),
+                    inputStream,
+                    getApplication()
+                )
+                if (result is DataExportImportManager.RestoreResult.Success) {
+                    WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
+                }
+                result
+            } ?: DataExportImportManager.RestoreResult.Error("Unable to open input stream for selected backup file.")
+        } catch (e: Exception) {
+            DataExportImportManager.RestoreResult.Error("Error reading backup file: ${e.message}", e)
+        }
     }
 
     // ==========================================

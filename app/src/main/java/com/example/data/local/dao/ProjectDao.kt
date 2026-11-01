@@ -64,6 +64,9 @@ interface ProjectDao {
     @Query("DELETE FROM projects WHERE profileId = :profileId")
     suspend fun deleteAllProjectsForProfile(profileId: Long)
 
+    @Query("DELETE FROM projects")
+    suspend fun deleteAllProjects()
+
     @Query("SELECT COUNT(*) FROM tasks WHERE projectId = :projectId")
     fun getTaskCountForProject(projectId: Long): Flow<Int>
 

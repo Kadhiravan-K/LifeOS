@@ -18,6 +18,9 @@ interface MedicationDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMedication(medication: MedicationEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMedications(medications: List<MedicationEntity>)
+
     @Update
     suspend fun updateMedication(medication: MedicationEntity)
 
@@ -29,6 +32,9 @@ interface MedicationDao {
 
     @Query("DELETE FROM medications WHERE profileId = :profileId")
     suspend fun deleteAllMedicationsForProfile(profileId: Long)
+
+    @Query("DELETE FROM medications")
+    suspend fun deleteAllMedications()
 
     @Query("SELECT * FROM medications WHERE id = :id LIMIT 1")
     suspend fun getMedicationById(id: Long): MedicationEntity?
@@ -100,4 +106,10 @@ interface MedicationDao {
 
     @Query("SELECT COUNT(*) FROM medication_doses WHERE scheduledDateIso = :dateIso")
     suspend fun getTotalDoseCountForDate(dateIso: String): Int
+
+    @Query("SELECT * FROM medication_doses")
+    suspend fun getAllDosesList(): List<MedicationDoseEntity>
+
+    @Query("DELETE FROM medication_doses")
+    suspend fun deleteAllDoses()
 }

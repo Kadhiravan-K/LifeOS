@@ -137,4 +137,25 @@ interface ProjectWorkspaceDao {
 
     @Query("DELETE FROM project_custom_properties WHERE profileId = :profileId")
     suspend fun deleteAllCustomPropertiesForProfile(profileId: Long): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertViews(views: List<ProjectWorkspaceViewEntity>): List<Long>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCustomStatuses(statuses: List<ProjectCustomStatusEntity>): List<Long>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCustomProperties(properties: List<ProjectCustomPropertyEntity>): List<Long>
+
+    @Query("DELETE FROM project_custom_properties")
+    suspend fun clearAllCustomProperties(): Int
+
+    @Query("DELETE FROM project_custom_statuses")
+    suspend fun clearAllCustomStatuses(): Int
+
+    @Query("DELETE FROM project_workspace_views")
+    suspend fun clearAllViews(): Int
+
+    @Query("DELETE FROM project_workspace_items")
+    suspend fun clearAllItems(): Int
 }

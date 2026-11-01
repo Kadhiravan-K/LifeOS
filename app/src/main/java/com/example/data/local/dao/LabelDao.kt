@@ -56,11 +56,23 @@ interface LabelDao {
     @Query("DELETE FROM labels WHERE profileId = :profileId")
     suspend fun deleteAllLabelsForProfile(profileId: Long)
 
+    @Query("DELETE FROM labels")
+    suspend fun deleteAllLabels()
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTaskLabelCrossRef(ref: TaskLabelCrossRef)
 
     @Query("SELECT * FROM task_label_cross_ref")
     fun getAllCrossRefsFlow(): Flow<List<TaskLabelCrossRef>>
+
+    @Query("SELECT * FROM task_label_cross_ref")
+    suspend fun getAllTaskLabelCrossRefsList(): List<TaskLabelCrossRef>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrReplaceTaskLabelCrossRefs(refs: List<TaskLabelCrossRef>)
+
+    @Query("DELETE FROM task_label_cross_ref")
+    suspend fun clearAllTaskLabelCrossRefs()
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTaskLabelCrossRefs(refs: List<TaskLabelCrossRef>)

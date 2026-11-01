@@ -25,11 +25,17 @@ interface ProfileDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProfile(profile: ProfileEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProfiles(profiles: List<ProfileEntity>)
+
     @Update
     suspend fun updateProfile(profile: ProfileEntity)
 
     @Query("DELETE FROM profiles WHERE id = :id AND isDefault = 0")
     suspend fun deleteCustomProfile(id: Long): Int
+
+    @Query("DELETE FROM profiles")
+    suspend fun deleteAllProfiles(): Int
 
     @Query("SELECT COUNT(*) FROM profiles")
     suspend fun getProfileCount(): Int

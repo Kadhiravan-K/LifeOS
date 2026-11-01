@@ -62,6 +62,24 @@ interface McpDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAuditLog(log: McpAuditLogEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAuditLogs(logs: List<McpAuditLogEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertServers(servers: List<McpServerEntity>)
+
+    @Query("SELECT * FROM mcp_servers")
+    suspend fun getAllServers(): List<McpServerEntity>
+
+    @Query("SELECT * FROM mcp_audit_logs")
+    suspend fun getAllAuditLogs(): List<McpAuditLogEntity>
+
+    @Query("DELETE FROM mcp_servers")
+    suspend fun clearAllServers()
+
+    @Query("DELETE FROM mcp_audit_logs")
+    suspend fun clearAllAuditLogs()
+
     @Query("DELETE FROM mcp_audit_logs WHERE profileId = :profileId")
     suspend fun clearAuditLogs(profileId: Long)
 }

@@ -34,6 +34,9 @@ interface TrashDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTrashItem(item: TrashItemEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTrashItems(items: List<TrashItemEntity>)
+
     @Query("DELETE FROM trash_items WHERE id = :id")
     suspend fun deleteTrashItemById(id: Long)
 
@@ -73,6 +76,9 @@ interface PlanDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPlan(plan: PlanEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPlans(plans: List<PlanEntity>)
+
     @Update
     suspend fun updatePlan(plan: PlanEntity)
 
@@ -81,6 +87,9 @@ interface PlanDao {
 
     @Query("DELETE FROM plans WHERE profileId = :profileId")
     suspend fun deleteAllPlansForProfile(profileId: Long)
+
+    @Query("DELETE FROM plans")
+    suspend fun deleteAllPlans()
 
     // Milestones
     @Query("SELECT * FROM plan_milestones WHERE planId = :planId ORDER BY orderIndex ASC")
@@ -101,6 +110,9 @@ interface PlanDao {
     @Query("DELETE FROM plan_milestones WHERE planId = :planId")
     suspend fun deleteMilestonesForPlan(planId: Long)
 
+    @Query("DELETE FROM plan_milestones")
+    suspend fun deleteAllMilestones()
+
     // Linked Tasks
     @Query("SELECT * FROM plan_task_cross_refs")
     suspend fun getAllPlanTaskCrossRefs(): List<PlanTaskCrossRef>
@@ -110,6 +122,9 @@ interface PlanDao {
 
     @Query("DELETE FROM plan_task_cross_refs WHERE planId = :planId")
     suspend fun clearTasksForPlan(planId: Long)
+
+    @Query("DELETE FROM plan_task_cross_refs")
+    suspend fun clearAllPlanTaskCrossRefs()
 
     @Query("SELECT taskId FROM plan_task_cross_refs WHERE planId = :planId")
     suspend fun getTaskIdsForPlan(planId: Long): List<Long>
@@ -126,15 +141,27 @@ interface GamificationDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateProfile(profile: GamificationProfileEntity)
 
+    @Query("DELETE FROM gamification_profile")
+    suspend fun clearGamificationProfile()
+
     // XP Events (Anti-abuse idempotency)
     @Query("SELECT * FROM xp_events WHERE eventKey = :eventKey LIMIT 1")
     suspend fun getXpEvent(eventKey: String): XpEventEntity?
+
+    @Query("SELECT * FROM xp_events")
+    suspend fun getAllXpEventsList(): List<XpEventEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertXpEvents(events: List<XpEventEntity>)
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertXpEvent(event: XpEventEntity): Long
 
     @Query("DELETE FROM xp_events WHERE eventKey = :eventKey")
     suspend fun deleteXpEvent(eventKey: String): Int
+
+    @Query("DELETE FROM xp_events")
+    suspend fun clearAllXpEvents()
 
     @Query("SELECT COUNT(*) FROM xp_events WHERE eventKey LIKE 'TASK_COMPLETE:%:' || :dateIso")
     suspend fun getDailyRewardedTaskCount(dateIso: String): Int
@@ -146,18 +173,27 @@ interface GamificationDao {
     @Query("SELECT * FROM achievements")
     fun getAllAchievements(): Flow<List<AchievementEntity>>
 
+    @Query("SELECT * FROM achievements")
+    suspend fun getAllAchievementsList(): List<AchievementEntity>
+
     @Query("SELECT * FROM achievements WHERE code = :code LIMIT 1")
     suspend fun getAchievement(code: String): AchievementEntity?
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAchievements(list: List<AchievementEntity>)
 
     @Update
     suspend fun updateAchievement(achievement: AchievementEntity)
 
+    @Query("DELETE FROM achievements")
+    suspend fun clearAllAchievements()
+
     // Rewards
     @Query("SELECT * FROM rewards WHERE isArchived = 0 ORDER BY createdAt DESC")
     fun getActiveRewards(): Flow<List<RewardItemEntity>>
+
+    @Query("SELECT * FROM rewards")
+    suspend fun getAllRewardsList(): List<RewardItemEntity>
 
     @Query("SELECT * FROM rewards WHERE id = :id LIMIT 1")
     suspend fun getRewardById(id: Long): RewardItemEntity?
@@ -165,15 +201,30 @@ interface GamificationDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReward(reward: RewardItemEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRewards(rewards: List<RewardItemEntity>)
+
     @Update
     suspend fun updateReward(reward: RewardItemEntity)
 
     @Query("DELETE FROM rewards WHERE id = :id")
     suspend fun deleteRewardById(id: Long)
 
+    @Query("DELETE FROM rewards")
+    suspend fun clearAllRewards()
+
     // Redemptions
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRedemption(redemption: RewardRedemptionEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRedemptions(redemptions: List<RewardRedemptionEntity>)
+
+    @Query("SELECT * FROM reward_redemptions")
+    suspend fun getAllRewardRedemptionsList(): List<RewardRedemptionEntity>
+
+    @Query("DELETE FROM reward_redemptions")
+    suspend fun clearAllRedemptions()
 
     @Query("SELECT * FROM reward_redemptions ORDER BY timestamp DESC LIMIT 50")
     fun getRecentRedemptions(): Flow<List<RewardRedemptionEntity>>

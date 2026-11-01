@@ -5,6 +5,9 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,12 +21,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -45,12 +53,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.backup.DataExportImportManager
 import com.example.ui.viewmodel.LifeViewModel
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun BackupRestoreDialog(
@@ -67,6 +78,53 @@ fun BackupRestoreDialog(
     var importInput by remember { mutableStateOf("") }
     var isImporting by remember { mutableStateOf(false) }
     var importStatusMessage by remember { mutableStateOf<String?>(null) }
+    var pendingSummary by remember { mutableStateOf<DataExportImportManager.BackupSummary?>(null) }
+    var showConfirmReplaceDialog by remember { mutableStateOf(false) }
+
+    // Storage Access Framework (SAF) Launchers
+    val defaultFilename = "lifeos_backup_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.json"
+    val exportFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            isExporting = true
+            scope.launch {
+                val success = viewModel.exportBackupToUri(uri)
+                isExporting = false
+                if (success) {
+                    Toast.makeText(context, "Backup exported successfully to file!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Failed to export backup file.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    val importFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                try {
+                    val contentResolver = context.contentResolver
+                    val json = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                    if (!json.isNullOrBlank()) {
+                        importInput = json
+                        val validation = viewModel.validateBackupJson(json)
+                        if (validation is DataExportImportManager.ValidationResult.Valid) {
+                            pendingSummary = validation.summary
+                            importStatusMessage = null
+                        } else if (validation is DataExportImportManager.ValidationResult.Invalid) {
+                            pendingSummary = null
+                            importStatusMessage = "Invalid backup: ${validation.error}"
+                        }
+                    }
+                } catch (e: Exception) {
+                    importStatusMessage = "Failed to read backup file: ${e.message}"
+                }
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -74,7 +132,7 @@ fun BackupRestoreDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(text = "💾", fontSize = 22.sp)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "Offline Backup & Restore", fontWeight = FontWeight.Bold)
+                Text(text = "Offline Backup & Restore v2", fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -87,12 +145,12 @@ fun BackupRestoreDialog(
                     Tab(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        text = { Text("Export JSON") }
+                        text = { Text("Export v2") }
                     )
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        text = { Text("Import JSON") }
+                        text = { Text("Restore v2") }
                     )
                 }
 
@@ -101,7 +159,7 @@ fun BackupRestoreDialog(
                 if (selectedTab == 0) {
                     // Export Tab
                     Text(
-                        text = "Generate a full offline backup of all tasks, habits, projects, labels, honeycomb shortcuts, plans, and gamification records.",
+                        text = "Generate a verified offline backup covering all 40 LifeOS entities (tasks, habits, trackers, subscriptions, workspaces, glossary, MCP servers, and audit logs) with SHA-256 integrity.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -128,7 +186,7 @@ fun BackupRestoreDialog(
                             } else {
                                 Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Generate Backup JSON")
+                                Text("Generate Backup v2")
                             }
                         }
                     } else {
@@ -138,10 +196,10 @@ fun BackupRestoreDialog(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
-                                Text("Backup Ready (${exportJson!!.length} bytes)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("Backup Ready (${exportJson!!.length} bytes, Format v2)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = exportJson!!.take(200) + "...",
+                                    text = exportJson!!.take(220) + "...",
                                     fontSize = 10.sp,
                                     color = MaterialTheme.colorScheme.outline
                                 )
@@ -150,6 +208,19 @@ fun BackupRestoreDialog(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
+                        Button(
+                            onClick = {
+                                exportFileLauncher.launch(defaultFilename)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Save to File (SAF)", fontSize = 12.sp)
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth()
@@ -157,7 +228,7 @@ fun BackupRestoreDialog(
                             OutlinedButton(
                                 onClick = {
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    clipboard.setPrimaryClip(ClipData.newPlainText("LifeOS Backup", exportJson))
+                                    clipboard.setPrimaryClip(ClipData.newPlainText("LifeOS Backup v2", exportJson))
                                     Toast.makeText(context, "Backup copied to clipboard!", Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.weight(1f)
@@ -174,7 +245,7 @@ fun BackupRestoreDialog(
                                         putExtra(Intent.EXTRA_TEXT, exportJson)
                                         type = "text/plain"
                                     }
-                                    val shareIntent = Intent.createChooser(sendIntent, "Share LifeOS Backup")
+                                    val shareIntent = Intent.createChooser(sendIntent, "Share LifeOS Backup v2")
                                     context.startActivity(shareIntent)
                                 },
                                 modifier = Modifier.weight(1f)
@@ -186,24 +257,77 @@ fun BackupRestoreDialog(
                         }
                     }
                 } else {
-                    // Import Tab
+                    // Restore Tab
                     Text(
-                        text = "Paste a previously exported LifeOS JSON backup to restore your data. Existing records will be safely preserved and merged.",
+                        text = "Select or paste a LifeOS backup file. Restoring will validate integrity, create an automatic recovery backup, and transactionally replace all data (REPLACE_ALL).",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
 
+                    OutlinedButton(
+                        onClick = {
+                            importFileLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Select Backup File (SAF)")
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     OutlinedTextField(
                         value = importInput,
-                        onValueChange = { importInput = it },
-                        placeholder = { Text("Paste JSON backup here...", fontSize = 12.sp) },
-                        maxLines = 6,
+                        onValueChange = {
+                            importInput = it
+                            if (it.isNotBlank()) {
+                                val validation = viewModel.validateBackupJson(it.trim())
+                                if (validation is DataExportImportManager.ValidationResult.Valid) {
+                                    pendingSummary = validation.summary
+                                    importStatusMessage = null
+                                } else if (validation is DataExportImportManager.ValidationResult.Invalid) {
+                                    pendingSummary = null
+                                    importStatusMessage = "Invalid backup: ${validation.error}"
+                                }
+                            } else {
+                                pendingSummary = null
+                                importStatusMessage = null
+                            }
+                        },
+                        placeholder = { Text("Or paste JSON backup here...", fontSize = 12.sp) },
+                        maxLines = 4,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(140.dp)
+                            .height(110.dp)
                     )
+
+                    if (pendingSummary != null) {
+                        val s = pendingSummary!!
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Card(
+                            shape = RoundedCornerShape(8.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Valid Backup: Format v${s.formatVersion} (App: ${s.appVersion})", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("Total Records: ${s.totalRecords} across ${s.entityCounts.size} entities", fontSize = 11.sp)
+                                Text(
+                                    text = if (s.isChecksumValid == true) "Integrity: SHA-256 Checksum Verified" else if (s.isLegacy) "Integrity: Legacy Format (No Checksum)" else "Integrity: Unverified",
+                                    fontSize = 11.sp,
+                                    color = if (s.isChecksumValid == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
 
                     if (importStatusMessage != null) {
                         Spacer(modifier = Modifier.height(6.dp))
@@ -215,26 +339,17 @@ fun BackupRestoreDialog(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Button(
                         onClick = {
                             if (importInput.isBlank()) {
-                                importStatusMessage = "Please paste a JSON backup first."
+                                importStatusMessage = "Please select or paste a backup first."
                                 return@Button
                             }
-                            isImporting = true
-                            scope.launch {
-                                val success = viewModel.importDataJson(importInput.trim())
-                                isImporting = false
-                                if (success) {
-                                    importStatusMessage = "Success! All records successfully imported."
-                                } else {
-                                    importStatusMessage = "Error: Invalid JSON backup format."
-                                }
-                            }
+                            showConfirmReplaceDialog = true
                         },
-                        enabled = !isImporting && importInput.isNotBlank(),
+                        enabled = !isImporting && importInput.isNotBlank() && pendingSummary != null,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         if (isImporting) {
@@ -244,7 +359,7 @@ fun BackupRestoreDialog(
                         } else {
                             Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Restore Database")
+                            Text("Review & Restore (REPLACE_ALL)")
                         }
                     }
                 }
@@ -254,4 +369,62 @@ fun BackupRestoreDialog(
             TextButton(onClick = onDismiss) { Text("Close") }
         }
     )
+
+    // REPLACE_ALL Confirmation Dialog
+    if (showConfirmReplaceDialog && pendingSummary != null) {
+        val s = pendingSummary!!
+        AlertDialog(
+            onDismissRequest = { showConfirmReplaceDialog = false },
+            icon = {
+                Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+            },
+            title = {
+                Text("Confirm Database Replacement", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "This operation will REPLACE ALL existing application data with ${s.totalRecords} records from this backup.",
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "🛡️ Safety Guarantee: LifeOS will automatically export a recovery backup of your current database to internal storage before replacement. If any error occurs, the restore will roll back completely.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showConfirmReplaceDialog = false
+                        isImporting = true
+                        scope.launch {
+                            val result = viewModel.restoreBackupV2(importInput.trim())
+                            isImporting = false
+                            when (result) {
+                                is DataExportImportManager.RestoreResult.Success -> {
+                                    importStatusMessage = "Success! Restored ${result.restoredRecords} records across all 40 entities."
+                                    pendingSummary = null
+                                    importInput = ""
+                                }
+                                is DataExportImportManager.RestoreResult.Error -> {
+                                    importStatusMessage = "Restore failed: ${result.message}"
+                                }
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Confirm REPLACE_ALL")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmReplaceDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }

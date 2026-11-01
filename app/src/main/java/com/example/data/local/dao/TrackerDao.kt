@@ -139,4 +139,19 @@ interface TrackerDao {
 
     @Query("DELETE FROM tracker_inventory_adjustments WHERE id = :id")
     suspend fun deleteAdjustmentById(id: Long)
+
+    @Query("DELETE FROM tracker_inventory_adjustments")
+    suspend fun clearAllAdjustments()
+
+    @Query("DELETE FROM tracker_usage_entries")
+    suspend fun clearAllEntries()
+
+    @Query("DELETE FROM tracker_purchases")
+    suspend fun clearAllPurchases()
+
+    @Query("DELETE FROM tracker_cycles")
+    suspend fun clearAllCycles()
+
+    @Query("DELETE FROM trackers")
+    suspend fun clearAllTrackers()
 }

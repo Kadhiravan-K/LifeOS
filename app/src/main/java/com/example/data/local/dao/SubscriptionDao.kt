@@ -122,4 +122,16 @@ interface SubscriptionDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPriceHistories(items: List<PriceHistoryEntity>)
+
+    @Query("DELETE FROM subscription_price_history")
+    suspend fun clearAllPriceHistory()
+
+    @Query("DELETE FROM subscription_payments")
+    suspend fun clearAllPayments()
+
+    @Query("DELETE FROM subscription_bills")
+    suspend fun clearAllBills()
+
+    @Query("DELETE FROM subscriptions")
+    suspend fun clearAllSubscriptions()
 }

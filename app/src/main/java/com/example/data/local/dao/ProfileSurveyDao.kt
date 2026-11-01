@@ -22,9 +22,15 @@ interface ProfileSurveyDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateSurvey(survey: ProfileSurveyEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSurveys(surveys: List<ProfileSurveyEntity>)
+
     @Update
     suspend fun updateSurvey(survey: ProfileSurveyEntity)
 
     @Query("DELETE FROM profile_surveys WHERE profileId = :profileId")
     suspend fun deleteSurveyForProfile(profileId: Long): Int
+
+    @Query("DELETE FROM profile_surveys")
+    suspend fun deleteAllSurveys(): Int
 }

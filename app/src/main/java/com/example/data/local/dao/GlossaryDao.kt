@@ -138,4 +138,16 @@ interface GlossaryDao {
 
     @Query("DELETE FROM glossary_user_data WHERE profileId = :profileId")
     suspend fun deleteUserDataForProfile(profileId: Long): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPacks(packs: List<GlossaryPackEntity>)
+
+    @Query("DELETE FROM glossary_user_data")
+    suspend fun clearAllUserData(): Int
+
+    @Query("DELETE FROM glossary_items")
+    suspend fun clearAllItems(): Int
+
+    @Query("DELETE FROM glossary_packs")
+    suspend fun clearAllPacks(): Int
 }

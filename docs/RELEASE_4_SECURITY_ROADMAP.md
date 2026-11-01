@@ -115,3 +115,67 @@ The Release 4 Room database contains **40 entities**. Current backup export in `
 12. `price_history` (`PriceHistoryEntity`)
 13. `mcp_audit_logs` (`McpAuditLogEntity`)
 
+---
+
+## 6. Phase P1: Complete & Verifiable Backup/Restore v2 (Completed)
+
+### 6.1 Architecture & Format v2 Specification
+- **100% Coverage across all 40 Room entities**: Eliminates the 13-entity omission gap identified during P0. Exactly 0 database views exist (`"views": []` in Room schema 18.json).
+- **Format v2 JSON Schema**:
+  ```json
+  {
+    "version": 2,
+    "formatVersion": 2,
+    "appVersion": "4.0.0",
+    "databaseVersion": 18,
+    "exportedAt": 1730467200000,
+    "metadata": {
+      "formatVersion": 2,
+      "appVersion": "4.0.0",
+      "databaseVersion": 18,
+      "exportedAt": 1730467200000,
+      "checksumSha256": "4a58b8...",
+      "totalRecords": 45
+    },
+    "profiles": [ ... ],
+    "profile_surveys": [ ... ],
+    ...
+    "mcp_audit_logs": [ ... ]
+  }
+  ```
+- **Payload Integrity Checksum**:
+  - SHA-256 digest calculated strictly over the canonical entity data blocks (excluding variable metadata).
+  - Any byte tampering or accidental file truncation is detected during pre-restore validation and strictly rejected.
+
+### 6.2 Transactional REPLACE_ALL Restore & Safety Guarantees
+- **Atomic Transaction**:
+  - Restorations execute entirely within `database.withTransaction`.
+  - In the event of any JSON error, disk exhaustion, or foreign key violation, Room rolls back the database to its pristine pre-restore state.
+- **Topological Dependency Ordering**:
+  - Table deletions execute in reverse-dependency order:
+    `mcp_audit_logs` -> `mcp_servers` -> `glossary_user_data` -> `glossary_items` -> `glossary_packs` -> `project_custom_properties` -> `project_custom_statuses` -> `project_workspace_views` -> `project_workspace_items` -> `subscription_price_history` -> `subscription_payments` -> `subscription_bills` -> `subscriptions` -> `tracker_inventory_adjustments` -> `tracker_purchases` -> `tracker_usage_entries` -> `tracker_cycles` -> `trackers` -> `medication_doses` -> `medications` -> `reward_redemptions` -> `reward_items` -> `achievements` -> `xp_events` -> `gamification_profile` -> `plan_task_cross_refs` -> `plan_milestones` -> `plans` -> `trash_items` -> `honeycomb_shortcuts` -> `task_reminders` -> `task_label_cross_ref` -> `tasks` -> `labels` -> `projects` -> `water_logs` -> `challenges` -> `habits` -> `profile_surveys` -> `profiles`.
+  - Table insertions execute in forward-dependency order, starting with root `profiles` and ending with audit logs.
+- **Pre-Restore Recovery Backup**:
+  - Prior to initiating the Room transaction, `createPreRestoreRecovery` exports the entire active database to `context.filesDir/recovery_backups/pre_restore_recovery.json`.
+  - Ensures a local recovery snapshot remains accessible even in the event of unexpected application termination.
+- **Storage Access Framework (SAF) Integration**:
+  - Safe import/export using Android's `ActivityResultContracts.CreateDocument("application/json")` and `OpenDocument()`.
+  - Requires zero broad file permissions (`WRITE_EXTERNAL_STORAGE` / `MANAGE_EXTERNAL_STORAGE`).
+- **Backward Compatibility**:
+  - Legacy v1 backups (which lack metadata, checksums, and profile partition fields) validate with `isLegacy = true` and restore cleanly with default profile assignment (`profileId = 1L`).
+
+### 6.3 Verification & Test Evidence
+- **Automated Test Suite**: `app/src/test/java/com/example/data/backup/Release4BackupRestoreV2UnitTest.kt` (7 tests, all passing):
+  1. `testAll40EntitiesRoundTripWithFieldPreservation`: Full round-trip seed -> export -> validation -> restore -> verification across all 40 entities.
+  2. `testChecksumTamperingDetectedAndRejected`: Asserts modified payloads fail validation and abort restore.
+  3. `testUnsupportedFutureVersionRejected`: Asserts unknown backup format versions (e.g. 99) are safely rejected.
+  4. `testBackwardCompatibilityWithLegacyV1Backup`: Reconstructed v1 backup restores tasks, habits, and water logs cleanly with default profile mapping.
+  5. `testReplaceAllSemanticsAndOrphanRemoval`: Confirms previous obsolete records in target DB are completely removed.
+  6. `testPreRestoreRecoveryBackupCreated`: Verifies recovery backup file is written before transaction execution.
+  7. `testStreamExportAndImportRoundTrip`: Verifies SAF stream-based reading and writing without corruption.
+- **Build Quality**:
+  - `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (0 failures).
+  - `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (clean APK packaging).
+  - `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
+
+

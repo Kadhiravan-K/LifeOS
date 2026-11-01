@@ -29,6 +29,9 @@ interface TaskDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTask(task: TaskEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTasks(tasks: List<TaskEntity>)
+
     @Update
     suspend fun updateTask(task: TaskEntity)
 
@@ -98,8 +101,14 @@ interface ChallengeDao {
     @Query("SELECT * FROM challenges WHERE id = 1 LIMIT 1")
     suspend fun getActiveChallenge(): ChallengeEntity?
 
+    @Query("SELECT * FROM challenges")
+    suspend fun getAllChallenges(): List<ChallengeEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateChallenge(challenge: ChallengeEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertChallenges(challenges: List<ChallengeEntity>)
 
     @Query("DELETE FROM challenges")
     suspend fun deleteChallenge()
@@ -116,11 +125,17 @@ interface WaterLogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateWaterLog(waterLog: WaterLogEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertWaterLogs(logs: List<WaterLogEntity>)
+
     @Query("SELECT * FROM water_logs ORDER BY dateIso DESC LIMIT 30")
     fun getRecentWaterLogs(): Flow<List<WaterLogEntity>>
 
     @Query("SELECT * FROM water_logs ORDER BY dateIso DESC")
     suspend fun getAllWaterLogsList(): List<WaterLogEntity>
+
+    @Query("DELETE FROM water_logs")
+    suspend fun deleteAllWaterLogs()
 }
 
 @Dao

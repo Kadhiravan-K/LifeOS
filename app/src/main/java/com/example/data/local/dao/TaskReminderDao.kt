@@ -22,6 +22,9 @@ interface TaskReminderDao {
     @Query("SELECT * FROM task_reminders WHERE isEnabled = 1")
     fun getAllActiveRemindersFlow(): Flow<List<TaskReminderEntity>>
 
+    @Query("SELECT * FROM task_reminders")
+    suspend fun getAllRemindersList(): List<TaskReminderEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReminder(reminder: TaskReminderEntity): Long
 
@@ -36,4 +39,7 @@ interface TaskReminderDao {
 
     @Query("DELETE FROM task_reminders WHERE taskId = :taskId")
     suspend fun deleteRemindersForTask(taskId: Long)
+
+    @Query("DELETE FROM task_reminders")
+    suspend fun deleteAllReminders()
 }

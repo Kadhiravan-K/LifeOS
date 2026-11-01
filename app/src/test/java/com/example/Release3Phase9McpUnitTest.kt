@@ -80,6 +80,12 @@ class Release3Phase9McpUnitTest {
         override suspend fun clearAuditLogs(profileId: Long) {
             logs.removeAll { it.profileId == profileId }
         }
+        override suspend fun insertAuditLogs(logs: List<McpAuditLogEntity>) { this.logs.addAll(logs) }
+        override suspend fun insertServers(servers: List<McpServerEntity>) { this.servers.addAll(servers) }
+        override suspend fun getAllServers(): List<McpServerEntity> = servers
+        override suspend fun getAllAuditLogs(): List<McpAuditLogEntity> = logs
+        override suspend fun clearAllServers() { servers.clear() }
+        override suspend fun clearAllAuditLogs() { logs.clear() }
     }
 
     class MockMcpDataProvider : McpDataProvider {
