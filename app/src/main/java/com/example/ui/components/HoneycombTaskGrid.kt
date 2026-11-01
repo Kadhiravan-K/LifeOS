@@ -293,7 +293,7 @@ fun HoneycombTaskGrid(
                         }
                     }
 
-                    // Zoom Scale Presets & Indicator (#13)
+                    // Zoom Scale Presets & Accessible Controls (#13)
                     if (onZoomChange != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(
@@ -301,20 +301,74 @@ fun HoneycombTaskGrid(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
-                                text = "🔍 Zoom: ${(effectiveScale * 100).roundToInt()}%",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    text = "🔍 ${(effectiveScale * 100).roundToInt()}%",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                // Accessible Zoom Out (-) button
+                                IconButton(
+                                    onClick = {
+                                        val newScale = (effectiveScale - 0.10f).coerceIn(0.75f, 1.35f)
+                                        onZoomChange.invoke(newScale)
+                                    },
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .testTag("honeycomb_zoom_out_button")
+                                ) {
+                                    Text(
+                                        text = "−",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                                // Accessible Zoom In (+) button
+                                IconButton(
+                                    onClick = {
+                                        val newScale = (effectiveScale + 0.10f).coerceIn(0.75f, 1.35f)
+                                        onZoomChange.invoke(newScale)
+                                    },
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .testTag("honeycomb_zoom_in_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = "Zoom In",
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                // Reset Zoom Button
+                                IconButton(
+                                    onClick = { onZoomChange.invoke(1.0f) },
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .testTag("honeycomb_zoom_reset_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.RestartAlt,
+                                        contentDescription = "Reset Zoom",
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 listOf(
-                                    0.75f to "75% Compact",
+                                    0.75f to "75%",
                                     1.0f to "100%",
-                                    1.35f to "135% Large"
+                                    1.35f to "135%"
                                 ).forEach { (scaleVal, label) ->
                                     FilterChip(
                                         selected = abs(effectiveScale - scaleVal) < 0.05f,

@@ -17,6 +17,7 @@ import com.example.domain.model.DashboardShape
 import com.example.domain.model.DefaultHoneycombShortcuts
 import com.example.domain.model.HabitItem
 import com.example.domain.model.HoneycombAppearanceConfig
+import com.example.domain.analytics.ProductivityPeriod
 import com.example.domain.analytics.ProductivityRadarData
 import com.example.domain.analytics.ProductivityRadarEngine
 import com.example.domain.model.HoneycombShortcut
@@ -2658,17 +2659,26 @@ class LifeViewModel(
     )
 
     // --- Phase 7 Master: Productivity Radar & Spider Chart (#17) ---
+    private val _selectedProductivityPeriod = MutableStateFlow(ProductivityPeriod.DAILY)
+    val selectedProductivityPeriod: StateFlow<ProductivityPeriod> = _selectedProductivityPeriod.asStateFlow()
+
+    fun setProductivityPeriod(period: ProductivityPeriod) {
+        _selectedProductivityPeriod.value = period
+    }
+
     val productivityRadarData: StateFlow<ProductivityRadarData> = combine(
         combine(allTasks, habits, todayWaterLog) { t, h, w -> Triple(t, h, w) },
-        combine(waterGoalFlow, allPlansFlow, gamificationProfile) { g, p, gp -> Triple(g, p, gp) }
-    ) { (t, h, w), (g, p, gp) ->
+        combine(waterGoalFlow, allPlansFlow, gamificationProfile) { g, p, gp -> Triple(g, p, gp) },
+        _selectedProductivityPeriod
+    ) { (t, h, w), (g, p, gp), period ->
         ProductivityRadarEngine.calculate(
             tasks = t,
             habits = h,
             waterCurrentMl = w.amountMl,
             waterGoalMl = g,
             plans = p,
-            currentStreak = h.maxOfOrNull { it.currentStreak } ?: 0
+            currentStreak = h.maxOfOrNull { it.currentStreak } ?: 0,
+            period = period
         )
     }.stateIn(
         scope = viewModelScope,
@@ -2677,7 +2687,8 @@ class LifeViewModel(
             tasks = emptyList(),
             habits = emptyList(),
             waterCurrentMl = 0,
-            waterGoalMl = 2000
+            waterGoalMl = 2000,
+            period = ProductivityPeriod.DAILY
         )
     )
 

@@ -23,6 +23,27 @@ enum class RadarDimension(
 }
 
 /**
+ * Time evaluation period for the Productivity Radar.
+ */
+enum class ProductivityPeriod(
+    val id: String,
+    val displayName: String,
+    val emoji: String,
+    val description: String
+) {
+    DAILY("daily", "Daily", "📅", "Today's dynamic flow"),
+    WEEKLY("weekly", "Weekly", "🗓️", "Past 7 days performance"),
+    MONTHLY("monthly", "Monthly", "📆", "30-day consistency"),
+    YEARLY("yearly", "Yearly", "🌟", "365-day macro vision");
+
+    companion object {
+        fun fromId(id: String?): ProductivityPeriod {
+            return entries.find { it.id.equals(id, ignoreCase = true) } ?: DAILY
+        }
+    }
+}
+
+/**
  * Score and diagnostic details for an individual radar dimension.
  */
 data class RadarDimensionScore(
@@ -41,9 +62,13 @@ data class ProductivityRadarData(
     val ratingTier: String,
     val ratingTierEmoji: String,
     val dimensions: List<RadarDimensionScore>,
-    val calculatedAtIso: String = ""
+    val calculatedAtIso: String = "",
+    val period: ProductivityPeriod = ProductivityPeriod.DAILY,
+    val hasSufficientData: Boolean = true,
+    val guidanceTip: String = ""
 ) {
     fun scoreFor(dimension: RadarDimension): Int {
         return dimensions.find { it.dimension == dimension }?.scorePercent ?: 0
     }
 }
+

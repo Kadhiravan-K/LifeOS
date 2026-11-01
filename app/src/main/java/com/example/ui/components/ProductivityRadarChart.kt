@@ -45,6 +45,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.FilterChip
+import com.example.domain.analytics.ProductivityPeriod
 import com.example.domain.analytics.ProductivityRadarData
 import com.example.domain.analytics.RadarDimension
 import kotlin.math.cos
@@ -53,13 +55,14 @@ import kotlin.math.sin
 /**
  * Polished 5-axis Productivity Radar (Spider) Chart Composable (#17).
  * Displays a multi-dimensional productivity polygon with web grid concentric rings,
- * spoke lines, vertex dots, interactive breakdown cards, and overall LifeOS score.
+ * spoke lines, vertex dots, interactive breakdown cards, time-period selectors, and overall LifeOS score.
  */
 @Composable
 fun ProductivityRadarChart(
     data: ProductivityRadarData,
     modifier: Modifier = Modifier,
-    onDimensionClick: ((RadarDimension) -> Unit)? = null
+    onDimensionClick: ((RadarDimension) -> Unit)? = null,
+    onPeriodSelected: ((ProductivityPeriod) -> Unit)? = null
 ) {
     var selectedDimension by remember { mutableStateOf<RadarDimension?>(null) }
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -95,7 +98,7 @@ fun ProductivityRadarChart(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "${data.ratingTierEmoji} ${data.ratingTier}",
+                        text = "${data.ratingTierEmoji} ${data.ratingTier} • ${data.period.displayName}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold
@@ -116,6 +119,55 @@ fun ProductivityRadarChart(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+
+            // Time Period Selector Row
+            if (onPeriodSelected != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    ProductivityPeriod.entries.forEach { period ->
+                        FilterChip(
+                            selected = data.period == period,
+                            onClick = { onPeriodSelected.invoke(period) },
+                            label = { Text("${period.emoji} ${period.displayName}", fontSize = 11.sp) },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+
+            // Coaching Guidance Tip
+            if (data.guidanceTip.isNotBlank()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (!data.hasSufficientData) {
+                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f)
+                    } else {
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("radar_guidance_tip")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = if (!data.hasSufficientData) "🌱" else "💡", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = data.guidanceTip,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }

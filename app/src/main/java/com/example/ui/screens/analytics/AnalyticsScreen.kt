@@ -300,160 +300,164 @@ fun AnalyticsScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // 2. Data Dimension Selector (Priority, Projects, Labels, Category)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        AnalysisDimension.entries.forEach { dim ->
-                            FilterChip(
-                                selected = selectedDimension == dim,
-                                onClick = { selectedDimension = dim },
-                                label = { Text("${dim.emoji} ${dim.displayName}", fontSize = 12.sp) },
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // 3. Single Chart Visualization Area
-                    val totalCount = activeSlices.sumOf { it.count }
-                    if (totalCount == 0) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(180.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "No tasks found for ${selectedDimension.displayName}",
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.outline
-                            )
-                        }
+                    if (selectedChartType == AnalysisChartType.RADAR) {
+                        // 2a. Radar Chart directly with Time Period Selector & Pillar guidance
+                        ProductivityRadarChart(
+                            data = productivityRadarData,
+                            onPeriodSelected = { period -> viewModel.setProductivityPeriod(period) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     } else {
-                        Box(
+                        // 2b. Task Breakdown Dimension Selector (Priority, Projects, Labels, Category)
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            when (selectedChartType) {
-                                AnalysisChartType.PIE -> {
-                                    val surfaceColor = MaterialTheme.colorScheme.surface
-                                    Canvas(modifier = Modifier.size(190.dp)) {
-                                        val diameter = size.minDimension
-                                        val radius = diameter / 2f
-                                        val center = Offset(size.width / 2f, size.height / 2f)
-                                        var startAngle = -90f
-                                        activeSlices.forEach { slice ->
-                                            val sweep = (slice.count.toFloat() / totalCount.toFloat()) * 360f
-                                            drawArc(
-                                                color = slice.color,
-                                                startAngle = startAngle,
-                                                sweepAngle = sweep,
-                                                useCenter = true,
-                                                topLeft = Offset(center.x - radius, center.y - radius),
-                                                size = Size(diameter, diameter)
-                                            )
-                                            startAngle += sweep
-                                        }
-                                        // Modern Donut center
-                                        drawCircle(
-                                            color = surfaceColor,
-                                            radius = radius * 0.52f,
-                                            center = center
-                                        )
-                                    }
-                                }
-
-                                AnalysisChartType.RADAR -> {
-                                    ProductivityRadarChart(
-                                        data = productivityRadarData,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-
-                                AnalysisChartType.BAR -> {
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        activeSlices.forEach { slice ->
-                                            val pct = slice.count.toFloat() / totalCount.toFloat()
-                                            Column {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(8.dp)
-                                                                .clip(CircleShape)
-                                                                .background(slice.color)
-                                                        )
-                                                        Spacer(modifier = Modifier.width(6.dp))
-                                                        Text(text = slice.label, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                                                    }
-                                                    Text(
-                                                        text = "${slice.count} (${(pct * 100).toInt()}%)",
-                                                        fontSize = 11.sp,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                    )
-                                                }
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                LinearProgressIndicator(
-                                                    progress = { pct },
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .height(8.dp)
-                                                        .clip(RoundedCornerShape(4.dp)),
-                                                    color = slice.color,
-                                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
+                            AnalysisDimension.entries.forEach { dim ->
+                                FilterChip(
+                                    selected = selectedDimension == dim,
+                                    onClick = { selectedDimension = dim },
+                                    label = { Text("${dim.emoji} ${dim.displayName}", fontSize = 12.sp) },
+                                    shape = RoundedCornerShape(10.dp)
+                                )
                             }
                         }
 
-                        // 4. Interactive Legend (for Pie & Radar)
-                        if (selectedChartType != AnalysisChartType.BAR) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // 3. Single Chart Visualization Area for Task Distribution
+                        val totalCount = activeSlices.sumOf { it.count }
+                        if (totalCount == 0) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                activeSlices.chunked(2).forEach { rowSlices ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        rowSlices.forEach { slice ->
-                                            val pct = ((slice.count.toFloat() / totalCount.toFloat()) * 100).toInt()
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(10.dp)
-                                                        .clip(CircleShape)
-                                                        .background(slice.color)
+                                Text(
+                                    text = "No tasks found for ${selectedDimension.displayName}",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                when (selectedChartType) {
+                                    AnalysisChartType.PIE -> {
+                                        val surfaceColor = MaterialTheme.colorScheme.surface
+                                        Canvas(modifier = Modifier.size(190.dp)) {
+                                            val diameter = size.minDimension
+                                            val radius = diameter / 2f
+                                            val center = Offset(size.width / 2f, size.height / 2f)
+                                            var startAngle = -90f
+                                            activeSlices.forEach { slice ->
+                                                val sweep = (slice.count.toFloat() / totalCount.toFloat()) * 360f
+                                                drawArc(
+                                                    color = slice.color,
+                                                    startAngle = startAngle,
+                                                    sweepAngle = sweep,
+                                                    useCenter = true,
+                                                    topLeft = Offset(center.x - radius, center.y - radius),
+                                                    size = Size(diameter, diameter)
                                                 )
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = "${slice.label}: ${slice.count} ($pct%)",
-                                                    fontSize = 11.sp,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    maxLines = 1
-                                                )
+                                                startAngle += sweep
+                                            }
+                                            // Modern Donut center
+                                            drawCircle(
+                                                color = surfaceColor,
+                                                radius = radius * 0.52f,
+                                                center = center
+                                            )
+                                        }
+                                    }
+
+                                    AnalysisChartType.BAR -> {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            activeSlices.forEach { slice ->
+                                                val pct = slice.count.toFloat() / totalCount.toFloat()
+                                                Column {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(8.dp)
+                                                                    .clip(CircleShape)
+                                                                    .background(slice.color)
+                                                            )
+                                                            Spacer(modifier = Modifier.width(6.dp))
+                                                            Text(text = slice.label, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                                        }
+                                                        Text(
+                                                            text = "${slice.count} (${(pct * 100).toInt()}%)",
+                                                            fontSize = 11.sp,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    }
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                    LinearProgressIndicator(
+                                                        progress = { pct },
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .height(8.dp)
+                                                            .clip(RoundedCornerShape(4.dp)),
+                                                        color = slice.color,
+                                                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    else -> Unit
+                                }
+                            }
+
+                            // 4. Interactive Legend (for Pie)
+                            if (selectedChartType == AnalysisChartType.PIE) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    activeSlices.chunked(2).forEach { rowSlices ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            rowSlices.forEach { slice ->
+                                                val pct = ((slice.count.toFloat() / totalCount.toFloat()) * 100).toInt()
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.weight(1f)
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(10.dp)
+                                                            .clip(CircleShape)
+                                                            .background(slice.color)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = "${slice.label}: ${slice.count} ($pct%)",
+                                                        fontSize = 11.sp,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        maxLines = 1
+                                                    )
+                                                }
                                             }
                                         }
                                     }
