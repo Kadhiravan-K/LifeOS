@@ -509,6 +509,24 @@ object DataExportImportManager {
         }
         root.put("project_custom_statuses", customStatusesArr)
 
+        // Export Project Custom Properties (Release 3 Requirement #20)
+        val customProperties = database.projectWorkspaceDao().getAllCustomProperties()
+        val customPropsArr = JSONArray()
+        for (cp in customProperties) {
+            val obj = JSONObject().apply {
+                put("id", cp.id)
+                put("profileId", cp.profileId)
+                put("projectId", cp.projectId)
+                put("name", cp.name)
+                put("propertyType", cp.propertyType)
+                put("optionsJson", cp.optionsJson)
+                put("isVisible", cp.isVisible)
+                put("orderIndex", cp.orderIndex)
+            }
+            customPropsArr.put(obj)
+        }
+        root.put("project_custom_properties", customPropsArr)
+
         // Export Glossary Packs & Items (#2)
         val glossaryPacks = database.glossaryDao().getAllPacksList()
         val glossaryPacksArr = JSONArray()
@@ -1018,6 +1036,25 @@ object DataExportImportManager {
                         orderIndex = obj.optInt("orderIndex", 0)
                     )
                     database.projectWorkspaceDao().insertCustomStatus(cs)
+                }
+            }
+
+            // Import Project Custom Properties (Release 3 Requirement #20)
+            val customPropsArr = root.optJSONArray("project_custom_properties")
+            if (customPropsArr != null) {
+                for (i in 0 until customPropsArr.length()) {
+                    val obj = customPropsArr.getJSONObject(i)
+                    val cp = com.example.data.local.entities.ProjectCustomPropertyEntity(
+                        id = obj.optLong("id", 0L),
+                        profileId = obj.optLong("profileId", 1L),
+                        projectId = obj.getLong("projectId"),
+                        name = obj.optString("name", "Field"),
+                        propertyType = obj.optString("propertyType", "TEXT"),
+                        optionsJson = obj.optString("optionsJson", "[]"),
+                        isVisible = obj.optBoolean("isVisible", true),
+                        orderIndex = obj.optInt("orderIndex", 0)
+                    )
+                    database.projectWorkspaceDao().insertCustomProperty(cp)
                 }
             }
 

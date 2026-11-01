@@ -17,6 +17,8 @@ import com.example.data.local.entities.ProfileEntity
 import com.example.data.local.entities.ProfileSurveyEntity
 import com.example.data.local.entities.ProjectEntity
 import com.example.data.local.entities.ProjectWorkspaceItemEntity
+import com.example.data.local.entities.ProjectCustomStatusEntity
+import com.example.data.local.entities.ProjectCustomPropertyEntity
 import com.example.data.local.entities.TaskEntity
 import com.example.data.local.entities.TaskLabelCrossRef
 import com.example.data.local.entities.WaterLogEntity
@@ -145,6 +147,27 @@ class Release3BackupRestoreUnitTest {
             progress = 0
         )
         sourceDb.projectWorkspaceDao().insertItem(workspaceItem)
+
+        val customStatus = ProjectCustomStatusEntity(
+            id = 451L,
+            profileId = 1L,
+            projectId = 101L,
+            name = "In QA",
+            colorHex = 0xFFF59E0B
+        )
+        sourceDb.projectWorkspaceDao().insertCustomStatus(customStatus)
+
+        val customProperty = ProjectCustomPropertyEntity(
+            id = 461L,
+            profileId = 1L,
+            projectId = 101L,
+            name = "Sprint Target",
+            propertyType = "TEXT",
+            optionsJson = "[]",
+            isVisible = true,
+            orderIndex = 0
+        )
+        sourceDb.projectWorkspaceDao().insertCustomProperty(customProperty)
 
         val habit = HabitEntity(
             id = 501L,
@@ -329,6 +352,19 @@ class Release3BackupRestoreUnitTest {
         val restoredPacks = targetDb.glossaryDao().getAllPacksFlow().first()
         assertEquals(1, restoredPacks.size)
         assertEquals("pack_custom", restoredPacks[0].id)
+
+        val restoredWorkspaceItems = targetDb.projectWorkspaceDao().getAllItems()
+        assertEquals(1, restoredWorkspaceItems.size)
+        assertEquals("Test Checklist", restoredWorkspaceItems[0].title)
+
+        val restoredCustomStatuses = targetDb.projectWorkspaceDao().getAllCustomStatuses()
+        assertEquals(1, restoredCustomStatuses.size)
+        assertEquals("In QA", restoredCustomStatuses[0].name)
+
+        val restoredCustomProps = targetDb.projectWorkspaceDao().getAllCustomProperties()
+        assertEquals(1, restoredCustomProps.size)
+        assertEquals("Sprint Target", restoredCustomProps[0].name)
+        assertEquals("TEXT", restoredCustomProps[0].propertyType)
     }
 
     @Test

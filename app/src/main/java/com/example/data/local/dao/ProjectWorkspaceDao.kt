@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import com.example.data.local.entities.ProjectCustomPropertyEntity
 import com.example.data.local.entities.ProjectCustomStatusEntity
 import com.example.data.local.entities.ProjectWorkspaceItemEntity
 import com.example.data.local.entities.ProjectWorkspaceViewEntity
@@ -75,6 +76,12 @@ interface ProjectWorkspaceDao {
     @Query("DELETE FROM project_workspace_views WHERE id = :id")
     suspend fun deleteViewById(id: Long): Int
 
+    @Query("UPDATE project_workspace_views SET isDefault = 0 WHERE projectId = :projectId")
+    suspend fun clearDefaultViewsForProject(projectId: Long)
+
+    @Query("UPDATE project_workspace_views SET isDefault = 1 WHERE id = :viewId")
+    suspend fun setDefaultView(viewId: Long)
+
     @Query("DELETE FROM project_workspace_views WHERE profileId = :profileId")
     suspend fun deleteAllViewsForProfile(profileId: Long): Int
 
@@ -100,6 +107,34 @@ interface ProjectWorkspaceDao {
     @Query("DELETE FROM project_custom_statuses WHERE id = :id")
     suspend fun deleteCustomStatusById(id: Long): Int
 
+    @Query("UPDATE project_workspace_items SET status = :newStatus WHERE projectId = :projectId AND status = :oldStatus")
+    suspend fun reassignItemStatus(projectId: Long, oldStatus: String, newStatus: String): Int
+
     @Query("DELETE FROM project_custom_statuses WHERE profileId = :profileId")
     suspend fun deleteAllCustomStatusesForProfile(profileId: Long): Int
+
+    // --- Custom Properties (Release 3 Requirement #20) ---
+    @Query("SELECT * FROM project_custom_properties WHERE projectId = :projectId AND profileId = :profileId ORDER BY orderIndex ASC, id ASC")
+    fun getCustomPropertiesForProjectFlow(projectId: Long, profileId: Long): Flow<List<ProjectCustomPropertyEntity>>
+
+    @Query("SELECT * FROM project_custom_properties WHERE projectId = :projectId AND profileId = :profileId ORDER BY orderIndex ASC, id ASC")
+    suspend fun getCustomPropertiesForProjectList(projectId: Long, profileId: Long): List<ProjectCustomPropertyEntity>
+
+    @Query("SELECT * FROM project_custom_properties WHERE profileId = :profileId")
+    suspend fun getAllCustomPropertiesForProfile(profileId: Long): List<ProjectCustomPropertyEntity>
+
+    @Query("SELECT * FROM project_custom_properties")
+    suspend fun getAllCustomProperties(): List<ProjectCustomPropertyEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCustomProperty(property: ProjectCustomPropertyEntity): Long
+
+    @Update
+    suspend fun updateCustomProperty(property: ProjectCustomPropertyEntity)
+
+    @Query("DELETE FROM project_custom_properties WHERE id = :id")
+    suspend fun deleteCustomPropertyById(id: Long): Int
+
+    @Query("DELETE FROM project_custom_properties WHERE profileId = :profileId")
+    suspend fun deleteAllCustomPropertiesForProfile(profileId: Long): Int
 }

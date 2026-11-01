@@ -1,5 +1,6 @@
 package com.example.domain.projectworkspace
 
+import com.example.data.local.entities.ProjectCustomPropertyEntity
 import com.example.data.local.entities.ProjectCustomStatusEntity
 import com.example.data.local.entities.ProjectWorkspaceItemEntity
 import com.example.data.local.entities.ProjectWorkspaceViewEntity
@@ -232,6 +233,58 @@ data class ProjectCustomStatus(
             colorHex = entity.colorHex,
             orderIndex = entity.orderIndex
         )
+    }
+}
+
+/**
+ * Domain representation of a Project Custom Property (Release 3 Requirement #20).
+ * Supports field types: TEXT, NUMBER, CHECKBOX, DATE, SINGLE_SELECT, MULTI_SELECT, URL, STATUS.
+ */
+data class ProjectCustomProperty(
+    val id: Long = 0,
+    val profileId: Long = 1,
+    val projectId: Long,
+    val name: String,
+    val propertyType: String = "TEXT",
+    val options: List<String> = emptyList(),
+    val isVisible: Boolean = true,
+    val orderIndex: Int = 0
+) {
+    fun toEntity(): ProjectCustomPropertyEntity {
+        val jsonArray = JSONArray()
+        options.forEach { jsonArray.put(it) }
+        return ProjectCustomPropertyEntity(
+            id = id,
+            profileId = profileId,
+            projectId = projectId,
+            name = name,
+            propertyType = propertyType,
+            optionsJson = jsonArray.toString(),
+            isVisible = isVisible,
+            orderIndex = orderIndex
+        )
+    }
+
+    companion object {
+        fun fromEntity(entity: ProjectCustomPropertyEntity): ProjectCustomProperty {
+            val opts = mutableListOf<String>()
+            try {
+                val arr = JSONArray(entity.optionsJson)
+                for (i in 0 until arr.length()) {
+                    opts.add(arr.getString(i))
+                }
+            } catch (_: Exception) {}
+            return ProjectCustomProperty(
+                id = entity.id,
+                profileId = entity.profileId,
+                projectId = entity.projectId,
+                name = entity.name,
+                propertyType = entity.propertyType,
+                options = opts,
+                isVisible = entity.isVisible,
+                orderIndex = entity.orderIndex
+            )
+        }
     }
 }
 

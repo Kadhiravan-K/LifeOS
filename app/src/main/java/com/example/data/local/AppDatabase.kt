@@ -785,6 +785,26 @@ val MIGRATION_14_15 = object : Migration(14, 15) {
     }
 }
 
+val MIGRATION_15_16 = object : Migration(15, 16) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `project_custom_properties` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `profileId` INTEGER NOT NULL DEFAULT 1,
+                `projectId` INTEGER NOT NULL,
+                `name` TEXT NOT NULL,
+                `propertyType` TEXT NOT NULL DEFAULT 'TEXT',
+                `optionsJson` TEXT NOT NULL DEFAULT '[]',
+                `isVisible` INTEGER NOT NULL DEFAULT 1,
+                `orderIndex` INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY(`projectId`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_project_custom_properties_profileId` ON `project_custom_properties` (`profileId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_project_custom_properties_projectId` ON `project_custom_properties` (`projectId`)")
+    }
+}
+
 @Database(
     entities = [
         ProfileEntity::class,
@@ -821,10 +841,11 @@ val MIGRATION_14_15 = object : Migration(14, 15) {
         com.example.data.local.entities.ProjectWorkspaceItemEntity::class,
         com.example.data.local.entities.ProjectWorkspaceViewEntity::class,
         com.example.data.local.entities.ProjectCustomStatusEntity::class,
+        com.example.data.local.entities.ProjectCustomPropertyEntity::class,
         com.example.data.local.entities.GlossaryPackEntity::class,
         com.example.data.local.entities.GlossaryItemEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -888,7 +909,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_11_12,
                         MIGRATION_12_13,
                         MIGRATION_13_14,
-                        MIGRATION_14_15
+                        MIGRATION_14_15,
+                        MIGRATION_15_16
                     )
                     .build()
                 INSTANCE = instance

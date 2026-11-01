@@ -32,6 +32,7 @@ import com.example.domain.model.TaskReminderItem
 import com.example.domain.projectworkspace.ProjectWorkspaceItem
 import com.example.domain.projectworkspace.ProjectWorkspaceView
 import com.example.domain.projectworkspace.ProjectCustomStatus
+import com.example.domain.projectworkspace.ProjectCustomProperty
 import com.example.domain.schedule.ScheduleConflict
 import com.example.domain.schedule.ScheduleConflictEngine
 import com.example.notifications.NotificationHelper
@@ -1651,9 +1652,28 @@ class LifeViewModel(
         }
     }
 
+    fun bulkUpdateWorkspaceItemCategory(ids: List<Long>, category: String) {
+        viewModelScope.launch {
+            repository.bulkUpdateWorkspaceItemCategory(ids, category)
+        }
+    }
+
     fun saveWorkspaceView(view: ProjectWorkspaceView, onComplete: ((Long) -> Unit)? = null) {
         viewModelScope.launch {
             val id = repository.insertWorkspaceView(view)
+            onComplete?.invoke(id)
+        }
+    }
+
+    fun setDefaultWorkspaceView(projectId: Long, viewId: Long) {
+        viewModelScope.launch {
+            repository.setDefaultWorkspaceView(projectId, viewId)
+        }
+    }
+
+    fun duplicateWorkspaceView(view: ProjectWorkspaceView, onComplete: ((Long) -> Unit)? = null) {
+        viewModelScope.launch {
+            val id = repository.duplicateWorkspaceView(view)
             onComplete?.invoke(id)
         }
     }
@@ -1671,9 +1691,49 @@ class LifeViewModel(
         }
     }
 
+    fun updateCustomStatus(status: ProjectCustomStatus) {
+        viewModelScope.launch {
+            repository.updateCustomStatus(status)
+        }
+    }
+
     fun deleteCustomStatus(id: Long) {
         viewModelScope.launch {
             repository.deleteCustomStatus(id)
+        }
+    }
+
+    fun deleteCustomStatusWithReassignment(
+        projectId: Long,
+        statusId: Long,
+        deletedStatusName: String,
+        replacementStatusName: String
+    ) {
+        viewModelScope.launch {
+            repository.deleteCustomStatusWithReassignment(projectId, statusId, deletedStatusName, replacementStatusName)
+        }
+    }
+
+    // --- Custom Properties ---
+    fun getCustomPropertiesFlow(projectId: Long): Flow<List<ProjectCustomProperty>> =
+        repository.getCustomPropertiesForProjectFlow(projectId)
+
+    fun createCustomProperty(property: ProjectCustomProperty, onComplete: ((Long) -> Unit)? = null) {
+        viewModelScope.launch {
+            val id = repository.insertCustomProperty(property)
+            onComplete?.invoke(id)
+        }
+    }
+
+    fun updateCustomProperty(property: ProjectCustomProperty) {
+        viewModelScope.launch {
+            repository.updateCustomProperty(property)
+        }
+    }
+
+    fun deleteCustomProperty(id: Long) {
+        viewModelScope.launch {
+            repository.deleteCustomProperty(id)
         }
     }
 

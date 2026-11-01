@@ -102,6 +102,19 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.domain.model.ProjectItem
 import com.example.domain.model.TodoistColorPalette
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.RadioButtonChecked
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.runtime.LaunchedEffect
+import com.example.data.local.entities.ProjectCustomPropertyEntity
+import com.example.domain.projectworkspace.ProjectCustomProperty
 import com.example.domain.projectworkspace.ProjectCustomStatus
 import com.example.domain.projectworkspace.ProjectWorkspaceItem
 import com.example.domain.projectworkspace.ProjectWorkspaceView
@@ -133,6 +146,7 @@ fun AdvancedProjectWorkspaceScreen(
     val items by viewModel.getWorkspaceItemsFlow(project.id).collectAsStateWithLifecycle(initialValue = emptyList())
     val savedViews by viewModel.getWorkspaceViewsFlow(project.id).collectAsStateWithLifecycle(initialValue = emptyList())
     val customStatuses by viewModel.getCustomStatusesFlow(project.id).collectAsStateWithLifecycle(initialValue = emptyList())
+    val customProperties by viewModel.getCustomPropertiesFlow(project.id).collectAsStateWithLifecycle(initialValue = emptyList())
 
     // Active View state
     var selectedViewType by remember { mutableStateOf(WorkspaceViewType.TABLE) }
@@ -156,6 +170,24 @@ fun AdvancedProjectWorkspaceScreen(
     var showSavedViewsMenu by remember { mutableStateOf(false) }
     var showSaveViewDialog by remember { mutableStateOf(false) }
 
+    // Auto-select default saved view on initial load if present
+    LaunchedEffect(savedViews) {
+        if (selectedSavedView == null) {
+            val defaultView = savedViews.find { it.isDefault }
+            if (defaultView != null) {
+                selectedSavedView = defaultView
+                selectedViewType = defaultView.viewType
+                filterStatus = defaultView.filterStatus
+                filterCategory = defaultView.filterCategory
+                filterVersion = defaultView.filterVersion
+                sortBy = defaultView.sortBy
+                sortAscending = defaultView.sortAscending
+                groupBy = defaultView.groupBy
+                visibleProperties = defaultView.visibleProperties
+            }
+        }
+    }
+
     // Bulk selection state
     var selectedItemIds by remember { mutableStateOf(emptySet<Long>()) }
 
@@ -168,7 +200,11 @@ fun AdvancedProjectWorkspaceScreen(
     var showSortMenu by remember { mutableStateOf(false) }
     var showGroupMenu by remember { mutableStateOf(false) }
     var showPropsMenu by remember { mutableStateOf(false) }
-    var showNewCustomStatusDialog by remember { mutableStateOf(false) }
+    var showStatusManagerDialog by remember { mutableStateOf(false) }
+    var showPropertyManagerDialog by remember { mutableStateOf(false) }
+    var showBulkStatusDialog by remember { mutableStateOf(false) }
+    var showBulkCategoryDialog by remember { mutableStateOf(false) }
+    var showBulkDeleteConfirmation by remember { mutableStateOf(false) }
     var itemToDelete by remember { mutableStateOf<ProjectWorkspaceItem?>(null) }
 
     // Combined all statuses (default + custom)
@@ -461,7 +497,45 @@ fun AdvancedProjectWorkspaceScreen(
                             } else null
                         )
                     }
+
+                    if (customProperties.isNotEmpty()) {
+                        HorizontalDivider()
+                        customProperties.forEach { cp ->
+                            val propKey = "cp_${cp.name}"
+                            val isVisible = visibleProperties.contains(propKey)
+                            DropdownMenuItem(
+                                text = { Text(cp.name) },
+                                onClick = {
+                                    visibleProperties = if (isVisible) visibleProperties - propKey else visibleProperties + propKey
+                                },
+                                trailingIcon = if (isVisible) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                } else null
+                            )
+                        }
+                    }
+
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text("+ Manage Custom Properties...") },
+                        leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                        onClick = {
+                            showPropsMenu = false
+                            showPropertyManagerDialog = true
+                        },
+                        modifier = Modifier.testTag("workspace_manage_custom_properties_btn")
+                    )
                 }
+
+                // Statuses Management Chip
+                AssistChip(
+                    onClick = { showStatusManagerDialog = true },
+                    label = { Text("Statuses (${allStatuses.size})") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Palette, contentDescription = null, modifier = Modifier.size(16.dp))
+                    },
+                    modifier = Modifier.testTag("workspace_manage_statuses_btn")
+                )
 
                 // Saved View Dropdown
                 AssistChip(
@@ -487,7 +561,18 @@ fun AdvancedProjectWorkspaceScreen(
                         HorizontalDivider()
                         savedViews.forEach { sv ->
                             DropdownMenuItem(
-                                text = { Text(sv.name) },
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (sv.isDefault) {
+                                            Icon(Icons.Default.Star, contentDescription = "Default View", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                        }
+                                        Text(
+                                            text = sv.name,
+                                            fontWeight = if (selectedSavedView?.id == sv.id) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    }
+                                },
                                 onClick = {
                                     selectedSavedView = sv
                                     selectedViewType = sv.viewType
@@ -499,6 +584,43 @@ fun AdvancedProjectWorkspaceScreen(
                                     groupBy = sv.groupBy
                                     visibleProperties = sv.visibleProperties
                                     showSavedViewsMenu = false
+                                },
+                                trailingIcon = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.duplicateWorkspaceView(sv)
+                                                showSavedViewsMenu = false
+                                            },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(Icons.Default.ContentCopy, contentDescription = "Duplicate View", modifier = Modifier.size(14.dp))
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.setDefaultWorkspaceView(project.id, sv.id)
+                                                showSavedViewsMenu = false
+                                            },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Star,
+                                                contentDescription = "Set Default",
+                                                modifier = Modifier.size(14.dp),
+                                                tint = if (sv.isDefault) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.deleteWorkspaceView(sv.id)
+                                                if (selectedSavedView?.id == sv.id) selectedSavedView = null
+                                                showSavedViewsMenu = false
+                                            },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Delete View", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
+                                        }
+                                    }
                                 }
                             )
                         }
@@ -531,19 +653,19 @@ fun AdvancedProjectWorkspaceScreen(
                         )
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = {
-                                viewModel.bulkUpdateWorkspaceItemStatus(selectedItemIds.toList(), "DONE")
-                                selectedItemIds = emptySet()
-                            }) {
+                            TextButton(onClick = { showBulkStatusDialog = true }) {
                                 Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Mark Done")
+                                Text("Status")
                             }
 
-                            IconButton(onClick = {
-                                viewModel.deleteWorkspaceItemsByIds(selectedItemIds.toList())
-                                selectedItemIds = emptySet()
-                            }) {
+                            TextButton(onClick = { showBulkCategoryDialog = true }) {
+                                Icon(Icons.Default.Category, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Category")
+                            }
+
+                            IconButton(onClick = { showBulkDeleteConfirmation = true }) {
                                 Icon(Icons.Default.Delete, contentDescription = "Delete Selected", tint = MaterialTheme.colorScheme.error)
                             }
 
@@ -600,6 +722,7 @@ fun AdvancedProjectWorkspaceScreen(
                                 items = filteredItems,
                                 selectedIds = selectedItemIds,
                                 visibleProperties = visibleProperties,
+                                customProperties = customProperties,
                                 onToggleSelect = { id ->
                                     selectedItemIds = if (selectedItemIds.contains(id)) selectedItemIds - id else selectedItemIds + id
                                 },
@@ -681,6 +804,8 @@ fun AdvancedProjectWorkspaceScreen(
                         WorkspaceViewType.GALLERY -> {
                             WorkspaceGalleryView(
                                 items = filteredItems,
+                                visibleProperties = visibleProperties,
+                                customProperties = customProperties,
                                 onItemClick = { item ->
                                     itemToEdit = item
                                     showItemEditor = true
@@ -702,6 +827,7 @@ fun AdvancedProjectWorkspaceScreen(
             item = itemToEdit,
             defaultStatus = defaultStatusForNewItem,
             availableStatuses = allStatuses,
+            customProperties = customProperties,
             onSave = { updated ->
                 if (updated.id == 0L) {
                     viewModel.createWorkspaceItem(updated)
@@ -839,6 +965,133 @@ fun AdvancedProjectWorkspaceScreen(
             }
         )
     }
+
+    // Status Manager Dialog
+    if (showStatusManagerDialog) {
+        StatusManagerDialog(
+            projectId = project.id,
+            customStatuses = customStatuses,
+            allStatuses = allStatuses,
+            onCreateStatus = { viewModel.createCustomStatus(it) },
+            onUpdateStatus = { viewModel.updateCustomStatus(it) },
+            onDeleteStatus = { statusId, statusName, replacementStatus ->
+                viewModel.deleteCustomStatusWithReassignment(project.id, statusId, statusName, replacementStatus)
+            },
+            onDismiss = { showStatusManagerDialog = false }
+        )
+    }
+
+    // Property Manager Dialog
+    if (showPropertyManagerDialog) {
+        PropertyManagerDialog(
+            projectId = project.id,
+            customProperties = customProperties,
+            onCreateProperty = { viewModel.createCustomProperty(it) },
+            onUpdateProperty = { viewModel.updateCustomProperty(it) },
+            onDeleteProperty = { viewModel.deleteCustomProperty(it) },
+            onDismiss = { showPropertyManagerDialog = false }
+        )
+    }
+
+    // Bulk Delete Confirmation Dialog
+    if (showBulkDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showBulkDeleteConfirmation = false },
+            title = { Text("Delete Selected Records?", fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to delete ${selectedItemIds.size} records? This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteWorkspaceItemsByIds(selectedItemIds.toList())
+                        selectedItemIds = emptySet()
+                        showBulkDeleteConfirmation = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBulkDeleteConfirmation = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Bulk Status Change Dialog
+    if (showBulkStatusDialog) {
+        AlertDialog(
+            onDismissRequest = { showBulkStatusDialog = false },
+            title = { Text("Change Status (${selectedItemIds.size} records)", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    allStatuses.forEach { st ->
+                        val label = when (st) {
+                            "NOT_STARTED" -> "Not Started"
+                            "IN_PROGRESS" -> "In Progress"
+                            "DONE" -> "Done"
+                            else -> st
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.bulkUpdateWorkspaceItemStatus(selectedItemIds.toList(), st)
+                                    selectedItemIds = emptySet()
+                                    showBulkStatusDialog = false
+                                }
+                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            StatusBadge(status = st)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(label, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showBulkStatusDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Bulk Category Change Dialog
+    if (showBulkCategoryDialog) {
+        AlertDialog(
+            onDismissRequest = { showBulkCategoryDialog = false },
+            title = { Text("Change Category (${selectedItemIds.size} records)", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    listOf("Feature", "Bug", "Improvement").forEach { cat ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.bulkUpdateWorkspaceItemCategory(selectedItemIds.toList(), cat)
+                                    selectedItemIds = emptySet()
+                                    showBulkCategoryDialog = false
+                                }
+                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(cat, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showBulkCategoryDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -849,6 +1102,7 @@ private fun WorkspaceTableView(
     items: List<ProjectWorkspaceItem>,
     selectedIds: Set<Long>,
     visibleProperties: Set<String>,
+    customProperties: List<ProjectCustomProperty> = emptyList(),
     onToggleSelect: (Long) -> Unit,
     onSelectAll: () -> Unit,
     onItemClick: (ProjectWorkspaceItem) -> Unit,
@@ -895,6 +1149,11 @@ private fun WorkspaceTableView(
                 }
                 if (visibleProperties.contains("dueDate")) {
                     Text("Due Date", fontWeight = FontWeight.Bold, modifier = Modifier.width(100.dp))
+                }
+                customProperties.forEach { cp ->
+                    if (visibleProperties.contains("cp_${cp.name}")) {
+                        Text(cp.name, fontWeight = FontWeight.Bold, modifier = Modifier.width(120.dp))
+                    }
                 }
             }
             HorizontalDivider()
@@ -1003,6 +1262,19 @@ private fun WorkspaceTableView(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.width(100.dp)
                     )
+                }
+
+                // Custom Properties Values
+                customProperties.forEach { cp ->
+                    if (visibleProperties.contains("cp_${cp.name}")) {
+                        Text(
+                            text = item.customProperties[cp.name] ?: "-",
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.width(120.dp)
+                        )
+                    }
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -1368,9 +1640,12 @@ private fun WorkspaceListView(
 // ---------------------------------------------------------------------------
 // 5. GALLERY VIEW
 // ---------------------------------------------------------------------------
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WorkspaceGalleryView(
     items: List<ProjectWorkspaceItem>,
+    visibleProperties: Set<String> = emptySet(),
+    customProperties: List<ProjectCustomProperty> = emptyList(),
     onItemClick: (ProjectWorkspaceItem) -> Unit
 ) {
     LazyVerticalGrid(
@@ -1451,6 +1726,29 @@ private fun WorkspaceGalleryView(
                         color = if (item.progress == 100) Color(0xFF10B981) else MaterialTheme.colorScheme.primary
                     )
 
+                    // Custom Properties on Gallery Card
+                    val visibleCustomProps = customProperties.filter {
+                        visibleProperties.contains("cp_${it.name}") && !item.customProperties[it.name].isNullOrBlank()
+                    }
+                    if (visibleCustomProps.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            visibleCustomProps.forEach { cp ->
+                                val valStr = item.customProperties[cp.name] ?: ""
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Text(
+                                        text = "${cp.name}: $valStr",
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Row(
@@ -1508,6 +1806,7 @@ private fun CreateEditWorkspaceItemDialog(
     item: ProjectWorkspaceItem?,
     defaultStatus: String,
     availableStatuses: List<String>,
+    customProperties: List<ProjectCustomProperty> = emptyList(),
     onSave: (ProjectWorkspaceItem) -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit
@@ -1520,6 +1819,7 @@ private fun CreateEditWorkspaceItemDialog(
     var dueDateIso by remember { mutableStateOf(item?.dueDateIso ?: "") }
     var notes by remember { mutableStateOf(item?.notes ?: "") }
     var priority by remember { mutableStateOf(item?.priority ?: "P2") }
+    var customPropValues by remember { mutableStateOf(item?.customProperties ?: emptyMap()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1628,6 +1928,110 @@ private fun CreateEditWorkspaceItemDialog(
                     maxLines = 4,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // Custom Properties Input Fields
+                if (customProperties.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text("Custom Properties", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    customProperties.forEach { cp ->
+                        val currentVal = customPropValues[cp.name] ?: ""
+                        when (cp.propertyType) {
+                            ProjectCustomPropertyEntity.TYPE_TEXT -> {
+                                OutlinedTextField(
+                                    value = currentVal,
+                                    onValueChange = { customPropValues = customPropValues.toMutableMap().apply { put(cp.name, it) } },
+                                    label = { Text(cp.name) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                                )
+                            }
+                            ProjectCustomPropertyEntity.TYPE_NUMBER -> {
+                                OutlinedTextField(
+                                    value = currentVal,
+                                    onValueChange = { customPropValues = customPropValues.toMutableMap().apply { put(cp.name, it) } },
+                                    label = { Text(cp.name) },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                                )
+                            }
+                            ProjectCustomPropertyEntity.TYPE_CHECKBOX -> {
+                                val checked = currentVal.equals("true", ignoreCase = true)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = checked,
+                                        onCheckedChange = {
+                                            customPropValues = customPropValues.toMutableMap().apply { put(cp.name, it.toString()) }
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(cp.name)
+                                }
+                            }
+                            ProjectCustomPropertyEntity.TYPE_DATE -> {
+                                OutlinedTextField(
+                                    value = currentVal,
+                                    onValueChange = { customPropValues = customPropValues.toMutableMap().apply { put(cp.name, it) } },
+                                    label = { Text("${cp.name} (YYYY-MM-DD)") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                                )
+                            }
+                            ProjectCustomPropertyEntity.TYPE_SINGLE_SELECT -> {
+                                Text(cp.name, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
+                                    cp.options.forEach { opt ->
+                                        FilterChip(
+                                            selected = currentVal == opt,
+                                            onClick = {
+                                                customPropValues = customPropValues.toMutableMap().apply {
+                                                    if (currentVal == opt) remove(cp.name) else put(cp.name, opt)
+                                                }
+                                            },
+                                            label = { Text(opt) }
+                                        )
+                                    }
+                                }
+                            }
+                            ProjectCustomPropertyEntity.TYPE_MULTI_SELECT -> {
+                                val selectedOpts = currentVal.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
+                                Text(cp.name, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
+                                    cp.options.forEach { opt ->
+                                        val isSel = selectedOpts.contains(opt)
+                                        FilterChip(
+                                            selected = isSel,
+                                            onClick = {
+                                                val next = if (isSel) selectedOpts - opt else selectedOpts + opt
+                                                customPropValues = customPropValues.toMutableMap().apply {
+                                                    put(cp.name, next.joinToString(","))
+                                                }
+                                            },
+                                            label = { Text(opt) }
+                                        )
+                                    }
+                                }
+                            }
+                            ProjectCustomPropertyEntity.TYPE_URL -> {
+                                OutlinedTextField(
+                                    value = currentVal,
+                                    onValueChange = { customPropValues = customPropValues.toMutableMap().apply { put(cp.name, it) } },
+                                    label = { Text(cp.name) },
+                                    placeholder = { Text("https://...") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -1643,7 +2047,8 @@ private fun CreateEditWorkspaceItemDialog(
                             version = version.trim().ifBlank { "V1" },
                             dueDateIso = dueDateIso.trim().ifBlank { null },
                             notes = notes.trim(),
-                            priority = priority.trim().ifBlank { "P2" }
+                            priority = priority.trim().ifBlank { "P2" },
+                            customProperties = customPropValues
                         )
                         onSave(updated)
                     }
@@ -1666,4 +2071,493 @@ private fun CreateEditWorkspaceItemDialog(
             }
         }
     )
+}
+
+// ---------------------------------------------------------------------------
+// DIALOG: Status Manager (Release 3 Requirement #20)
+// ---------------------------------------------------------------------------
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun StatusManagerDialog(
+    projectId: Long,
+    customStatuses: List<ProjectCustomStatus>,
+    allStatuses: List<String>,
+    onCreateStatus: (ProjectCustomStatus) -> Unit,
+    onUpdateStatus: (ProjectCustomStatus) -> Unit,
+    onDeleteStatus: (statusId: Long, statusName: String, replacementStatus: String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var showAddStatusDialog by remember { mutableStateOf(false) }
+    var statusToDelete by remember { mutableStateOf<ProjectCustomStatus?>(null) }
+    var statusToEdit by remember { mutableStateOf<ProjectCustomStatus?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Manage Project Statuses", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text("Default Statuses", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(6.dp))
+                listOf("NOT_STARTED" to "Not Started", "IN_PROGRESS" to "In Progress", "DONE" to "Done").forEach { (code, label) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            StatusBadge(status = code)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(label)
+                        }
+                        Text("System", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Custom Statuses", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    TextButton(onClick = { showAddStatusDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Add Status")
+                    }
+                }
+
+                if (customStatuses.isEmpty()) {
+                    Text(
+                        "No custom statuses added yet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                } else {
+                    customStatuses.forEach { cs ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(12.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(cs.colorHex))
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(cs.name, fontWeight = FontWeight.Medium)
+                            }
+                            Row {
+                                IconButton(onClick = { statusToEdit = cs }, modifier = Modifier.size(28.dp)) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(16.dp))
+                                }
+                                IconButton(onClick = { statusToDelete = cs }, modifier = Modifier.size(28.dp)) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) {
+                Text("Done")
+            }
+        }
+    )
+
+    // Add / Edit Status Dialog
+    if (showAddStatusDialog || statusToEdit != null) {
+        val editing = statusToEdit
+        var name by remember { mutableStateOf(editing?.name ?: "") }
+        val colorPalette = listOf(
+            0xFF6366F1L, 0xFFEC4899L, 0xFFF59E0BL, 0xFF10B981L,
+            0xFF3B82F6L, 0xFF8B5CF6L, 0xFF14B8A6L, 0xFFEF4444L
+        )
+        var selectedColor by remember { mutableStateOf(editing?.colorHex ?: colorPalette.first()) }
+
+        AlertDialog(
+            onDismissRequest = {
+                showAddStatusDialog = false
+                statusToEdit = null
+            },
+            title = { Text(if (editing == null) "New Status" else "Edit Status") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Status Name") },
+                        placeholder = { Text("e.g. In Review, QA, Staging") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Badge Color:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        colorPalette.forEach { colorVal ->
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(colorVal))
+                                    .clickable { selectedColor = colorVal }
+                                    .border(
+                                        width = if (selectedColor == colorVal) 3.dp else 0.dp,
+                                        color = if (selectedColor == colorVal) MaterialTheme.colorScheme.onSurface else Color.Transparent,
+                                        shape = CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (selectedColor == colorVal) {
+                                    Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (name.isNotBlank()) {
+                            if (editing == null) {
+                                onCreateStatus(
+                                    ProjectCustomStatus(
+                                        projectId = projectId,
+                                        name = name.trim(),
+                                        colorHex = selectedColor,
+                                        orderIndex = customStatuses.size
+                                    )
+                                )
+                            } else {
+                                onUpdateStatus(
+                                    editing.copy(
+                                        name = name.trim(),
+                                        colorHex = selectedColor
+                                    )
+                                )
+                            }
+                            showAddStatusDialog = false
+                            statusToEdit = null
+                        }
+                    },
+                    enabled = name.isNotBlank()
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showAddStatusDialog = false
+                    statusToEdit = null
+                }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Delete Custom Status Dialog with safe replacement mapping
+    statusToDelete?.let { target ->
+        val candidateReplacements = allStatuses.filter { it != target.name }
+        var selectedReplacement by remember { mutableStateOf(candidateReplacements.firstOrNull() ?: "NOT_STARTED") }
+
+        AlertDialog(
+            onDismissRequest = { statusToDelete = null },
+            title = { Text("Delete Status '${target.name}'?", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Choose a replacement status for records currently in '${target.name}':")
+                    Spacer(modifier = Modifier.height(10.dp))
+                    candidateReplacements.forEach { candidate ->
+                        val label = when (candidate) {
+                            "NOT_STARTED" -> "Not Started"
+                            "IN_PROGRESS" -> "In Progress"
+                            "DONE" -> "Done"
+                            else -> candidate
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedReplacement = candidate }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedReplacement == candidate,
+                                onClick = { selectedReplacement = candidate }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(label)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteStatus(target.id, target.name, selectedReplacement)
+                        statusToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete & Reassign")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { statusToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DIALOG: Property Manager (Release 3 Requirement #20)
+// ---------------------------------------------------------------------------
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PropertyManagerDialog(
+    projectId: Long,
+    customProperties: List<ProjectCustomProperty>,
+    onCreateProperty: (ProjectCustomProperty) -> Unit,
+    onUpdateProperty: (ProjectCustomProperty) -> Unit,
+    onDeleteProperty: (Long) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var showAddDialog by remember { mutableStateOf(false) }
+    var propToDelete by remember { mutableStateOf<ProjectCustomProperty?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Custom Properties", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Defined Properties", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    TextButton(onClick = { showAddDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Add Property")
+                    }
+                }
+
+                if (customProperties.isEmpty()) {
+                    Text(
+                        "No custom properties defined yet. Add fields like Assignee, URL, Number, or Single Select.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                } else {
+                    customProperties.forEach { cp ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(cp.name, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Type: ${cp.propertyType}" + if (cp.options.isNotEmpty()) " (${cp.options.size} options)" else "",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Switch(
+                                    checked = cp.isVisible,
+                                    onCheckedChange = { onUpdateProperty(cp.copy(isVisible = it)) }
+                                )
+                                IconButton(onClick = { propToDelete = cp }, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) {
+                Text("Done")
+            }
+        }
+    )
+
+    // Add Property Dialog
+    if (showAddDialog) {
+        var name by remember { mutableStateOf("") }
+        val types = listOf(
+            ProjectCustomPropertyEntity.TYPE_TEXT to "Text",
+            ProjectCustomPropertyEntity.TYPE_NUMBER to "Number",
+            ProjectCustomPropertyEntity.TYPE_CHECKBOX to "Checkbox",
+            ProjectCustomPropertyEntity.TYPE_DATE to "Date",
+            ProjectCustomPropertyEntity.TYPE_SINGLE_SELECT to "Single Select",
+            ProjectCustomPropertyEntity.TYPE_MULTI_SELECT to "Multi Select",
+            ProjectCustomPropertyEntity.TYPE_URL to "URL"
+        )
+        var selectedType by remember { mutableStateOf(ProjectCustomPropertyEntity.TYPE_TEXT) }
+        var optionsList by remember { mutableStateOf(listOf<String>()) }
+        var newOptionText by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false },
+            title = { Text("Add Custom Property", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Property Name") },
+                        placeholder = { Text("e.g. Client URL, Sprint, Assignee") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Field Type:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        types.forEach { (typeVal, label) ->
+                            FilterChip(
+                                selected = selectedType == typeVal,
+                                onClick = { selectedType = typeVal },
+                                label = { Text(label) }
+                            )
+                        }
+                    }
+
+                    if (selectedType == ProjectCustomPropertyEntity.TYPE_SINGLE_SELECT ||
+                        selectedType == ProjectCustomPropertyEntity.TYPE_MULTI_SELECT) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("Options:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = newOptionText,
+                                onValueChange = { newOptionText = it },
+                                label = { Text("Option") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            IconButton(
+                                onClick = {
+                                    if (newOptionText.isNotBlank()) {
+                                        optionsList = optionsList + newOptionText.trim()
+                                        newOptionText = ""
+                                    }
+                                },
+                                enabled = newOptionText.isNotBlank()
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "Add Option")
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            optionsList.forEach { opt ->
+                                AssistChip(
+                                    onClick = { optionsList = optionsList - opt },
+                                    label = { Text(opt) },
+                                    trailingIcon = { Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(12.dp)) }
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (name.isNotBlank()) {
+                            onCreateProperty(
+                                ProjectCustomProperty(
+                                    projectId = projectId,
+                                    name = name.trim(),
+                                    propertyType = selectedType,
+                                    options = optionsList,
+                                    isVisible = true,
+                                    orderIndex = customProperties.size
+                                )
+                            )
+                            showAddDialog = false
+                        }
+                    },
+                    enabled = name.isNotBlank()
+                ) {
+                    Text("Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Delete Property Confirmation
+    propToDelete?.let { target ->
+        AlertDialog(
+            onDismissRequest = { propToDelete = null },
+            title = { Text("Delete Property '${target.name}'?", fontWeight = FontWeight.Bold) },
+            text = { Text("Values for this property across all records will be deleted. This cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteProperty(target.id)
+                        propToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { propToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }

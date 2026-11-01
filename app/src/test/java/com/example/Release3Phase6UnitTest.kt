@@ -9,9 +9,12 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.data.backup.DataExportImportManager
 import com.example.data.local.AppDatabase
 import com.example.data.local.MIGRATION_13_14
+import com.example.data.local.MIGRATION_15_16
 import com.example.data.local.entities.ProfileEntity
 import com.example.data.local.entities.ProjectEntity
 import com.example.data.local.entities.ProjectWorkspaceItemEntity
+import com.example.data.local.entities.ProjectCustomPropertyEntity
+import com.example.domain.projectworkspace.ProjectCustomProperty
 import com.example.data.preferences.UserPreferences
 import com.example.data.repository.LifeRepository
 import com.example.domain.projectworkspace.AiPromptConfig
@@ -367,6 +370,18 @@ class Release3Phase6UnitTest {
         )
         database.projectWorkspaceDao().insertCustomStatus(customStatus)
 
+        val customProp = ProjectCustomPropertyEntity(
+            id = 401L,
+            profileId = 1L,
+            projectId = 10L,
+            name = "Sprint Target",
+            propertyType = "TEXT",
+            optionsJson = "[]",
+            isVisible = true,
+            orderIndex = 0
+        )
+        database.projectWorkspaceDao().insertCustomProperty(customProp)
+
         // Export to JSON string
         val exportedJson = DataExportImportManager.exportAllData(database)
         assertTrue(exportedJson.contains("project_workspace_items"))
@@ -375,6 +390,8 @@ class Release3Phase6UnitTest {
         assertTrue(exportedJson.contains("Exported Board View"))
         assertTrue(exportedJson.contains("project_custom_statuses"))
         assertTrue(exportedJson.contains("Testing In Progress"))
+        assertTrue(exportedJson.contains("project_custom_properties"))
+        assertTrue(exportedJson.contains("Sprint Target"))
 
         // Create new clean database and import
         val freshDb = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
@@ -398,8 +415,202 @@ class Release3Phase6UnitTest {
             val importedStatuses = freshDb.projectWorkspaceDao().getAllCustomStatuses()
             assertEquals(1, importedStatuses.size)
             assertEquals("Testing In Progress", importedStatuses[0].name)
+
+            val importedProps = freshDb.projectWorkspaceDao().getAllCustomProperties()
+            assertEquals(1, importedProps.size)
+            assertEquals("Sprint Target", importedProps[0].name)
+            assertEquals("TEXT", importedProps[0].propertyType)
         } finally {
             freshDb.close()
         }
+    }
+
+    @Test
+    fun testCustomPropertiesCRUD_andProfileScoping() = runBlocking {
+        val projectId = database.projectDao().insertProject(
+            ProjectEntity(name = "Custom Props Project", profileId = 1L)
+        )
+
+        // 1. Insert Custom Property (Single Select)
+        val prop = ProjectCustomProperty(
+            projectId = projectId,
+            name = "Sprint",
+            propertyType = ProjectCustomPropertyEntity.TYPE_SINGLE_SELECT,
+            options = listOf("Sprint 1", "Sprint 2", "Sprint 3"),
+            isVisible = true,
+            orderIndex = 0
+        )
+        val propId = repository.insertCustomProperty(prop)
+        assertTrue(propId > 0)
+
+        // 2. Fetch and verify
+        val propsFlow = repository.getCustomPropertiesForProjectFlow(projectId).first()
+        assertEquals(1, propsFlow.size)
+        assertEquals("Sprint", propsFlow[0].name)
+        assertEquals(ProjectCustomPropertyEntity.TYPE_SINGLE_SELECT, propsFlow[0].propertyType)
+        assertEquals(3, propsFlow[0].options.size)
+        assertTrue(propsFlow[0].options.contains("Sprint 2"))
+
+        // 3. Update property visibility
+        repository.updateCustomProperty(propsFlow[0].copy(isVisible = false))
+        val updatedProps = repository.getCustomPropertiesForProjectFlow(projectId).first()
+        assertFalse(updatedProps[0].isVisible)
+
+        // 4. Multi-profile isolation check
+        database.profileDao().insertProfile(
+            ProfileEntity(id = 2L, name = "Work", emoji = "💼", type = ProfileEntity.TYPE_WORK)
+        )
+        preferences.setActiveProfileId(2L)
+
+        val workProps = repository.getCustomPropertiesForProjectFlow(projectId).first()
+        assertTrue("Profile 2 must not see Profile 1 custom properties", workProps.isEmpty())
+
+        // Switch back to Profile 1
+        preferences.setActiveProfileId(1L)
+        val profile1Props = repository.getCustomPropertiesForProjectFlow(projectId).first()
+        assertEquals(1, profile1Props.size)
+
+        // 5. Delete property
+        assertTrue(repository.deleteCustomProperty(propId))
+        assertTrue(repository.getCustomPropertiesForProjectFlow(projectId).first().isEmpty())
+    }
+
+    @Test
+    fun testCustomStatusDeletion_withSafeItemReassignment() = runBlocking {
+        val projectId = database.projectDao().insertProject(
+            ProjectEntity(name = "Safe Status Project", profileId = 1L)
+        )
+
+        // 1. Create custom status "In Review"
+        val statusId = repository.insertCustomStatus(
+            ProjectCustomStatus(projectId = projectId, name = "In Review", colorHex = 0xFF6366F1L)
+        )
+        assertTrue(statusId > 0)
+
+        // 2. Create item with status = "In Review"
+        val itemId = repository.insertWorkspaceItem(
+            ProjectWorkspaceItem(
+                projectId = projectId,
+                title = "Critical Architecture Document",
+                status = "In Review"
+            )
+        )
+        assertTrue(itemId > 0)
+
+        val itemsBefore = repository.getWorkspaceItemsForProject(projectId)
+        assertEquals("In Review", itemsBefore[0].status)
+
+        // 3. Delete custom status with safe reassignment to "NOT_STARTED"
+        val deleteSuccess = repository.deleteCustomStatusWithReassignment(
+            projectId = projectId,
+            statusId = statusId,
+            deletedStatusName = "In Review",
+            replacementStatusName = "NOT_STARTED"
+        )
+        assertTrue(deleteSuccess)
+
+        // Verify status is deleted
+        val statuses = repository.getCustomStatusesForProjectFlow(projectId).first()
+        assertTrue(statuses.isEmpty())
+
+        // Verify affected item was safely remapped to "NOT_STARTED", preventing orphaned status
+        val itemsAfter = repository.getWorkspaceItemsForProject(projectId)
+        assertEquals(1, itemsAfter.size)
+        assertEquals("NOT_STARTED", itemsAfter[0].status)
+    }
+
+    @Test
+    fun testSavedViewDuplicationAndDefaultViewSelection() = runBlocking {
+        val projectId = database.projectDao().insertProject(
+            ProjectEntity(name = "Views Project", profileId = 1L)
+        )
+
+        // 1. Create View 1 and set as default
+        val view1 = ProjectWorkspaceView(
+            projectId = projectId,
+            name = "Default Table",
+            viewType = WorkspaceViewType.TABLE,
+            isDefault = true
+        )
+        val view1Id = repository.insertWorkspaceView(view1)
+        repository.setDefaultWorkspaceView(projectId, view1Id)
+
+        // 2. Create View 2 and set as default
+        val view2 = ProjectWorkspaceView(
+            projectId = projectId,
+            name = "Roadmap Kanban",
+            viewType = WorkspaceViewType.BOARD,
+            isDefault = false
+        )
+        val view2Id = repository.insertWorkspaceView(view2)
+        repository.setDefaultWorkspaceView(projectId, view2Id)
+
+        val viewsAfterDefault = repository.getWorkspaceViewsForProjectFlow(projectId).first()
+        val v1After = viewsAfterDefault.find { it.id == view1Id }
+        val v2After = viewsAfterDefault.find { it.id == view2Id }
+        assertNotNull(v1After)
+        assertNotNull(v2After)
+        assertFalse("Previous default view must have isDefault cleared", v1After!!.isDefault)
+        assertTrue("New view must be set as default", v2After!!.isDefault)
+
+        // 3. Duplicate view 2
+        val dupId = repository.duplicateWorkspaceView(v2After)
+        assertTrue(dupId > 0)
+
+        val viewsAfterDup = repository.getWorkspaceViewsForProjectFlow(projectId).first()
+        assertEquals(3, viewsAfterDup.size)
+        val dupView = viewsAfterDup.find { it.id == dupId }
+        assertNotNull(dupView)
+        assertEquals("Roadmap Kanban (Copy)", dupView?.name)
+        assertEquals(WorkspaceViewType.BOARD, dupView?.viewType)
+        assertFalse("Duplicated view must not be default", dupView!!.isDefault)
+    }
+
+    @Test
+    fun testRoomMigration15To16_projectCustomProperties() {
+        val helperConfig = SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name("migration_test_v15_v16.db")
+            .callback(object : SupportSQLiteOpenHelper.Callback(15) {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    db.execSQL("""
+                        CREATE TABLE IF NOT EXISTS `projects` (
+                            `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            `name` TEXT NOT NULL,
+                            `description` TEXT NOT NULL DEFAULT '',
+                            `colorId` INTEGER NOT NULL DEFAULT 0,
+                            `emoji` TEXT NOT NULL DEFAULT '',
+                            `isFavorite` INTEGER NOT NULL DEFAULT 0,
+                            `orderIndex` INTEGER NOT NULL DEFAULT 0,
+                            `profileId` INTEGER NOT NULL DEFAULT 1,
+                            `createdAt` INTEGER NOT NULL DEFAULT 0,
+                            `updatedAt` INTEGER NOT NULL DEFAULT 0
+                        )
+                    """.trimIndent())
+                }
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+            })
+            .build()
+
+        val helper = FrameworkSQLiteOpenHelperFactory().create(helperConfig)
+        val db = helper.writableDatabase
+
+        // Execute MIGRATION_15_16
+        MIGRATION_15_16.migrate(db)
+
+        // Validate table and indices exist
+        val tableCursor = db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='project_custom_properties'")
+        assertTrue("project_custom_properties table must exist after MIGRATION_15_16", tableCursor.moveToFirst())
+        tableCursor.close()
+
+        val indexProfile = db.query("SELECT name FROM sqlite_master WHERE type='index' AND name='index_project_custom_properties_profileId'")
+        assertTrue(indexProfile.moveToFirst())
+        indexProfile.close()
+
+        val indexProject = db.query("SELECT name FROM sqlite_master WHERE type='index' AND name='index_project_custom_properties_projectId'")
+        assertTrue(indexProject.moveToFirst())
+        indexProject.close()
+
+        db.close()
+        context.deleteDatabase("migration_test_v15_v16.db")
     }
 }

@@ -129,3 +129,46 @@ data class ProjectCustomStatusEntity(
     val colorHex: Long = 4282168054L,
     val orderIndex: Int = 0
 )
+
+/**
+ * Custom Property Definition per Project (Release 3 Requirement #20).
+ * Supports field types: TEXT, NUMBER, CHECKBOX, DATE, SINGLE_SELECT, MULTI_SELECT, URL, STATUS.
+ */
+@Entity(
+    tableName = "project_custom_properties",
+    foreignKeys = [
+        ForeignKey(
+            entity = ProjectEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["projectId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [
+        Index("profileId"),
+        Index("projectId")
+    ]
+)
+data class ProjectCustomPropertyEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val profileId: Long = 1,
+    val projectId: Long,
+    val name: String,
+    val propertyType: String = TYPE_TEXT,
+    val optionsJson: String = "[]",
+    val isVisible: Boolean = true,
+    val orderIndex: Int = 0
+) {
+    companion object {
+        const val TYPE_TEXT = "TEXT"
+        const val TYPE_NUMBER = "NUMBER"
+        const val TYPE_CHECKBOX = "CHECKBOX"
+        const val TYPE_DATE = "DATE"
+        const val TYPE_SINGLE_SELECT = "SINGLE_SELECT"
+        const val TYPE_MULTI_SELECT = "MULTI_SELECT"
+        const val TYPE_URL = "URL"
+        const val TYPE_STATUS = "STATUS"
+    }
+}
+

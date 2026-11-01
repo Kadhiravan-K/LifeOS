@@ -51,9 +51,11 @@ import com.example.domain.model.ChallengeRule
 import com.example.domain.projectworkspace.ProjectWorkspaceItem
 import com.example.domain.projectworkspace.ProjectWorkspaceView
 import com.example.domain.projectworkspace.ProjectCustomStatus
+import com.example.domain.projectworkspace.ProjectCustomProperty
 import com.example.data.local.entities.ProjectWorkspaceItemEntity
 import com.example.data.local.entities.ProjectWorkspaceViewEntity
 import com.example.data.local.entities.ProjectCustomStatusEntity
+import com.example.data.local.entities.ProjectCustomPropertyEntity
 import com.example.domain.model.ChallengeState
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -194,6 +196,7 @@ class LifeRepository(
             projectWorkspaceDao.deleteAllItemsForProfile(id)
             projectWorkspaceDao.deleteAllViewsForProfile(id)
             projectWorkspaceDao.deleteAllCustomStatusesForProfile(id)
+            projectWorkspaceDao.deleteAllCustomPropertiesForProfile(id)
         }
         return deleted > 0
     }
@@ -334,6 +337,16 @@ class LifeRepository(
         }
     }
 
+    suspend fun bulkUpdateWorkspaceItemCategory(ids: List<Long>, category: String) {
+        val profileId = getActiveProfileId()
+        ids.forEach { id ->
+            val existing = projectWorkspaceDao.getItemById(id)
+            if (existing != null && existing.profileId == profileId) {
+                projectWorkspaceDao.updateItem(existing.copy(category = category, updatedAt = System.currentTimeMillis()))
+            }
+        }
+    }
+
     fun getWorkspaceViewsForProjectFlow(projectId: Long): Flow<List<ProjectWorkspaceView>> {
         return activeProfileIdFlow.flatMapLatest { profileId ->
             projectWorkspaceDao.getViewsForProjectFlow(projectId, profileId).map { entities ->
@@ -356,6 +369,23 @@ class LifeRepository(
         return projectWorkspaceDao.deleteViewById(id) > 0
     }
 
+    suspend fun setDefaultWorkspaceView(projectId: Long, viewId: Long) {
+        projectWorkspaceDao.clearDefaultViewsForProject(projectId)
+        projectWorkspaceDao.setDefaultView(viewId)
+    }
+
+    suspend fun duplicateWorkspaceView(view: ProjectWorkspaceView): Long {
+        val profileId = getActiveProfileId()
+        val copy = view.copy(
+            id = 0,
+            profileId = profileId,
+            name = "${view.name} (Copy)",
+            isDefault = false,
+            updatedAt = System.currentTimeMillis()
+        )
+        return projectWorkspaceDao.insertView(copy.toEntity())
+    }
+
     fun getCustomStatusesForProjectFlow(projectId: Long): Flow<List<ProjectCustomStatus>> {
         return activeProfileIdFlow.flatMapLatest { profileId ->
             projectWorkspaceDao.getCustomStatusesForProjectFlow(projectId, profileId).map { entities ->
@@ -369,8 +399,53 @@ class LifeRepository(
         return projectWorkspaceDao.insertCustomStatus(status.copy(profileId = profileId).toEntity())
     }
 
+    suspend fun updateCustomStatus(status: ProjectCustomStatus) {
+        val profileId = getActiveProfileId()
+        projectWorkspaceDao.updateCustomStatus(status.copy(profileId = profileId).toEntity())
+    }
+
     suspend fun deleteCustomStatus(id: Long): Boolean {
         return projectWorkspaceDao.deleteCustomStatusById(id) > 0
+    }
+
+    suspend fun deleteCustomStatusWithReassignment(
+        projectId: Long,
+        statusId: Long,
+        deletedStatusName: String,
+        replacementStatusName: String
+    ): Boolean {
+        projectWorkspaceDao.reassignItemStatus(projectId, deletedStatusName, replacementStatusName)
+        return projectWorkspaceDao.deleteCustomStatusById(statusId) > 0
+    }
+
+    // --- Custom Properties (Release 3 Requirement #20) ---
+    fun getCustomPropertiesForProjectFlow(projectId: Long): Flow<List<ProjectCustomProperty>> {
+        return activeProfileIdFlow.flatMapLatest { profileId ->
+            projectWorkspaceDao.getCustomPropertiesForProjectFlow(projectId, profileId).map { entities ->
+                entities.map { ProjectCustomProperty.fromEntity(it) }
+            }
+        }
+    }
+
+    suspend fun getCustomPropertiesForProject(projectId: Long): List<ProjectCustomProperty> {
+        val profileId = getActiveProfileId()
+        return projectWorkspaceDao.getCustomPropertiesForProjectList(projectId, profileId).map {
+            ProjectCustomProperty.fromEntity(it)
+        }
+    }
+
+    suspend fun insertCustomProperty(property: ProjectCustomProperty): Long {
+        val profileId = getActiveProfileId()
+        return projectWorkspaceDao.insertCustomProperty(property.copy(profileId = profileId).toEntity())
+    }
+
+    suspend fun updateCustomProperty(property: ProjectCustomProperty) {
+        val profileId = getActiveProfileId()
+        projectWorkspaceDao.updateCustomProperty(property.copy(profileId = profileId).toEntity())
+    }
+
+    suspend fun deleteCustomProperty(id: Long): Boolean {
+        return projectWorkspaceDao.deleteCustomPropertyById(id) > 0
     }
 
     suspend fun getAllWorkspaceItemsForExport(profileId: Long): List<ProjectWorkspaceItemEntity> {
@@ -385,6 +460,10 @@ class LifeRepository(
         return projectWorkspaceDao.getAllCustomStatusesForProfile(profileId)
     }
 
+    suspend fun getAllCustomPropertiesForExport(profileId: Long): List<ProjectCustomPropertyEntity> {
+        return projectWorkspaceDao.getAllCustomPropertiesForProfile(profileId)
+    }
+
     suspend fun restoreWorkspaceItems(items: List<ProjectWorkspaceItemEntity>) {
         projectWorkspaceDao.insertItems(items)
     }
@@ -395,6 +474,10 @@ class LifeRepository(
 
     suspend fun restoreCustomStatuses(statuses: List<ProjectCustomStatusEntity>) {
         statuses.forEach { projectWorkspaceDao.insertCustomStatus(it) }
+    }
+
+    suspend fun restoreCustomProperties(properties: List<ProjectCustomPropertyEntity>) {
+        properties.forEach { projectWorkspaceDao.insertCustomProperty(it) }
     }
 
     // --- Phase 3A Reactive Flows ---
