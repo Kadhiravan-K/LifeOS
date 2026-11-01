@@ -100,6 +100,10 @@ fun AppEntryProfileSelectorScreen(
         ?: profiles.firstOrNull()
         ?: ProfileEntity.createDefaultPersonal()
 
+    androidx.activity.compose.BackHandler {
+        onEnterWorkspace(currentSelectedProfile.id)
+    }
+
     ThemedAtmosphereBackground(modifier = modifier.fillMaxSize().testTag("app_entry_profile_selector_screen")) {
         Column(
             modifier = Modifier

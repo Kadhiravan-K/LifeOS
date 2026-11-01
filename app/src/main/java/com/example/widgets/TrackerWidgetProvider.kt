@@ -76,6 +76,8 @@ class TrackerWidgetProvider : AppWidgetProvider() {
 
                     appWidgetManager.updateAppWidget(widgetId, views)
                 }
+            } catch (e: Exception) {
+                android.util.Log.e("TrackerWidgetProvider", "Failed to update tracker widget", e)
             } finally {
                 pendingResult.finish()
             }

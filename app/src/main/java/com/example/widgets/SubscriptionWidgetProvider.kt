@@ -70,6 +70,8 @@ class SubscriptionWidgetProvider : AppWidgetProvider() {
 
                     appWidgetManager.updateAppWidget(widgetId, views)
                 }
+            } catch (e: Exception) {
+                android.util.Log.e("SubscriptionWidget", "Failed to update subscription widget", e)
             } finally {
                 pendingResult.finish()
             }

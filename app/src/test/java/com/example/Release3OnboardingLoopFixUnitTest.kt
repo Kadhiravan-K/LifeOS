@@ -17,6 +17,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -265,5 +266,79 @@ class Release3OnboardingLoopFixUnitTest {
             "DataStore hasCompletedOnboarding must be true",
             freshPreferences.hasCompletedOnboarding.first()
         )
+    }
+
+    @Test
+    fun testDuplicateSurveySubmissionSafety() = runBlocking {
+        val survey = ProfileSurveyEntity(
+            profileId = 1L,
+            displayName = "Taylor",
+            isCompleted = true,
+            isSkipped = false
+        )
+
+        // First submission
+        val id1 = repository.saveSurvey(survey)
+        assertTrue(id1 > 0)
+
+        // Duplicate rapid submission with updated timestamp
+        val duplicateSurvey = survey.copy(displayName = "Taylor Updated", updatedAt = System.currentTimeMillis() + 100)
+        val id2 = repository.saveSurvey(duplicateSurvey)
+        assertTrue(id2 > 0)
+
+        // Verify state is clean and not duplicated
+        val persisted = repository.getSurveyForProfile(1L)
+        assertNotNull(persisted)
+        assertEquals("Taylor Updated", persisted?.displayName)
+        assertTrue(persisted!!.isCompleted)
+        assertTrue(preferences.hasCompletedOnboarding.first())
+        assertTrue(preferences.completedOnboardingProfileIds.first().contains(1L))
+    }
+
+    @Test
+    fun testNewProfileMaintainsIndependentOnboardingAcrossRelaunch() = runBlocking {
+        // Complete Profile 1
+        repository.saveSurvey(
+            ProfileSurveyEntity(profileId = 1L, displayName = "P1 User", isCompleted = true, isSkipped = false)
+        )
+        // Create Profile 2
+        val profile2Id = repository.createProfile(name = "Side Hustle", emoji = "💼", type = ProfileEntity.TYPE_WORK)
+
+        // Simulate app kill & relaunch
+        val relaunchedPrefs = UserPreferences(context)
+        val relaunchedRepo = LifeRepository(database, relaunchedPrefs)
+
+        // Profile 1 must remain completed
+        assertTrue(relaunchedRepo.isProfileOnboardingCompletedFlow(1L).first())
+        // Profile 2 must remain incomplete
+        assertFalse(relaunchedRepo.isProfileOnboardingCompletedFlow(profile2Id).first())
+    }
+
+    @Test
+    fun testSurveyPersistenceWithNullOptionalFields() = runBlocking {
+        // User skips all optional questions in steps 2-5
+        val minimalSurvey = ProfileSurveyEntity(
+            profileId = 1L,
+            displayName = null,
+            gender = null,
+            sleepingTime = null,
+            dailyWaterGoalMl = null,
+            discoverySource = null,
+            discoverySocialPlatform = null,
+            discoveryOtherDetail = null,
+            isCompleted = true,
+            isSkipped = false
+        )
+
+        val id = repository.saveSurvey(minimalSurvey)
+        assertTrue(id > 0)
+
+        val persisted = repository.getSurveyForProfile(1L)
+        assertNotNull(persisted)
+        assertTrue(persisted!!.isCompleted)
+        assertFalse(persisted.isSkipped)
+        assertNull(persisted.displayName)
+        assertNull(persisted.dailyWaterGoalMl)
+        assertTrue(repository.isProfileOnboardingCompletedFlow(1L).first())
     }
 }

@@ -157,6 +157,14 @@ fun OnboardingSurveyScreen(
         }
     }
 
+    androidx.activity.compose.BackHandler {
+        if (currentStep > 1) {
+            currentStep--
+        } else {
+            handleSkipAll()
+        }
+    }
+
     Scaffold(
         modifier = modifier
             .fillMaxSize()

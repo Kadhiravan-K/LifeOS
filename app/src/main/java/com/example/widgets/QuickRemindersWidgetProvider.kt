@@ -145,8 +145,12 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
         appWidgetId: Int
     ) {
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
-            val views = buildWidgetViews(context, appWidgetId)
-            appWidgetManager.updateAppWidget(appWidgetId, views)
+            try {
+                val views = buildWidgetViews(context, appWidgetId)
+                appWidgetManager.updateAppWidget(appWidgetId, views)
+            } catch (e: Exception) {
+                android.util.Log.e("QuickRemindersWidget", "Error updating widget id $appWidgetId", e)
+            }
         }
     }
 
