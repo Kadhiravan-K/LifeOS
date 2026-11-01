@@ -685,6 +685,27 @@ Autonomous Development Loop 8 was executed on branch `feat/release3-loop8-downlo
 | **Build & Packaging** | Kotlin compilation clean (`compileDebugKotlin`). Android test compilation clean (`compileDebugAndroidTestKotlin`). Full debug APK assembled successfully (`app-debug.apk`, 26.8 MB, `BUILD SUCCESSFUL in 51s`, SHA-256: `888ac31eebda97063c8c93e334235940cccbb78828825f68e176bf077c9485c9`). | **READY FOR PHASE 9** |
 | **Physical Device Validation** | Headless Android environment without live USB/ADB device connected. Formally recorded as **PENDING PHYSICAL DEVICE CONNECTION**. Full Robolectric test suite and Room migration chain verified locally on Android SDK runtime. | **PENDING PHYSICAL DEVICE** |
 
+---
+
+## 24. Implementation Status: Loop 9 — Bidirectional Model Context Protocol (MCP) Integration (Completed & Verified)
+
+Autonomous Development Loop 9 was executed on branch `feat/release3-loop9-mcp-bidirectional`:
+
+| Requirement / Domain | Implementation Details | Status |
+|---|---|---|
+| **#3: Inbound MCP Server** | Implemented 27 tools, 7 resources, and 4 prompts compliant with MCP protocol specification `2024-11-05` across Tasks, Projects, Planning, Productivity Radar (5-axis scores), Glossary, and Controlled Writes (`create_task`, `update_task`, `complete_task`, `create_project`, `update_project_status`, `add_task_label`). | **RESOLVED & VERIFIED** |
+| **#3: Profile Isolation Guard** | Request payloads targeting IDs or data outside the user's active `mcpAllowedProfileId` boundary are immediately rejected with error `-32002` (`PROFILE_ISOLATION_VIOLATION`), safeguarding personal data from external agents. | **RESOLVED & VERIFIED** |
+| **#3: Bearer Token Auth** | Cryptographically secure 32-character hex bearer token generated via `SecureRandom` and compared via constant-time `MessageDigest.isEqual` to prevent timing attacks. Token regeneration immediately revokes past sessions. | **RESOLVED & VERIFIED** |
+| **#3: Outbound MCP Client** | Engineered `McpClientEngine` supporting local sovereign IPC (`LocalIpcMcpTransport` with zero network overhead) and HTTP/SSE (`HttpMcpTransport` with 5s connect timeout, 10s read timeout, and 5 MB maximum response guard). Supports tool/resource discovery and JSON schema argument validation. | **RESOLVED & VERIFIED** |
+| **#3: Mandatory User Security Gate** | External tool calls cannot execute silently. Unapproved calls throw `SecurityException` and log `DENIED` audit events. Users must review tool parameters and tap "Approve & Execute" before invocation occurs. | **RESOLVED & VERIFIED** |
+| **Persistence (Room v18)** | Created Room `MIGRATION_17_18` bumping database version to 18. Implemented `mcp_servers` and `mcp_audit_logs` entities and DAO with cascade deletion tied to `profiles(id)` and indexed timestamp queries. | **RESOLVED & VERIFIED** |
+| **Backup & Restore** | Integrated `mcp_servers` export and import into `DataExportImportManager.kt` with profile remapping. Roundtrip verified in `Release3BackupRestoreUnitTest.kt`. | **RESOLVED & VERIFIED** |
+| **Reusable UI Component** | Implemented `McpServerCard.kt` in `com.example.ui.components` and registered as component #60 in `MasterComponentCatalog.kt`. Displays connection badge, transport tag, discovered tool count, and lifecycle action buttons. Verified in `ComponentCatalogUnitTest.kt`. | **RESOLVED & VERIFIED** |
+| **UI Screen Integration** | Modernized `McpBridgeScreen.kt` with 3 tabs: (1) Server (Inbound) with toggle, token manager, preset playground; (2) External Clients with server registration, tool discovery, and execution form; (3) Security & Audit with event feed and clear history. | **RESOLVED & VERIFIED** |
+| **Unit Test Suite & Verification** | Comprehensive test coverage in `Release3Phase9McpUnitTest.kt` covering all 27 server tools, resources, prompts, profile isolation, Local IPC client connection, discovery, and user approval gate. Updated `RoomMigrationRobolectricUnitTest.kt` and `ComponentCatalogUnitTest.kt`. | **RESOLVED & VERIFIED** |
+| **Physical Device Validation** | Headless Android environment without live USB/ADB device connected. Formally recorded as **PENDING PHYSICAL DEVICE CONNECTION**. Full Robolectric test suite and Room migration chain verified locally on Android SDK runtime. | **PENDING PHYSICAL DEVICE** |
+
+
 
 
 

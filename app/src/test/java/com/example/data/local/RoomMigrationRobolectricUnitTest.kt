@@ -359,10 +359,10 @@ class RoomMigrationRobolectricUnitTest {
         val v10Db = factory.create(v10Config).writableDatabase
         v10Db.close()
 
-        // 2. Open DB at version 17, applying all migrations from 10 to 17
+        // 2. Open DB at version 18, applying all migrations from 10 to 18
         val v15Config = SupportSQLiteOpenHelper.Configuration.builder(context)
             .name(dbName)
-            .callback(object : SupportSQLiteOpenHelper.Callback(17) {
+            .callback(object : SupportSQLiteOpenHelper.Callback(18) {
                 override fun onCreate(db: SupportSQLiteDatabase) {}
 
                 override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -373,6 +373,7 @@ class RoomMigrationRobolectricUnitTest {
                     if (oldVersion <= 14) MIGRATION_14_15.migrate(db)
                     if (oldVersion <= 15) MIGRATION_15_16.migrate(db)
                     if (oldVersion <= 16) MIGRATION_16_17.migrate(db)
+                    if (oldVersion <= 17) MIGRATION_17_18.migrate(db)
                 }
             })
             .build()
@@ -426,6 +427,16 @@ class RoomMigrationRobolectricUnitTest {
         val userDataCursor = v15Db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='glossary_user_data'")
         assertTrue("glossary_user_data table must exist in v17", userDataCursor.moveToFirst())
         userDataCursor.close()
+
+        // 10. Verify mcp_servers table exists from MIGRATION_17_18
+        val mcpServersCursor = v15Db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='mcp_servers'")
+        assertTrue("mcp_servers table must exist in v18", mcpServersCursor.moveToFirst())
+        mcpServersCursor.close()
+
+        // 11. Verify mcp_audit_logs table exists from MIGRATION_17_18
+        val mcpAuditLogsCursor = v15Db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='mcp_audit_logs'")
+        assertTrue("mcp_audit_logs table must exist in v18", mcpAuditLogsCursor.moveToFirst())
+        mcpAuditLogsCursor.close()
 
         v15Db.close()
         context.deleteDatabase(dbName)

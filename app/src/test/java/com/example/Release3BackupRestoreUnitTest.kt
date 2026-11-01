@@ -10,6 +10,7 @@ import com.example.data.local.entities.GlossaryPackEntity
 import com.example.data.local.entities.GlossaryUserDataEntity
 import com.example.data.local.entities.HabitEntity
 import com.example.data.local.entities.LabelEntity
+import com.example.data.local.entities.McpServerEntity
 import com.example.data.local.entities.MedicationEntity
 import com.example.data.local.entities.PlanEntity
 import com.example.data.local.entities.PlanMilestoneEntity
@@ -295,6 +296,21 @@ class Release3BackupRestoreUnitTest {
         )
         sourceDb.glossaryDao().insertUserDataList(listOf(userData))
 
+        val mcpServer = McpServerEntity(
+            id = 1L,
+            profileId = 1L,
+            name = "Local Sovereign Agent",
+            endpoint = "ipc://assistant",
+            transport = "LOCAL_IPC",
+            authToken = "token123",
+            status = "CONNECTED",
+            errorMessage = null,
+            lastConnectedAt = 1730000000000L,
+            discoveredToolsCount = 5,
+            createdAt = 1730000000000L
+        )
+        sourceDb.mcpDao().insertServer(mcpServer)
+
         // 2. Export all data to JSON
         val exportedJson = DataExportImportManager.exportAllData(sourceDb)
         assertNotNull(exportedJson)
@@ -314,6 +330,7 @@ class Release3BackupRestoreUnitTest {
         assertTrue(root.has("water_logs"))
         assertTrue(root.has("glossary_packs"))
         assertTrue(root.has("glossary_items"))
+        assertTrue(root.has("mcp_servers"))
 
         // 3. Import JSON into fresh target database
         val importSuccess = DataExportImportManager.importData(targetDb, exportedJson)
@@ -384,6 +401,12 @@ class Release3BackupRestoreUnitTest {
         assertEquals(1L, restoredUserData[0].termId)
         assertTrue(restoredUserData[0].isBookmarked)
         assertEquals("Important personal rule for sprint planning", restoredUserData[0].personalNote)
+
+        val restoredMcpServers = targetDb.mcpDao().getAllServersList(1L)
+        assertEquals(1, restoredMcpServers.size)
+        assertEquals("Local Sovereign Agent", restoredMcpServers[0].name)
+        assertEquals("ipc://assistant", restoredMcpServers[0].endpoint)
+        assertEquals("LOCAL_IPC", restoredMcpServers[0].transport)
     }
 
     @Test

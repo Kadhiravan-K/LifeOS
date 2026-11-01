@@ -1859,6 +1859,38 @@ FeatureModuleCard(
 )
             """.trimIndent(),
             tags = listOf("module", "feature", "downloadable", "sha256", "integrity", "offline", "pack", "card")
+        ),
+
+        // 60. MCP External Server Card (#3)
+        ComponentEntry(
+            id = "mcp_server_card",
+            name = "Model Context Protocol Server Card",
+            category = ComponentCategory.SPECIALIZED_LIFEOS,
+            status = ComponentStatus.EXISTING,
+            description = "Card representing an external Model Context Protocol server connection. Displays connection status, transport type, endpoint, tool counts, and lifecycle controls.",
+            whenToUse = "Use in the MCP Bridge external clients dashboard to manage and invoke outbound AI MCP servers.",
+            sourceFile = "app/src/main/java/com/example/ui/components/McpServerCard.kt",
+            composableName = "McpServerCard",
+            parameters = listOf(
+                ComponentParam("server", "McpServerEntity", "External server metadata, transport type, endpoint and state"),
+                ComponentParam("onConnect", "() -> Unit", "Connect/reconnect action callback"),
+                ComponentParam("onDisconnect", "() -> Unit", "Disconnect action callback"),
+                ComponentParam("onDiscoverTools", "() -> Unit", "Discover available tools and resources callback"),
+                ComponentParam("onDelete", "() -> Unit", "Delete server registration callback"),
+                ComponentParam("modifier", "Modifier", "Optional layout modifier")
+            ),
+            usageLocations = listOf("McpBridgeScreen", "McpExternalClientsContent"),
+            reuseRecommendations = "Standardized UI card for managing external JSON-RPC AI agent server connections adhering to MCP specification.",
+            codeExample = """
+McpServerCard(
+    server = serverEntity,
+    onConnect = { viewModel.connectExternalMcpServer(serverEntity.id) },
+    onDisconnect = { viewModel.disconnectExternalMcpServer(serverEntity.id) },
+    onDiscoverTools = { viewModel.discoverExternalMcpTools(serverEntity.id) },
+    onDelete = { viewModel.removeExternalMcpServer(serverEntity.id) }
+)
+            """.trimIndent(),
+            tags = listOf("mcp", "ai", "model context protocol", "server", "json-rpc", "agent", "card", "bridge")
         )
     )
 

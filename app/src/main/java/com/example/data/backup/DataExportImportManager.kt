@@ -586,6 +586,26 @@ object DataExportImportManager {
         }
         root.put("glossary_user_data", glossaryUserDataArr)
 
+        // Export External MCP Servers (#3)
+        val allProfilesForMcp = database.profileDao().getAllProfiles()
+        val mcpServersArr = JSONArray()
+        for (p in allProfilesForMcp) {
+            val servers = database.mcpDao().getAllServersList(p.id)
+            for (s in servers) {
+                val obj = JSONObject().apply {
+                    put("id", s.id)
+                    put("profileId", s.profileId)
+                    put("name", s.name)
+                    put("endpoint", s.endpoint)
+                    put("transport", s.transport)
+                    put("authToken", s.authToken ?: JSONObject.NULL)
+                    put("createdAt", s.createdAt)
+                }
+                mcpServersArr.put(obj)
+            }
+        }
+        root.put("mcp_servers", mcpServersArr)
+
         // 15. Medications (#11)
         val medications = database.medicationDao().getAllMedicationsList()
         val medsArr = JSONArray()
@@ -1139,6 +1159,24 @@ object DataExportImportManager {
                     userDataList.add(ud)
                 }
                 database.glossaryDao().insertUserDataList(userDataList)
+            }
+
+            // Import External MCP Servers (#3)
+            val mcpServersArr = root.optJSONArray("mcp_servers")
+            if (mcpServersArr != null) {
+                for (i in 0 until mcpServersArr.length()) {
+                    val obj = mcpServersArr.getJSONObject(i)
+                    val server = com.example.data.local.entities.McpServerEntity(
+                        id = 0L,
+                        profileId = obj.optLong("profileId", 1L),
+                        name = obj.getString("name"),
+                        endpoint = obj.getString("endpoint"),
+                        transport = obj.optString("transport", "HTTP_SSE"),
+                        authToken = if (obj.has("authToken") && !obj.isNull("authToken")) obj.getString("authToken") else null,
+                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                    )
+                    database.mcpDao().insertServer(server)
+                }
             }
 
             // Import Plans (#10)

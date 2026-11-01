@@ -756,6 +756,25 @@ class LifeRepository(
         return labelDao.insertLabel(label.copy(profileId = effectiveProfileId).toEntity())
     }
 
+    suspend fun getOrCreateLabel(profileId: Long, name: String): LabelItem {
+        val effectiveProfileId = if (profileId > 0) profileId else getActiveProfileId()
+        val trimmed = name.trim()
+        val existing = labelDao.getAllLabelsForProfileList(effectiveProfileId).find { it.name.equals(trimmed, ignoreCase = true) }
+        if (existing != null) {
+            return existing.toDomainModel(0)
+        }
+        val newId = labelDao.insertLabel(
+            LabelEntity(
+                profileId = effectiveProfileId,
+                name = trimmed,
+                colorId = "blue",
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+        return LabelItem(id = newId, profileId = effectiveProfileId, name = trimmed, colorId = "blue")
+    }
+
     suspend fun updateLabel(label: LabelItem) {
         labelDao.updateLabel(label.toEntity())
     }
@@ -3393,6 +3412,40 @@ class LifeRepository(
 
     suspend fun uninstallFeatureModule(moduleId: String): Result<Unit> {
         return com.example.domain.modules.FeatureModuleManager.uninstallModule(glossaryDao, moduleId)
+    }
+
+    // --- Release 3 Phase 9: Model Context Protocol (MCP) Bidirectional Engine (#3) ---
+    private val mcpDaoInstance = database.mcpDao()
+    val mcpClientEngine: com.example.mcp.client.McpClientEngine by lazy {
+        com.example.mcp.client.McpClientEngine(mcpDaoInstance)
+    }
+
+    fun getAllMcpServersFlow(profileId: Long): Flow<List<com.example.data.local.entities.McpServerEntity>> {
+        return mcpDaoInstance.getAllServersFlow(profileId)
+    }
+
+    suspend fun getAllMcpServersForExport(profileId: Long): List<com.example.data.local.entities.McpServerEntity> {
+        return mcpDaoInstance.getAllServersList(profileId)
+    }
+
+    suspend fun insertMcpServer(server: com.example.data.local.entities.McpServerEntity): Long {
+        return mcpDaoInstance.insertServer(server)
+    }
+
+    suspend fun deleteMcpServer(id: Long) {
+        mcpDaoInstance.deleteServer(id)
+    }
+
+    fun getMcpAuditLogsFlow(profileId: Long): Flow<List<com.example.data.local.entities.McpAuditLogEntity>> {
+        return mcpDaoInstance.getAuditLogsFlow(profileId)
+    }
+
+    suspend fun clearMcpAuditLogs(profileId: Long) {
+        mcpDaoInstance.clearAuditLogs(profileId)
+    }
+
+    suspend fun insertMcpAuditLog(log: com.example.data.local.entities.McpAuditLogEntity): Long {
+        return mcpDaoInstance.insertAuditLog(log)
     }
 }
 

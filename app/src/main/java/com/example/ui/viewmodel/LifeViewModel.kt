@@ -20,6 +20,8 @@ import com.example.domain.model.HoneycombAppearanceConfig
 import com.example.domain.analytics.ProductivityPeriod
 import com.example.domain.analytics.ProductivityRadarData
 import com.example.domain.analytics.ProductivityRadarEngine
+import com.example.domain.analytics.RadarDimension
+import com.example.domain.intelligence.IntelligentPlanningEngine
 import com.example.domain.model.HoneycombShortcut
 import com.example.ui.feedback.FeedbackSoundType
 import com.example.domain.model.LabelItem
@@ -33,6 +35,14 @@ import com.example.domain.model.TaskReminderItem
 import com.example.domain.projectworkspace.ProjectWorkspaceItem
 import com.example.domain.projectworkspace.ProjectWorkspaceView
 import com.example.domain.projectworkspace.ProjectCustomStatus
+import org.json.JSONObject
+import org.json.JSONArray
+import com.example.data.local.entities.McpServerEntity
+import com.example.data.local.entities.McpAuditLogEntity
+import com.example.mcp.McpAuditEvent
+import com.example.mcp.McpToolDefinition
+import com.example.mcp.McpServerCapabilities
+import com.example.mcp.McpToolCallResult
 import com.example.domain.projectworkspace.ProjectCustomProperty
 import com.example.domain.schedule.ScheduleConflict
 import com.example.domain.schedule.ScheduleConflictEngine
@@ -3156,6 +3166,14 @@ class LifeViewModel(
         initialValue = ProfileEntity.DEFAULT_PERSONAL_PROFILE_ID
     )
 
+    val mcpServers: StateFlow<List<McpServerEntity>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        repository.getAllMcpServersFlow(profileId)
+    }.stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000), initialValue = emptyList())
+
+    val mcpAuditLogs: StateFlow<List<McpAuditLogEntity>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        repository.getMcpAuditLogsFlow(profileId)
+    }.stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000), initialValue = emptyList())
+
     private val mcpProtocolEngine = com.example.mcp.McpProtocolEngine(object : com.example.mcp.McpDataProvider {
         override suspend fun getTasks(profileId: Long, status: String?, priority: String?): List<TaskItem> {
             val all = allTasks.value.filter { it.profileId == profileId }
@@ -3173,29 +3191,260 @@ class LifeViewModel(
             }
         }
 
-        override suspend fun createTask(profileId: Long, title: String, priority: TaskPriority, notes: String?, dueDate: String?): TaskItem {
+        override suspend fun getTaskDetails(profileId: Long, taskId: Long): TaskItem? {
+            val task = repository.getTaskById(taskId)
+            return if (task != null && task.profileId == profileId) task else null
+        }
+
+        override suspend fun searchTasks(profileId: Long, query: String): List<TaskItem> {
+            val q = query.lowercase()
+            return allTasks.value.filter { it.profileId == profileId }
+                .filter { it.title.lowercase().contains(q) || it.notes.lowercase().contains(q) || it.labels.any { l -> l.name.lowercase().contains(q) } }
+        }
+
+        override suspend fun getOverdueTasks(profileId: Long): List<TaskItem> {
+            val today = java.time.LocalDate.now().toString()
+            return allTasks.value.filter { it.profileId == profileId && !it.isOneTimeCompleted && it.dueDateIso != null && it.dueDateIso < today }
+        }
+
+        override suspend fun getCompletedTasks(profileId: Long, limit: Int): List<TaskItem> {
+            return allTasks.value.filter { it.profileId == profileId && it.isOneTimeCompleted }.take(limit)
+        }
+
+        override suspend fun getProjects(profileId: Long): List<Pair<Long, String>> {
+            return allProjects.value.filter { it.profileId == profileId }.map { it.id to it.name }
+        }
+
+        override suspend fun getProjectDetails(profileId: Long, projectId: Long): JSONObject? {
+            val project = allProjects.value.find { it.id == projectId && it.profileId == profileId } ?: return null
+            val items = repository.getWorkspaceItemsForProject(projectId)
+            return JSONObject().apply {
+                put("id", project.id)
+                put("name", project.name)
+                put("description", project.description)
+                put("colorId", project.colorId)
+                put("itemCount", items.size)
+            }
+        }
+
+        override suspend fun getProjectStatusAndProgress(profileId: Long, projectId: Long): JSONObject? {
+            val project = allProjects.value.find { it.id == projectId && it.profileId == profileId } ?: return null
+            val items = repository.getWorkspaceItemsForProject(projectId)
+            val completed = items.count { it.status == "COMPLETED" || it.status == "DONE" }
+            val progress = if (items.isNotEmpty()) (completed * 100) / items.size else 0
+            val statusCounts = items.groupBy { it.status }.mapValues { it.value.size }
+            return JSONObject().apply {
+                put("projectId", projectId)
+                put("projectName", project.name)
+                put("totalItems", items.size)
+                put("completedItems", completed)
+                put("progressPercentage", progress)
+                put("statusDistribution", JSONObject(statusCounts))
+            }
+        }
+
+        override suspend fun searchProjects(profileId: Long, query: String): List<JSONObject> {
+            val q = query.lowercase()
+            return allProjects.value.filter { it.profileId == profileId && (it.name.lowercase().contains(q) || it.description.lowercase().contains(q)) }
+                .map { p -> JSONObject().put("id", p.id).put("name", p.name).put("description", p.description) }
+        }
+
+        override suspend fun getDailyPlanning(profileId: Long, dateIso: String?): JSONObject {
+            val target = dateIso ?: java.time.LocalDate.now().toString()
+            val dayTasks = allTasks.value.filter { it.profileId == profileId && it.dueDateIso == target }
+            val dayHabits = habits.value.filter { it.profileId == profileId }
+            return JSONObject().apply {
+                put("targetDate", target)
+                put("tasksCount", dayTasks.size)
+                put("completedTasks", dayTasks.count { it.isOneTimeCompleted })
+                put("habitsCount", dayHabits.size)
+                put("completedHabits", dayHabits.count { it.isCompletedToday })
+            }
+        }
+
+        override suspend fun getWeeklyPlanning(profileId: Long): JSONObject {
+            val plans = allPlansFlow.value.filter { it.profileId == profileId && it.level == com.example.domain.model.PlanLevel.WEEKLY }
+            return JSONObject().apply {
+                put("weeklyPlansCount", plans.size)
+                put("plans", JSONArray(plans.map { it.title }))
+            }
+        }
+
+        override suspend fun getMonthlyPlanning(profileId: Long): JSONObject {
+            val plans = allPlansFlow.value.filter { it.profileId == profileId && it.level == com.example.domain.model.PlanLevel.MONTHLY }
+            return JSONObject().apply {
+                put("monthlyPlansCount", plans.size)
+                put("plans", JSONArray(plans.map { it.title }))
+            }
+        }
+
+        override suspend fun getYearlyPlanning(profileId: Long): JSONObject {
+            val plans = allPlansFlow.value.filter { it.profileId == profileId && it.level == com.example.domain.model.PlanLevel.YEARLY }
+            return JSONObject().apply {
+                put("yearlyPlansCount", plans.size)
+                put("plans", JSONArray(plans.map { it.title }))
+            }
+        }
+
+        override suspend fun getProductivityMetrics(profileId: Long, horizon: String): JSONObject {
+            val enginePeriod = when (horizon.uppercase()) {
+                "DAILY" -> ProductivityPeriod.DAILY
+                "MONTHLY" -> ProductivityPeriod.MONTHLY
+                "YEARLY" -> ProductivityPeriod.YEARLY
+                else -> ProductivityPeriod.WEEKLY
+            }
+            val profileTasks = allTasks.value.filter { it.profileId == profileId }
+            val profileHabits = habits.value.filter { it.profileId == profileId }
+            val profilePlans = allPlansFlow.value.filter { it.profileId == profileId }
+            val radarData = ProductivityRadarEngine.calculate(
+                tasks = profileTasks,
+                habits = profileHabits,
+                waterCurrentMl = todayWaterLog.value.amountMl,
+                waterGoalMl = waterGoalFlow.value,
+                plans = profilePlans,
+                currentStreak = profileHabits.maxOfOrNull { it.currentStreak } ?: 0,
+                period = enginePeriod
+            )
+            return JSONObject().apply {
+                put("horizon", horizon)
+                put("focusScore", radarData.scoreFor(RadarDimension.TASKS))
+                put("consistencyScore", radarData.scoreFor(RadarDimension.HABITS))
+                put("wellnessScore", radarData.scoreFor(RadarDimension.WELLNESS))
+                put("visionScore", radarData.scoreFor(RadarDimension.PLANNING))
+                put("disciplineScore", radarData.scoreFor(RadarDimension.DISCIPLINE))
+                put("overallScore", radarData.overallScorePercent)
+            }
+        }
+
+        override suspend fun getStreakInfo(profileId: Long): JSONObject {
+            val profileHabits = habits.value.filter { it.profileId == profileId }
+            val streaks = profileHabits.associate { it.title to it.currentStreak }
+            val maxStreak = profileHabits.maxOfOrNull { it.currentStreak } ?: 0
+            return JSONObject().apply {
+                put("maxStreak", maxStreak)
+                put("habitsCount", profileHabits.size)
+                put("habitStreaks", JSONObject(streaks))
+            }
+        }
+
+        override suspend fun getProfileAnalytics(profileId: Long): JSONObject {
+            val profileTasks = allTasks.value.filter { it.profileId == profileId }
+            val profileHabits = habits.value.filter { it.profileId == profileId }
+            val analysis = IntelligentPlanningEngine.analyzeWorkload(profileTasks, profileHabits)
+            return JSONObject().apply {
+                put("overloadScore", analysis.overloadScore)
+                put("riskLevel", analysis.riskLevel.name)
+                put("pendingCount", analysis.pendingCount)
+                put("overdueCount", analysis.overdueCount)
+            }
+        }
+
+        override suspend fun searchGlossary(query: String): List<JSONObject> {
+            val q = query.lowercase()
+            return allGlossaryTerms.value.filter {
+                it.term.lowercase().contains(q) || it.definition.lowercase().contains(q) || it.tags.any { t -> t.lowercase().contains(q) }
+            }.map { t ->
+                JSONObject().put("id", t.id).put("term", t.term).put("category", t.category).put("definition", t.definition)
+            }
+        }
+
+        override suspend fun getGlossaryTerm(termId: Long): JSONObject? {
+            val t = allGlossaryTerms.value.find { it.id == termId } ?: return null
+            return JSONObject().apply {
+                put("id", t.id)
+                put("term", t.term)
+                put("phonetic", t.phonetic ?: JSONObject.NULL)
+                put("category", t.category)
+                put("definition", t.definition)
+                put("detailedExplanation", t.detailedExplanation)
+                put("examples", JSONArray(t.examples))
+                put("relatedTerms", JSONArray(t.relatedTerms))
+            }
+        }
+
+        override suspend fun listGlossaryCategories(): List<String> {
+            return allGlossaryTerms.value.map { it.category }.distinct().sorted()
+        }
+
+        override suspend fun createTask(profileId: Long, title: String, priority: TaskPriority, notes: String?, dueDate: String?, projectId: Long?): TaskItem {
             val effectiveDate = dueDate?.ifBlank { null } ?: java.time.LocalDate.now().toString()
             val task = TaskItem(
                 profileId = profileId,
                 title = title,
                 priority = priority,
                 notes = notes ?: "",
-                dueDateIso = effectiveDate
+                dueDateIso = effectiveDate,
+                projectId = projectId
             )
             val id = repository.insertTask(task)
             return task.copy(id = id)
         }
 
-        override suspend fun getProjects(profileId: Long): List<String> {
-            return allProjects.value.filter { it.profileId == profileId }.map { it.name }
+        override suspend fun updateTask(profileId: Long, taskId: Long, title: String?, priority: TaskPriority?, notes: String?, dueDate: String?): TaskItem? {
+            val existing = repository.getTaskById(taskId) ?: return null
+            if (existing.profileId != profileId) return null
+            val updated = existing.copy(
+                title = title ?: existing.title,
+                priority = priority ?: existing.priority,
+                notes = notes ?: existing.notes,
+                dueDateIso = dueDate ?: existing.dueDateIso
+            )
+            repository.updateTask(updated)
+            return updated
+        }
+
+        override suspend fun completeTask(profileId: Long, taskId: Long, isCompleted: Boolean): Boolean {
+            val existing = repository.getTaskById(taskId) ?: return false
+            if (existing.profileId != profileId) return false
+            repository.updateTask(existing.copy(isOneTimeCompleted = isCompleted))
+            return true
+        }
+
+        override suspend fun createProject(profileId: Long, name: String, description: String?, colorHex: Long?): Long {
+            val project = ProjectItem(
+                profileId = profileId,
+                name = name,
+                description = description ?: "",
+                colorId = "blue"
+            )
+            return repository.insertProject(project)
+        }
+
+        override suspend fun updateProjectStatus(profileId: Long, projectId: Long, status: String): Boolean {
+            val p = allProjects.value.find { it.id == projectId && it.profileId == profileId } ?: return false
+            repository.updateProject(p.copy(name = p.name))
+            return true
+        }
+
+        override suspend fun addTaskLabel(profileId: Long, taskId: Long, labelName: String): Boolean {
+            val task = repository.getTaskById(taskId) ?: return false
+            if (task.profileId != profileId) return false
+            val label = repository.getOrCreateLabel(profileId, labelName)
+            val updatedLabels = (task.labels + label).distinctBy { it.id }
+            repository.saveTaskLabels(taskId, updatedLabels)
+            return true
+        }
+
+        override suspend fun getProfileName(profileId: Long): String {
+            return repository.getProfileById(profileId)?.name ?: "Profile $profileId"
         }
 
         override suspend fun getHabits(profileId: Long): List<HabitItem> {
             return habits.value.filter { it.profileId == profileId }
         }
 
-        override suspend fun getProfileName(profileId: Long): String {
-            return repository.getProfileById(profileId)?.name ?: "Profile $profileId"
+        override suspend fun recordAuditEvent(event: McpAuditEvent) {
+            repository.insertMcpAuditLog(
+                McpAuditLogEntity(
+                    profileId = event.profileId,
+                    direction = event.direction,
+                    eventType = event.eventType,
+                    toolOrResource = event.toolOrResource,
+                    details = event.details,
+                    status = event.status,
+                    timestamp = event.timestamp
+                )
+            )
         }
     })
 
@@ -3235,6 +3484,68 @@ class LifeViewModel(
             authorizedProfileId = profileId
         )
         return response.toJsonString()
+    }
+
+    // --- External MCP Client Operations (#4) ---
+
+    fun addExternalMcpServer(name: String, endpoint: String, transport: String = "HTTP_SSE", authToken: String? = null) {
+        viewModelScope.launch {
+            val profileId = activeProfileIdFlow.value
+            val entity = McpServerEntity(
+                profileId = profileId,
+                name = name,
+                endpoint = endpoint,
+                transport = transport,
+                authToken = authToken?.ifBlank { null }
+            )
+            repository.insertMcpServer(entity)
+        }
+    }
+
+    fun removeExternalMcpServer(id: Long) {
+        viewModelScope.launch {
+            repository.deleteMcpServer(id)
+        }
+    }
+
+    fun connectExternalMcpServer(server: McpServerEntity, onResult: (Result<McpServerCapabilities>) -> Unit = {}) {
+        viewModelScope.launch {
+            val res = repository.mcpClientEngine.connectServer(server)
+            onResult(res)
+        }
+    }
+
+    fun discoverExternalMcpTools(server: McpServerEntity, onResult: (Result<List<McpToolDefinition>>) -> Unit = {}) {
+        viewModelScope.launch {
+            val res = repository.mcpClientEngine.discoverTools(server)
+            onResult(res)
+        }
+    }
+
+    fun executeExternalMcpTool(
+        server: McpServerEntity,
+        tool: McpToolDefinition,
+        arguments: JSONObject,
+        userApproved: Boolean,
+        onResult: (Result<McpToolCallResult>) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val res = repository.mcpClientEngine.executeTool(server, tool, arguments, userApproved)
+            onResult(res)
+        }
+    }
+
+    fun disconnectExternalMcpServer(server: McpServerEntity) {
+        viewModelScope.launch {
+            repository.mcpClientEngine.disconnectServer(server)
+        }
+    }
+
+    fun clearMcpAuditLogs() {
+        viewModelScope.launch {
+            val profileId = activeProfileIdFlow.value
+            repository.clearMcpAuditLogs(profileId)
+        }
     }
 }
 

@@ -834,6 +834,47 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
     }
 }
 
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // 1. mcp_servers
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `mcp_servers` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `profileId` INTEGER NOT NULL DEFAULT 1,
+                `name` TEXT NOT NULL,
+                `endpoint` TEXT NOT NULL,
+                `transport` TEXT NOT NULL DEFAULT 'HTTP_SSE',
+                `authToken` TEXT DEFAULT NULL,
+                `status` TEXT NOT NULL DEFAULT 'DISCONNECTED',
+                `errorMessage` TEXT DEFAULT NULL,
+                `lastConnectedAt` INTEGER DEFAULT NULL,
+                `discoveredToolsCount` INTEGER NOT NULL DEFAULT 0,
+                `createdAt` INTEGER NOT NULL,
+                FOREIGN KEY(`profileId`) REFERENCES `profiles`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_mcp_servers_profileId` ON `mcp_servers` (`profileId`)")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_mcp_servers_profileId_name` ON `mcp_servers` (`profileId`, `name`)")
+
+        // 2. mcp_audit_logs
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `mcp_audit_logs` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `profileId` INTEGER NOT NULL DEFAULT 1,
+                `timestamp` INTEGER NOT NULL,
+                `direction` TEXT NOT NULL,
+                `eventType` TEXT NOT NULL,
+                `toolOrResource` TEXT NOT NULL,
+                `details` TEXT NOT NULL,
+                `status` TEXT NOT NULL,
+                FOREIGN KEY(`profileId`) REFERENCES `profiles`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_mcp_audit_logs_profileId` ON `mcp_audit_logs` (`profileId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_mcp_audit_logs_timestamp` ON `mcp_audit_logs` (`timestamp`)")
+    }
+}
+
 @Database(
     entities = [
         ProfileEntity::class,
@@ -873,9 +914,11 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
         com.example.data.local.entities.ProjectCustomPropertyEntity::class,
         com.example.data.local.entities.GlossaryPackEntity::class,
         com.example.data.local.entities.GlossaryItemEntity::class,
-        com.example.data.local.entities.GlossaryUserDataEntity::class
+        com.example.data.local.entities.GlossaryUserDataEntity::class,
+        com.example.data.local.entities.McpServerEntity::class,
+        com.example.data.local.entities.McpAuditLogEntity::class
     ],
-    version = 17,
+    version = 18,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -897,6 +940,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun subscriptionDao(): com.example.data.local.dao.SubscriptionDao
     abstract fun projectWorkspaceDao(): com.example.data.local.dao.ProjectWorkspaceDao
     abstract fun glossaryDao(): com.example.data.local.dao.GlossaryDao
+    abstract fun mcpDao(): com.example.data.local.dao.McpDao
 
     companion object {
         @Volatile
@@ -941,7 +985,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_13_14,
                         MIGRATION_14_15,
                         MIGRATION_15_16,
-                        MIGRATION_16_17
+                        MIGRATION_16_17,
+                        MIGRATION_17_18
                     )
                     .build()
                 INSTANCE = instance

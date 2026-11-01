@@ -134,3 +134,86 @@ data class McpPromptArgument(
         return obj
     }
 }
+
+/**
+ * Lifecycle connection state of an external MCP server connection.
+ */
+enum class McpConnectionStatus {
+    DISCONNECTED,
+    CONNECTING,
+    CONNECTED,
+    ERROR;
+
+    val isConnected: Boolean get() = this == CONNECTED
+}
+
+/**
+ * Transport options for MCP communication.
+ */
+enum class McpTransportType(val displayName: String) {
+    HTTP_SSE("HTTP with Server-Sent Events (SSE)"),
+    STREAMABLE_HTTP("Streamable HTTP / Localhost"),
+    STDIO_IPC("Standard I/O (STDIO) IPC"),
+    LOCAL_IN_PROCESS("Local In-Process Sovereign IPC")
+}
+
+/**
+ * Capabilities negotiated during MCP 'initialize' handshake.
+ */
+data class McpServerCapabilities(
+    val protocolVersion: String = "2024-11-05",
+    val serverName: String = "Unknown Server",
+    val serverVersion: String = "1.0.0",
+    val hasTools: Boolean = true,
+    val hasResources: Boolean = true,
+    val hasPrompts: Boolean = true
+) {
+    companion object {
+        fun fromInitializeResult(resultObj: JSONObject?): McpServerCapabilities {
+            if (resultObj == null) return McpServerCapabilities()
+            val version = resultObj.optString("protocolVersion", "2024-11-05")
+            val serverInfo = resultObj.optJSONObject("serverInfo")
+            val name = serverInfo?.optString("name", "Unknown Server") ?: "Unknown Server"
+            val sVer = serverInfo?.optString("version", "1.0.0") ?: "1.0.0"
+            val capabilities = resultObj.optJSONObject("capabilities")
+            val hasTools = capabilities?.has("tools") == true
+            val hasResources = capabilities?.has("resources") == true
+            val hasPrompts = capabilities?.has("prompts") == true
+            return McpServerCapabilities(
+                protocolVersion = version,
+                serverName = name,
+                serverVersion = sVer,
+                hasTools = hasTools,
+                hasResources = hasResources,
+                hasPrompts = hasPrompts
+            )
+        }
+    }
+}
+
+/**
+ * Typed result of an MCP tool invocation.
+ */
+data class McpToolCallResult(
+    val isError: Boolean,
+    val content: List<String>,
+    val rawResult: JSONObject? = null,
+    val errorMessage: String? = null
+) {
+    val textOutput: String
+        get() = content.joinToString("\n")
+}
+
+/**
+ * Immutable audit event recorded for MCP security auditing (#3, #5).
+ */
+data class McpAuditEvent(
+    val profileId: Long = 1,
+    val direction: String, // "INBOUND_SERVER" or "OUTBOUND_CLIENT"
+    val eventType: String, // "AUTH", "TOOL_DISCOVERY", "TOOL_CALL", "TOOL_APPROVAL", "WRITE_OP", "CONNECTION"
+    val toolOrResource: String,
+    val details: String,
+    val status: String, // "SUCCESS", "DENIED", "FAILED", "PENDING_APPROVAL"
+    val timestamp: Long = System.currentTimeMillis()
+)
+
