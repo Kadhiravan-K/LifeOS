@@ -479,6 +479,80 @@ A dedicated test suite was implemented in `app/src/test/java/com/example/utils/D
 - `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
 - `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (Clean debug APK artifact).
 
+---
+
+## 11. Phase P3-L2: Every-N-weeks Recurrence Alignment & Occurrence Count Optimization (REC-01, REC-02)
+
+### 11.1 The Original Weekly Alignment Defect (REC-01)
+Previously in `RecurrenceEngine.kt`, weekly interval recurrence (`EVERY_N_WEEKS` and `CUSTOM` / `WEEKS`) calculated recurrence using a rolling 7-day offset from the task's due date:
+```kotlin
+val daysDiff = DateUtils.daysBetween(task.dueDateIso, targetDateIso)
+val weeksDiff = daysDiff / 7
+weeksDiff % interval == 0
+```
+This algorithm suffered from a severe calendar misalignment bug:
+- **Bug Scenario**: Due date: Wednesday, 1 January 2025; Recurrence: every 2 weeks (`interval = 2`); Selected weekdays: Monday and Friday.
+- **Flawed Execution**:
+  - Target Monday, 6 January 2025: `daysDiff = 5`, integer division `5 / 7 = 0`, `0 % 2 == 0`. Monday 6 January was incorrectly scheduled to fire during week 1, violating the 2-week interval constraint.
+  - Target Monday, 13 January 2025: `daysDiff = 12`, integer division `12 / 7 = 1`, `1 % 2 != 0`. Monday 13 January was incorrectly skipped, even though it was the rightful start of week 2.
+- **Root Cause**: Dividing days by 7 measures elapsed 7-day chunks rather than aligning to real calendar weeks. Dates in the immediately following calendar week that fall fewer than 7 days from the due date are trapped in chunk 0.
+
+### 11.2 Calendar-Week Recurrence Algorithm
+The weekly recurrence logic was redesigned to use calendar-week alignment:
+```kotlin
+val startOfWeekDue = getStartOfWeek(dueLocalDate, firstDayOfWeek)
+val startOfWeekTarget = getStartOfWeek(targetLocalDate, firstDayOfWeek)
+val weekIndex = (startOfWeekTarget.toEpochDay() - startOfWeekDue.toEpochDay()) / 7
+if (targetLocalDate.isBefore(dueLocalDate) || weekIndex < 0L) return false
+
+val dayMatches = if (task.recurrenceDaysOfWeek.isNotEmpty()) {
+    task.recurrenceDaysOfWeek.contains(targetDayOfWeek)
+} else {
+    DateUtils.getDayOfWeek(task.dueDateIso) == targetDayOfWeek
+}
+if (!dayMatches) return false
+
+return weekIndex % interval == 0L
+```
+- **Week-Start Convention**:
+  - Defaults to `MONDAY` (ISO-8601 standard).
+  - Supports configurable `firstDayOfWeek: String = "MONDAY"` (`"MONDAY"`, `"SUNDAY"`, `"SATURDAY"`), matching the user preference in `UserPreferences.KEY_FIRST_DAY_OF_WEEK` and `DateUtils.getWeekDays(firstDayOfWeek)`. No new preferences or settings were introduced.
+- **Integer Division & Pre-Due Protections**:
+  - Targets before the due date (`targetLocalDate.isBefore(dueLocalDate)`) and negative week indices (`weekIndex < 0L`) are immediately rejected, preventing integer division from incorrectly treating negative offsets (e.g., `-14 / 7 = -2`, `-2 % 2 == 0`) as valid recurrence occurrences.
+
+### 11.3 Monthly and Yearly Edge-Case Investigation (REC-02)
+Per prompt instructions, monthly and yearly edge-case behaviors were investigated and audited against the "clamp to last day of month" rule:
+- **Monthly Clamping**:
+  - Day 31: In 30-day months (Apr, Jun, Sep, Nov), clamps to day 30. In leap Feb (2024), clamps to Feb 29. In non-leap Feb (2025), clamps to Feb 28.
+  - Day 30: In Feb, clamps to Feb 28 (non-leap) / Feb 29 (leap).
+  - Day 29: In non-leap Feb, clamps to Feb 28.
+  - **Audit Finding**: Existing `matchesMonthDay` in `RecurrenceEngine` already implements `startDay > maxDaysInTargetMonth -> targetDay == maxDaysInTargetMonth`. It fully conforms to "clamp to last day of month".
+- **Yearly Clamping**:
+  - Feb 29 in leap years recurs on Feb 29. In non-leap years (2025, 2026, 2027), it clamps to Feb 28.
+  - **Audit Finding**: Existing `matchesYearlyInterval` already handles this via `if (startMonth == 2 && startDay == 29 && !targetDate.isLeapYear) targetDay == 28`.
+- **Owner Approval**: No semantic changes were required or introduced because the existing behavior was already compliant with the required clamping policy. The implementation was modernized from `SimpleDateFormat`/`Calendar` to `java.time.LocalDate` with identical behavior.
+
+### 11.4 Occurrence-Count Optimization
+Previously, `countOccurrencesUpTo` performed an `O(N)` day-by-day loop (up to 1,460 iterations) evaluating `matchesBasePattern` and date conversions for every evaluated date. When evaluating calendar views or upcoming occurrences, this led to massive redundant loop execution.
+- **Optimized Implementation**: Replaced day-by-day stepping with `O(1)` arithmetic occurrence counting across all recurrence types (`DAILY`, `EVERY_N_DAYS`, `WEEKDAYS`, `SELECTED_WEEKDAYS`, `WEEKLY`, `EVERY_N_WEEKS`, `MONTHLY`, `EVERY_N_MONTHS`, `YEARLY`, `EVERY_N_YEARS`, `MONTHLY_WINDOW`).
+- **Equivalence Verification**: Validated 100% equivalence against an independent daily-stepping reference counter across 120 consecutive dates for each recurrence type.
+- **Performance Benchmark**: Benchmarked 1,000 multi-year (5-year / 1,826 days) occurrence count evaluations; completed in **12ms** (target: < 100ms).
+
+### 11.5 Data Preservation & Compatibility
+- **Database Schema**: Untouched (Room DB v18, 40 entities preserved, 0 migrations).
+- **Task Records**: Stored recurrence rules, `completedDates`, `skippedDates`, and `rescheduledDates` were NOT modified.
+- **Impact on Existing Tasks**:
+  - Existing bi-weekly and every-N-weeks recurring tasks will now correctly align with calendar weeks rather than rolling 7-day intervals from their due dates.
+  - Historical completion records in `completedDates` are permanently preserved.
+
+### 11.6 Quality Gate Status
+- `.\gradlew.bat testDebugUnitTest --tests "com.example.domain.recurrence.RecurrenceEngineWeeklyAlignmentUnitTest"`: **PASSED** (10/10 tests, 0 failures, 0 errors).
+- `.\gradlew.bat testDebugUnitTest --tests "com.example.Batch02TasksCalendarRegressionUnitTest" --tests "com.example.ui.Release3BugFixesUnitTest" --tests "com.example.Release3Phase4UnitTest" --tests "com.example.utils.DateUtilsParityUnitTest"`: **PASSED** (All regression test suites passing).
+- `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (Full repository unit test suite passing).
+- `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
+- `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (Clean debug APK artifact).
+
+
 
 
 
