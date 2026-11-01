@@ -330,39 +330,6 @@ object ReminderActionHandler {
     }
 
     suspend fun rescheduleAllAlarmsOnBoot(context: Context) {
-        val database = AppDatabase.getInstance(context.applicationContext)
-        val preferences = UserPreferences(context.applicationContext)
-        val entitlementRepo = LocalPremiumEntitlementRepository(context.applicationContext)
-        val repository = LifeRepository(database, preferences, entitlementRepo)
-
-        NotificationHelper.scheduleDailyReminder(context, 8, 0)
-
-        val todayIso = DateUtils.todayString()
-        val tasks = repository.getTasksForDateFlow(todayIso).first()
-        tasks.filter { (it.isReminderEnabled || it.reminders.isNotEmpty() || it.priority == com.example.domain.model.TaskPriority.P1) && !it.isCompletedForDate }.forEach { task ->
-            NotificationHelper.scheduleAllTaskReminders(context, task, todayIso)
-        }
-
-        val doses = database.medicationDao().getDosesForDate(todayIso)
-        val overrideQuiet = preferences.medicineOverrideQuietHours.first()
-        doses.filter { it.status == "SCHEDULED" }.forEach { doseEntity ->
-            val item = MedicationDoseItem(
-                id = doseEntity.id,
-                medicationId = doseEntity.medicationId,
-                taskId = doseEntity.taskId,
-                medicationName = doseEntity.medicationName,
-                medicationForm = MedicationForm.fromString(doseEntity.medicationForm),
-                dosage = doseEntity.dosage,
-                instructions = doseEntity.instructions,
-                scheduledDateIso = doseEntity.scheduledDateIso,
-                scheduledTime = doseEntity.scheduledTime,
-                status = DoseStatus.valueOf(doseEntity.status)
-            )
-            NotificationHelper.scheduleMedicineDoseAlarm(
-                context = context,
-                dose = item,
-                overrideQuietHours = overrideQuiet
-            )
-        }
+        ReminderScheduler.rescheduleAll(context, horizonDays = 7)
     }
 }

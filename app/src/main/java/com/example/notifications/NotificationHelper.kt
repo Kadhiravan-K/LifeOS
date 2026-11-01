@@ -360,8 +360,14 @@ object NotificationHelper {
             } else {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
             }
+        } catch (se: SecurityException) {
+            try {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
+            } catch (_: Exception) {}
         } catch (e: Exception) {
-            alarmManager.set(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
+            try {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
+            } catch (_: Exception) {}
         }
     }
 
@@ -545,8 +551,14 @@ object NotificationHelper {
             } else {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
             }
+        } catch (se: SecurityException) {
+            try {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
+            } catch (_: Exception) {}
         } catch (e: Exception) {
-            alarmManager.set(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
+            try {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
+            } catch (_: Exception) {}
         }
     }
 
@@ -634,8 +646,14 @@ object NotificationHelper {
             } else {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
             }
+        } catch (se: SecurityException) {
+            try {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
+            } catch (_: Exception) {}
         } catch (e: Exception) {
-            alarmManager.set(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
+            try {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
+            } catch (_: Exception) {}
         }
     }
 

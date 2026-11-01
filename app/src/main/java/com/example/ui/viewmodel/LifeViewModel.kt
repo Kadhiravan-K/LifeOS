@@ -1,6 +1,7 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
 import java.util.Locale
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -48,7 +49,9 @@ import com.example.mcp.McpToolCallResult
 import com.example.domain.projectworkspace.ProjectCustomProperty
 import com.example.domain.schedule.ScheduleConflict
 import com.example.domain.schedule.ScheduleConflictEngine
+import com.example.notifications.ExactAlarmStatus
 import com.example.notifications.NotificationHelper
+import com.example.notifications.ReminderScheduler
 import com.example.utils.DateUtils
 import com.example.ui.theme.engine.ThemeDefinition
 import com.example.ui.theme.engine.ThemeId
@@ -216,6 +219,13 @@ class LifeViewModel(
     private val _currentDateIso = MutableStateFlow(DateUtils.todayString())
     val currentDateIso: StateFlow<String> = _currentDateIso.asStateFlow()
 
+    private val _exactAlarmStatus = MutableStateFlow(ExactAlarmStatus.NOT_NEEDED)
+    val exactAlarmStatus: StateFlow<ExactAlarmStatus> = _exactAlarmStatus.asStateFlow()
+
+    fun refreshExactAlarmStatus(context: Context = getApplication<Application>()) {
+        _exactAlarmStatus.value = ReminderScheduler.checkExactAlarmStatus(context)
+    }
+
     fun checkDateRollover(): Boolean {
         val current = DateUtils.todayString()
         if (_currentDateIso.value != current) {
@@ -232,6 +242,7 @@ class LifeViewModel(
         }
 
     init {
+        refreshExactAlarmStatus(getApplication<Application>())
         WidgetRefreshCoordinator.init(getApplication())
         viewModelScope.launch {
             while (isActive) {

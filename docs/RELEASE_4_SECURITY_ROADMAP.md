@@ -245,5 +245,105 @@ The Release 4 Room database contains **40 entities**. Current backup export in `
   - `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
   - `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (clean APK compilation and packaging).
 
+---
+
+## 8. Phase P2-L2: Reminder Rescheduling, System Events & Exact-Alarm Permission (Completed)
+
+### 8.1 Centralized ReminderScheduler Architecture (REM-02 / REM-03 / REM-04)
+- **Unified Scheduling Abstraction**:
+  - Created `ReminderScheduler` interface and `DefaultReminderScheduler` in `com.example.notifications.ReminderScheduler.kt`.
+  - Replaces fragmented scheduling code previously scattered across `ReminderActionHandler` and `MaintenanceWorker`.
+  - Standardized entry point: `ReminderScheduler.rescheduleAll(context, horizonDays = 7)`.
+- **Bounded Scheduling Horizon & Quota Protection**:
+  - **Task Reminders Horizon**: Calculates reminders across up to 7 future days (`MAX_HORIZON_DAYS = 7`).
+  - **Medication Doses Horizon**: Rebuilds today's and tomorrow's doses (Days 0 and 1) to respect dynamic prescription adherence windows without pre-populating distant doses.
+  - **Hard Alarm Limit (200 Alarms)**: Enforces `MAX_ALARMS = 200` to prevent exhausting Android OS system alarm queues. Returns `cappedByLimit = true` if quota is hit.
+- **Idempotency & Request Code Preservation**:
+  - Re-scheduling is completely idempotent; repeated broadcasts or maintenance jobs replace existing alarms in place via deterministic request codes:
+    - Task Alarm: `(taskId * 31) + dateIso.hashCode().and(0x7FFFFFFF) % 50000`
+    - Task Reminder Item: `((taskId * 31 + reminderId) * 31) + dateIso.hashCode().and(0x7FFFFFFF) % 100000`
+    - Medication Dose Alarm: `(doseId * 37) + 50000`
+    - Daily Morning Digest: `2001`
+  - Never cancels alarms belonging to unrelated task IDs.
+  - Safely ignores completed, archived, or deleted tasks.
+- **Exact-Alarm Resilience**:
+  - In `NotificationHelper`, all alarm scheduling calls wrap `canScheduleExactAlarms()` and `setExactAndAllowWhileIdle()` in comprehensive try-catch blocks.
+  - Catches `SecurityException` if permission is revoked or restricted at runtime, falling back to inexact alarms (`alarmManager.set(...)`) without crashing.
+
+### 8.2 System Broadcast Handling (REM-03 / REM-04)
+- **Unified Event Handling in `BootCompletedReceiver`**:
+  - Handles 5 system-protected broadcast actions:
+    1. `Intent.ACTION_BOOT_COMPLETED` (Device restart)
+    2. `Intent.ACTION_MY_PACKAGE_REPLACED` (App update)
+    3. `Intent.ACTION_TIME_CHANGED` (`android.intent.action.TIME_SET` - Clock changes)
+    4. `Intent.ACTION_TIMEZONE_CHANGED` (Timezone / DST transitions)
+    5. `AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED` (Exact alarm permission changes)
+- **Component Security**:
+  - Guarded strictly by privileged `android.permission.RECEIVE_BOOT_COMPLETED`.
+  - Whitelist enforcement: incoming intents with null or unapproved actions are rejected immediately and logged.
+  - Invokes `runAsync(timeoutMs = 9_000L)` to guarantee background execution and `PendingResult.finish()` completion within the 10-second ANR threshold.
+
+### 8.3 WorkManager Maintenance Integration
+- `MaintenanceWorker.doWork()` updated to invoke `ReminderScheduler.rescheduleAll(applicationContext, horizonDays = 7)`.
+- Eliminates duplicated task iteration loops while preserving 24-hour periodic execution (`ExistingPeriodicWorkPolicy.KEEP`) and safe retry semantics on failure.
+
+### 8.4 Precise Reminders Settings UI (REM-05)
+- **UI Settings Row**:
+  - Added "Precise reminders" card under `SettingsSubpage.NOTIFICATIONS` in `SettingsScreen.kt`.
+  - Displays dynamic permission status:
+    - **Granted**: Exact alarms are enabled. Reminders trigger precisely at scheduled times.
+    - **Not granted**: Exact alarms are restricted. Explains that Android may delay notifications by 10–15 minutes during standby / Doze mode.
+    - **Not needed**: On Android 11 and below (API < 31), exact alarms do not require special permission.
+  - Displays action button ("Enable in Settings") when `NOT_GRANTED`, launching `Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM` with package URI.
+  - Automatically refreshes displayed state on `ON_RESUME` via Compose `DisposableEffect` with `LifecycleEventObserver`.
+- **Manifest Constraints**:
+  - `USE_EXACT_ALARM` was NOT added to the manifest.
+
+### 8.5 Automated Test Evidence
+- **Automated Test Suites (All passing)**:
+  1. `ReminderSchedulerUnitTest` (8 tests):
+     - `testSevenDayHorizonCalculation`: Clamps horizon to 7 days, excludes distant tasks.
+     - `testTodayAndTomorrowMedicationReminders`: Schedules doses for days 0 and 1 only.
+     - `testTaskReminderReconstruction`: Rebuilds multiple explicit reminder offsets.
+     - `testRepeatedSchedulingIsIdempotent`: Verifies identical alarm counts across repeated calls.
+     - `testCompletedAndArchivedAndDeletedTasksIgnored`: Excludes inactive tasks.
+     - `testEnforceMax200AlarmLimit`: Capped at 200 alarms with `cappedByLimit = true`.
+     - `testRequestCodeFormulasRemainStable`: Confirms request codes are positive and stable.
+     - `testExactAlarmPermissionHelpers`: Verifies non-crashing status check.
+  2. `BootRescheduleReceiverRobolectricTest` (8 tests):
+     - Confirms `BOOT_COMPLETED`, `MY_PACKAGE_REPLACED`, `TIME_CHANGED`, `TIMEZONE_CHANGED`, and `SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED` all delegate to centralized scheduler.
+     - Rejects unauthorized / null actions without invoking scheduler.
+     - Idempotent across sequential system events.
+  3. `MaintenanceWorkerUnitTest` (3 tests):
+     - Verifies worker invokes `ReminderScheduler`.
+     - Verifies `Result.retry()` on exception.
+     - Validates unique work name `lifeos_maintenance_worker`.
+  4. `PreciseRemindersSettingsUnitTest` (4 tests):
+     - Validates enum display strings.
+     - Verifies permission check does not crash.
+     - Validates `openExactAlarmSettings` safe execution.
+     - Verifies `LifeViewModel` status refresh.
+- **Build Quality**:
+  - `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (0 failures).
+  - `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
+  - `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (clean APK packaging).
+
+### 8.6 Manual QA Checklist
+1. Schedule a reminder for a task 2 hours in the future.
+2. Reboot the device (`adb reboot`).
+3. Verify alarm is restored using `adb shell dumpsys alarm | grep -E "com.aistudio.lifeos.vtrqkx|lifeos"`.
+4. Change system timezone under device Settings -> Date & Time.
+5. Verify alarm trigger time adjusts to match the new local time.
+6. Install an updated APK using `adb install -r <apk-path>`.
+7. Confirm alarm remains registered.
+8. On Android 12+ device, open App Info -> Alarms & Reminders -> Revoke permission.
+9. Open LifeOS Settings -> Notifications & Smart Alerts -> Confirm "Precise reminders" displays "Not granted" with warning text.
+10. Tap "Enable in Settings", grant permission, return to LifeOS.
+11. Confirm "Precise reminders" dynamically updates to "Granted" without app restart.
+
+### 8.7 Remaining Android-Version Limitations
+- On heavily customized OEM Android skins (MIUI, ColorOS, EMUI), background alarm delivery may still be delayed by proprietary aggressive battery managers unless the user manually enables autostart / excludes LifeOS from battery optimization.
+
+
 
 

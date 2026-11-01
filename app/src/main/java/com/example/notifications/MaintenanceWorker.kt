@@ -34,24 +34,7 @@ class MaintenanceWorker(
 
     override suspend fun doWork(): Result {
         return try {
-            val database = AppDatabase.getInstance(applicationContext)
-            val preferences = UserPreferences(applicationContext)
-            val repository = LifeRepository(database, preferences)
-
-            val todayIso = DateUtils.todayString()
-            val tomorrowIso = DateUtils.addDays(todayIso, 1)
-
-            // Verify and schedule reminders for today and tomorrow
-            val tasksToday = repository.getTasksForDateFlow(todayIso).first()
-            tasksToday.filter { (it.isReminderEnabled || it.reminders.isNotEmpty()) && !it.isCompletedForDate }.forEach { task ->
-                NotificationHelper.scheduleAllTaskReminders(applicationContext, task, todayIso)
-            }
-
-            val tasksTomorrow = repository.getTasksForDateFlow(tomorrowIso).first()
-            tasksTomorrow.filter { it.isReminderEnabled || it.reminders.isNotEmpty() }.forEach { task ->
-                NotificationHelper.scheduleAllTaskReminders(applicationContext, task, tomorrowIso)
-            }
-
+            ReminderScheduler.rescheduleAll(applicationContext, horizonDays = 7)
             Result.success()
         } catch (e: Exception) {
             Result.retry()

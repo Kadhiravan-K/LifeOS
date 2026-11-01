@@ -108,6 +108,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -128,7 +129,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.domain.legal.LegalDocuments
 import com.example.domain.model.HoneycombColorPresets
 import com.example.domain.templates.TemplateCatalog
+import com.example.notifications.ExactAlarmStatus
 import com.example.notifications.NotificationHelper
+import com.example.notifications.ReminderScheduler
 import com.example.ui.components.BackupRestoreDialog
 import com.example.ui.components.ColorPickerDialog
 import com.example.ui.components.TrashBinBottomSheet
@@ -336,6 +339,7 @@ fun SettingsScreen(
     val p1AlarmEnabled by viewModel.p1AlarmEnabled.collectAsStateWithLifecycle()
     val p1SnoozeMinutes by viewModel.p1SnoozeMinutes.collectAsStateWithLifecycle()
     val p1MaxSnoozeCount by viewModel.p1MaxSnoozeCount.collectAsStateWithLifecycle()
+    val exactAlarmStatus by viewModel.exactAlarmStatus.collectAsStateWithLifecycle()
 
     val acceptedTermsVersion by viewModel.acceptedTermsVersion.collectAsStateWithLifecycle()
     val acceptedPrivacyVersion by viewModel.acceptedPrivacyVersion.collectAsStateWithLifecycle()
@@ -1020,6 +1024,19 @@ fun SettingsScreen(
         }
 
         SettingsSubpage.NOTIFICATIONS -> {
+            val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+                val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                        viewModel.refreshExactAlarmStatus(context)
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose {
+                    lifecycleOwner.lifecycle.removeObserver(observer)
+                }
+            }
+
             val soundLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.GetContent()
             ) { uri ->
@@ -1262,6 +1279,66 @@ fun SettingsScreen(
                                     }
                                 }
                             )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Precise Reminders Card (REM-05)
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Precise reminders", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                val statusDescription = when (exactAlarmStatus) {
+                                    ExactAlarmStatus.GRANTED -> "Exact alarms are active. Reminders trigger precisely at scheduled times, even in low-power standby."
+                                    ExactAlarmStatus.NOT_GRANTED -> "Exact alarms are restricted. Android may delay notifications by 10–15 minutes or during Doze mode to conserve battery. Tap to grant exact alarm scheduling in system settings."
+                                    ExactAlarmStatus.NOT_NEEDED -> "Your Android version automatically guarantees exact timing for alarms without extra permissions."
+                                }
+                                Text(
+                                    text = statusDescription,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            val badgeColor = when (exactAlarmStatus) {
+                                ExactAlarmStatus.GRANTED -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                                ExactAlarmStatus.NOT_GRANTED -> androidx.compose.ui.graphics.Color(0xFFFF9800)
+                                ExactAlarmStatus.NOT_NEEDED -> MaterialTheme.colorScheme.outline
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = badgeColor.copy(alpha = 0.15f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, badgeColor.copy(alpha = 0.5f))
+                            ) {
+                                Text(
+                                    text = exactAlarmStatus.displayText,
+                                    color = badgeColor,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+
+                        if (exactAlarmStatus == ExactAlarmStatus.NOT_GRANTED) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Button(
+                                onClick = { ReminderScheduler.openExactAlarmSettings(context) },
+                                modifier = Modifier.align(Alignment.End)
+                            ) {
+                                Text("Enable in Settings")
+                            }
                         }
                     }
                 }
