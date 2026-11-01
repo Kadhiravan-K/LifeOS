@@ -15,6 +15,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -393,12 +396,20 @@ fun HoneycombTaskGrid(
                 .fillMaxWidth()
                 .pointerInput(onZoomChange) {
                     if (onZoomChange != null) {
-                        detectTransformGestures { _, _, zoom, _ ->
-                            if (abs(zoom - 1f) > 0.005f) {
-                                val newScale = (currentPinchScale * zoom).coerceIn(0.75f, 1.35f)
-                                currentPinchScale = newScale
-                                onZoomChange.invoke(newScale)
-                            }
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            do {
+                                val event = awaitPointerEvent()
+                                if (event.changes.size >= 2) {
+                                    val zoom = event.calculateZoom()
+                                    if (kotlin.math.abs(zoom - 1f) > 0.005f) {
+                                        val newScale = (currentPinchScale * zoom).coerceIn(0.75f, 1.35f)
+                                        currentPinchScale = newScale
+                                        onZoomChange.invoke(newScale)
+                                        event.changes.forEach { it.consume() }
+                                    }
+                                }
+                            } while (event.changes.any { it.pressed })
                         }
                     }
                 }

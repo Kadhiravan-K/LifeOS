@@ -45,10 +45,12 @@ import com.example.ui.viewmodel.LifeViewModel
 fun MainScreen(
     viewModel: LifeViewModel,
     modifier: Modifier = Modifier,
-    initialDestination: NavigationItem = NavigationItem.HOME
+    initialDestination: NavigationItem = NavigationItem.HOME,
+    initialOpenQuickAdd: Boolean = false
 ) {
     var currentItem by rememberSaveable { mutableStateOf(initialDestination) }
     var showThemeGallery by rememberSaveable { mutableStateOf(false) }
+    var showQuickAddSheet by rememberSaveable { mutableStateOf(initialOpenQuickAdd) }
 
     val previewThemeId by viewModel.previewThemeId.collectAsStateWithLifecycle()
     val activeThemeDef by viewModel.activeThemeDefinition.collectAsStateWithLifecycle()
@@ -83,6 +85,9 @@ fun MainScreen(
     val clockFormat by viewModel.clockFormatFlow.collectAsStateWithLifecycle()
     val firstDayOfWeek by viewModel.firstDayOfWeekFlow.collectAsStateWithLifecycle()
     val defaultDuration by viewModel.defaultTaskDurationFlow.collectAsStateWithLifecycle()
+    val colorOrderingMode by viewModel.colorOrderingMode.collectAsStateWithLifecycle()
+    val colorUsageCounts by viewModel.colorUsageCounts.collectAsStateWithLifecycle()
+    val colorCustomOrder by viewModel.colorCustomOrder.collectAsStateWithLifecycle()
 
     Scaffold(
         bottomBar = {
@@ -300,5 +305,35 @@ fun MainScreen(
                 }
             }
         }
+    }
+
+    if (showQuickAddSheet) {
+        com.example.ui.components.TaskQuickAddSheet(
+            projects = tasksState.projects,
+            labels = tasksState.labels,
+            colorOrderingMode = colorOrderingMode,
+            colorUsageCounts = colorUsageCounts,
+            colorCustomOrder = colorCustomOrder,
+            defaultDuration = defaultDuration,
+            onCreateProject = { proj, cb -> viewModel.insertProject(proj) { newId -> cb(newId) } },
+            onCreateLabel = { lbl, cb -> viewModel.insertLabel(lbl) { newId -> cb(newId) } },
+            onColorUsed = { viewModel.recordColorUsage(it) },
+            onModeChanged = { viewModel.setColorOrderingMode(it) },
+            onSaveCustomOrder = { viewModel.saveCustomColorOrder(it) },
+            onResetCustomOrder = { viewModel.resetCustomColorOrder() },
+            onSaveTask = { task ->
+                viewModel.saveTaskItem(task)
+                showQuickAddSheet = false
+            },
+            onSaveTaskWithMedication = { task, med ->
+                viewModel.saveTaskItem(task, med)
+                showQuickAddSheet = false
+            },
+            onExpandToAdvanced = {
+                showQuickAddSheet = false
+                currentItem = NavigationItem.TASKS
+            },
+            onDismiss = { showQuickAddSheet = false }
+        )
     }
 }

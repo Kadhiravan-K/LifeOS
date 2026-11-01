@@ -1224,7 +1224,7 @@ fun CustomizeChallengePresetsDialog(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(
                             value = ruleEmoji,
-                            onValueChange = { ruleEmoji = it.take(2) },
+                            onValueChange = { ruleEmoji = com.example.utils.EmojiUtils.extractFirstEmoji(it) ?: it },
                             label = { Text("Emoji") },
                             modifier = Modifier.width(72.dp)
                         )

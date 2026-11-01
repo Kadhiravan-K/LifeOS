@@ -22,6 +22,10 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import com.example.ui.components.EmojiInputDialog
+import com.example.ui.components.HoneycombProfileSelector
+import com.example.ui.screens.profile.CreateProfileDialog
+import com.example.ui.screens.profile.DeleteProfileConfirmationDialog
+import com.example.data.local.entities.ProfileEntity
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.animation.AnimatedVisibility
@@ -281,6 +285,8 @@ fun SettingsScreen(
     var showClearTemplatesDialog by remember { mutableStateOf(false) }
     var showProfileEmojiDialog by remember { mutableStateOf(false) }
     var showSurveyDialog by remember { mutableStateOf(false) }
+    var showCreateProfileDialog by remember { mutableStateOf(false) }
+    var profileToDelete by remember { mutableStateOf<ProfileEntity?>(null) }
     var viewingLegalDoc by remember { mutableStateOf<String?>(null) }
 
     var tempWakeUp by remember { mutableStateOf(wakeUpTime) }
@@ -458,6 +464,22 @@ fun SettingsScreen(
                                 }
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text(
+                            text = "Workspace Switcher & Profiles",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        HoneycombProfileSelector(
+                            profiles = allProfiles,
+                            activeProfileId = activeProfileId,
+                            onProfileSelected = { newId -> viewModel.switchProfile(newId) },
+                            onAddProfileClick = { showCreateProfileDialog = true },
+                            onDeleteProfileClick = { prof -> profileToDelete = prof }
+                        )
 
                         Spacer(modifier = Modifier.height(12.dp))
                         HorizontalDivider()
@@ -1916,6 +1938,27 @@ fun SettingsScreen(
                 showProfileEmojiDialog = false
             },
             onDismiss = { showProfileEmojiDialog = false }
+        )
+    }
+
+    if (showCreateProfileDialog) {
+        CreateProfileDialog(
+            onDismiss = { showCreateProfileDialog = false },
+            onConfirm = { name, emoji, colorHex, type ->
+                viewModel.createProfile(name, emoji, colorHex, type)
+                showCreateProfileDialog = false
+            }
+        )
+    }
+
+    profileToDelete?.let { prof ->
+        DeleteProfileConfirmationDialog(
+            profile = prof,
+            onDismiss = { profileToDelete = null },
+            onConfirm = {
+                viewModel.deleteProfile(prof.id)
+                profileToDelete = null
+            }
         )
     }
 

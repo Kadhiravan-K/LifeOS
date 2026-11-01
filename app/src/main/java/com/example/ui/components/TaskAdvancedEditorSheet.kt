@@ -385,7 +385,15 @@ fun TaskAdvancedEditorSheet(
 
                 OutlinedTextField(
                     value = title,
-                    onValueChange = { title = it },
+                    onValueChange = { newTitle ->
+                        title = newTitle
+                        if (!isEmojiManuallySelected) {
+                            val leadingEmoji = com.example.utils.EmojiUtils.extractLeadingEmoji(newTitle)
+                            if (leadingEmoji != null) {
+                                emoji = leadingEmoji
+                            }
+                        }
+                    },
                     label = { Text("Task Title *") },
                     placeholder = { Text("What needs to be done?") },
                     singleLine = true,
@@ -1186,7 +1194,7 @@ fun TaskAdvancedEditorSheet(
         EmojiInputDialog(
             currentEmoji = emoji,
             onEmojiSelected = { chosen ->
-                emoji = com.example.utils.EmojiUtils.extractFirstEmoji(chosen) ?: chosen.trim().take(2)
+                emoji = com.example.utils.EmojiUtils.extractFirstEmoji(chosen) ?: chosen.trim()
                 isEmojiManuallySelected = true
             },
             onDismiss = { showEmojiDialog = false }

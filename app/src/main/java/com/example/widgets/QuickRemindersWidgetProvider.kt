@@ -154,6 +154,13 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        super.onDeleted(context, appWidgetIds)
+        for (id in appWidgetIds) {
+            WidgetProfileManager.removeWidget(context, id)
+        }
+    }
+
     /**
      * Builds the full static RemoteViews for the interlocking honeycomb layout.
      * Loads all data from Room synchronously on the IO thread.
@@ -161,24 +168,28 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
     private suspend fun buildWidgetViews(context: Context, appWidgetId: Int): RemoteViews {
         val rv = RemoteViews(context.packageName, R.layout.widget_quick_reminders_v2)
 
-        // Header click → open app directly
-        val openAppIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-        val openAppPi = PendingIntent.getActivity(
-            context, 0, openAppIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        rv.setOnClickPendingIntent(R.id.widget_header, openAppPi)
-        rv.setOnClickPendingIntent(R.id.widget_empty_view, openAppPi)
-
         // Load data from Room on IO thread
         val db = AppDatabase.getInstance(context)
         val prefs = UserPreferences(context)
         val entitlementRepo = LocalPremiumEntitlementRepository(context)
         val repository = LifeRepository(db, prefs, entitlementRepo)
         val todayIso = DateUtils.todayString()
-        val activeProfileId = repository.getActiveProfileId()
+        val activeProfileId = WidgetProfileManager.getWidgetProfileId(context, appWidgetId, repository.getActiveProfileId())
+
+        // Header click → open quick add task directly for this widget's configured profile (#4)
+        val quickAddIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("extra_quick_add", true)
+            putExtra("extra_profile_id", activeProfileId)
+        }
+        val quickAddPi = PendingIntent.getActivity(
+            context,
+            appWidgetId * 100 + 1,
+            quickAddIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        rv.setOnClickPendingIntent(R.id.widget_header, quickAddPi)
+        rv.setOnClickPendingIntent(R.id.widget_empty_view, quickAddPi)
 
         var shortcuts = db.honeycombShortcutDao().getShortcutsForProfileList(activeProfileId)
 

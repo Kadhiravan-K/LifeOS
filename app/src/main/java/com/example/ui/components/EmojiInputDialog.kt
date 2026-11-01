@@ -187,11 +187,18 @@ fun EmojiInputDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Search input with clear button
+                // Search or direct emoji input with clear button
                 OutlinedTextField(
                     value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search emoji (e.g. run, water, work)...", fontSize = 12.sp) },
+                    onValueChange = { input ->
+                        searchQuery = input
+                        val directEmoji = EmojiUtils.extractFirstEmoji(input)
+                        if (directEmoji != null) {
+                            detectedEmoji = directEmoji
+                            errorMessage = null
+                        }
+                    },
+                    placeholder = { Text("Search or type/paste any emoji...", fontSize = 12.sp) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {

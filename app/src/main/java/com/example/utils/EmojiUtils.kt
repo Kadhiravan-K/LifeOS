@@ -8,7 +8,8 @@ object EmojiUtils {
     /**
      * Extracts the first single Unicode emoji grapheme cluster from the given input.
      * Correctly handles compound emojis, skin-tone modifiers, variation selectors,
-     * and zero-width joiner (ZWJ) sequences (e.g. 👨‍👩‍👧‍👦, 🏃🏽‍♀️, 🛠️, 🚀).
+     * regional indicator flag sequences, and zero-width joiner (ZWJ) sequences
+     * (e.g. 👨‍👩‍👧‍👦, 🏃🏽‍♀️, 🛠️, 🚀, ⭐, ⏰).
      * Returns null if no valid emoji is present.
      */
     fun extractFirstEmoji(input: String): String? {
@@ -33,6 +34,25 @@ object EmojiUtils {
     }
 
     /**
+     * Extracts a leading emoji grapheme cluster if the input string begins with one.
+     * Returns null if the first non-whitespace character sequence is not an emoji.
+     */
+    fun extractLeadingEmoji(input: String): String? {
+        val trimmed = input.trimStart()
+        if (trimmed.isEmpty()) return null
+
+        val boundary = BreakIterator.getCharacterInstance(Locale.ROOT)
+        boundary.setText(trimmed)
+
+        val start = boundary.first()
+        val end = boundary.next()
+        if (end == BreakIterator.DONE) return null
+
+        val firstCluster = trimmed.substring(start, end)
+        return if (isEmojiCluster(firstCluster)) firstCluster else null
+    }
+
+    /**
      * Checks if the entire input string represents exactly ONE emoji grapheme cluster.
      */
     fun isSingleEmoji(input: String): Boolean {
@@ -45,7 +65,6 @@ object EmojiUtils {
         val start = boundary.first()
         val end = boundary.next()
         if (end == BreakIterator.DONE || end != trimmed.length) {
-            // Either no cluster or more than one cluster
             return false
         }
 
@@ -71,19 +90,57 @@ object EmojiUtils {
         return hasEmoji
     }
 
-    private fun isEmojiCodePoint(cp: Int): Boolean {
-        return (cp in 0x1F600..0x1F64F) || // Emoticons
-                (cp in 0x1F300..0x1F5FF) || // Misc Symbols and Pictographs
-                (cp in 0x1F680..0x1F6FF) || // Transport and Map
+    /**
+     * Comprehensive Unicode emoji code point range coverage across Unicode 6.0 through 15.1.
+     */
+    fun isEmojiCodePoint(cp: Int): Boolean {
+        return (cp in 0x1F600..0x1F64F) || // Emoticons (😀..🙏)
+                (cp in 0x1F300..0x1F5FF) || // Misc Symbols & Pictographs (🌱..🗿)
+                (cp in 0x1F680..0x1F6FF) || // Transport & Map (🚀..🛿)
                 (cp in 0x1F700..0x1F77F) || // Alchemical Symbols
                 (cp in 0x1F780..0x1F7FF) || // Geometric Shapes Extended
                 (cp in 0x1F800..0x1F8FF) || // Supplemental Arrows-C
-                (cp in 0x1F900..0x1F9FF) || // Supplemental Symbols and Pictographs
+                (cp in 0x1F900..0x1F9FF) || // Supplemental Symbols & Pictographs (🤖..🦿)
                 (cp in 0x1FA00..0x1FA6F) || // Chess Symbols
-                (cp in 0x1FA70..0x1FAFF) || // Symbols and Pictographs Extended-A
-                (cp in 0x2600..0x26FF) ||   // Misc symbols (e.g. ⚡, ☕, ☀️)
-                (cp in 0x2700..0x27BF) ||   // Dingbats (e.g. ✨, ✈️, ✂️)
-                (cp in 0x1F1E6..0x1F1FF) || // Regional indicator symbol letters (flags)
-                (cp in 0x1F3FB..0x1F3FF)    // Skin tone modifiers
+                (cp in 0x1FA70..0x1FAFF) || // Symbols & Pictographs Extended-A (🪟..🪪)
+                (cp in 0x2300..0x23FF) ||   // Misc Technical (⏰, ⏱, ⏳, ⌛, ⌚, ⌨️, ⏩, ⏪)
+                (cp in 0x2B00..0x2BFF) ||   // Misc Symbols & Arrows (⭐, ⬛, ⬜, ⭕)
+                (cp in 0x2600..0x26FF) ||   // Misc symbols (⚡, ☕, ☀️, ☔, ⚽)
+                (cp in 0x2700..0x27BF) ||   // Dingbats (✨, ✈️, ✂️, ✏️, ❌, ❓)
+                (cp in 0x2000..0x206F) ||   // General Punctuation (‼️, ⁉️)
+                (cp in 0x2190..0x21FF) ||   // Arrows (⬆️, ⬇️, ⬅️, ➡️)
+                (cp in 0x2900..0x297F) ||   // Supplemental Arrows-B (⤴️, ⤵️)
+                (cp in 0x2460..0x24FF) ||   // Enclosed Alphanumerics (Ⓜ️)
+                (cp in 0x3200..0x32FF) ||   // Enclosed CJK (㊗️, ㊙️)
+                (cp in 0x3030..0x303D) ||   // CJK Symbols (〰️, 〽️)
+                (cp in 0x1F100..0x1F1FF) || // Enclosed Alphanumeric Supplement (🅰️..🆚, regional flags 🇦-🇿)
+                (cp in 0x1F200..0x1F2FF) || // Enclosed Ideographic Supplement
+                (cp in 0x1F000..0x1F02F) || // Mahjong Tiles
+                (cp in 0x1F0A0..0x1F0FF) || // Playing Cards
+                (cp in 0x1F3FB..0x1F3FF) || // Skin tone modifiers (🏻..🏿)
+                (cp == 0x200D) ||           // Zero Width Joiner (ZWJ)
+                (cp in 0xFE00..0xFE0F) ||   // Variation Selectors (e.g. VS16 emoji presentation)
+                (cp in 0xE0100..0xE01EF) || // Variation Selectors Supplement
+                (cp == 0x20E3) ||           // Combining Enclosing Keycap (e.g. 1️⃣)
+                (cp in 0xE0020..0xE007F)    // Tag characters (sub-division flags)
+    }
+
+    /**
+     * Safely extracts up to [maxCount] grapheme clusters without breaking surrogate pairs
+     * or complex zero-width joiner sequences.
+     */
+    fun takeGraphemeClusters(input: String, maxCount: Int): String {
+        if (input.isEmpty() || maxCount <= 0) return ""
+        val boundary = BreakIterator.getCharacterInstance(Locale.ROOT)
+        boundary.setText(input)
+        var count = 0
+        var current = boundary.first()
+        while (count < maxCount) {
+            val next = boundary.next()
+            if (next == BreakIterator.DONE) return input
+            current = next
+            count++
+        }
+        return input.substring(0, current)
     }
 }

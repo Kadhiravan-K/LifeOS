@@ -17,6 +17,7 @@ import kotlin.math.roundToInt
  * 5. Discipline (Streaks & Discipline)
  *
  * Supports multi-period evaluation: Daily, Weekly, Monthly, and Yearly.
+ * Strictly eliminates all synthetic demo values, neutral 50-80% mocks, and fabricated data.
  */
 object ProductivityRadarEngine {
 
@@ -45,8 +46,6 @@ object ProductivityRadarEngine {
         }
         val periodStartDateIso = periodStartDate.format(DateTimeFormatter.ISO_DATE)
 
-        val hasAnyData = tasks.isNotEmpty() || habits.isNotEmpty() || plans.isNotEmpty() || waterCurrentMl > 0 || currentStreak > 0
-
         // 1. Focus (Tasks)
         val evaluatedTasks = when (period) {
             ProductivityPeriod.DAILY -> {
@@ -64,11 +63,11 @@ object ProductivityRadarEngine {
         val totalTasks = evaluatedTasks.size
         val completedTasks = evaluatedTasks.count { it.isCompletedForDate || it.isOneTimeCompleted }
         val taskScore = when {
-            totalTasks == 0 -> 80 // Neutral baseline when no tasks are scheduled
+            totalTasks == 0 -> 0
             else -> ((completedTasks.toFloat() / totalTasks.toFloat()) * 100f).roundToInt().coerceIn(0, 100)
         }
         val taskSummary = when {
-            totalTasks == 0 -> "No tasks scheduled for ${period.displayName.lowercase()}"
+            totalTasks == 0 -> "0 tasks scheduled for ${period.displayName.lowercase()}"
             else -> "$completedTasks of $totalTasks tasks completed"
         }
         val taskScoreModel = RadarDimensionScore(
@@ -90,7 +89,7 @@ object ProductivityRadarEngine {
             ProductivityPeriod.DAILY -> {
                 val completedToday = habits.count { it.isCompletedToday }
                 habitScore = when {
-                    totalHabits == 0 -> 75
+                    totalHabits == 0 -> 0
                     else -> ((completedToday.toFloat() / totalHabits.toFloat()) * 100f).roundToInt().coerceIn(0, 100)
                 }
                 habitRaw = "$completedToday checked"
@@ -99,18 +98,17 @@ object ProductivityRadarEngine {
             }
             ProductivityPeriod.WEEKLY -> {
                 if (totalHabits == 0) {
-                    habitScore = 75
+                    habitScore = 0
                     habitRaw = "0 checked"
                     habitTarget = "0 habits"
                     habitSummary = "No active habits configured"
                 } else {
-                    // Check completion across past 7 days
                     val past7Dates = (0..6).map { today.minusDays(it.toLong()).format(DateTimeFormatter.ISO_DATE) }.toSet()
                     val totalPossibleLogs = totalHabits * 7
                     val actualCompletedLogs = habits.sumOf { h -> h.completedDates.count { it in past7Dates } }
                     habitScore = if (totalPossibleLogs > 0) {
                         ((actualCompletedLogs.toFloat() / totalPossibleLogs.toFloat()) * 100f).roundToInt().coerceIn(0, 100)
-                    } else 75
+                    } else 0
                     habitRaw = "$actualCompletedLogs logs"
                     habitTarget = "$totalPossibleLogs possible"
                     habitSummary = "$actualCompletedLogs completions across 7 days"
@@ -118,7 +116,7 @@ object ProductivityRadarEngine {
             }
             ProductivityPeriod.MONTHLY -> {
                 if (totalHabits == 0) {
-                    habitScore = 75
+                    habitScore = 0
                     habitRaw = "0 checked"
                     habitTarget = "0 habits"
                     habitSummary = "No active habits configured"
@@ -128,7 +126,7 @@ object ProductivityRadarEngine {
                     val actualCompletedLogs = habits.sumOf { h -> h.completedDates.count { it in past30Dates } }
                     habitScore = if (totalPossibleLogs > 0) {
                         ((actualCompletedLogs.toFloat() / totalPossibleLogs.toFloat()) * 100f).roundToInt().coerceIn(0, 100)
-                    } else 75
+                    } else 0
                     habitRaw = "$actualCompletedLogs logs"
                     habitTarget = "$totalPossibleLogs possible"
                     habitSummary = "$actualCompletedLogs completions across 30 days"
@@ -136,13 +134,13 @@ object ProductivityRadarEngine {
             }
             ProductivityPeriod.YEARLY -> {
                 if (totalHabits == 0) {
-                    habitScore = 75
+                    habitScore = 0
                     habitRaw = "0 checked"
                     habitTarget = "0 habits"
                     habitSummary = "No active habits configured"
                 } else {
                     val avgStreak = habits.map { it.currentStreak }.average().toFloat()
-                    habitScore = (avgStreak * 5f).roundToInt().coerceIn(30, 100)
+                    habitScore = (avgStreak * 5f).roundToInt().coerceIn(0, 100)
                     habitRaw = "${avgStreak.roundToInt()}d avg"
                     habitTarget = "20d streak"
                     habitSummary = "Macro habit consistency"
@@ -160,15 +158,10 @@ object ProductivityRadarEngine {
 
         // 3. Wellness (Hydration & Physical Vitality)
         val safeWaterGoal = if (waterGoalMl > 0) waterGoalMl else 2000
-        val waterScore = when (period) {
-            ProductivityPeriod.DAILY -> ((waterCurrentMl.toFloat() / safeWaterGoal.toFloat()) * 100f).roundToInt().coerceIn(0, 100)
-            else -> {
-                // For periods > daily, evaluate relative to base goal with stability floor
-                if (waterCurrentMl > 0) {
-                    ((waterCurrentMl.toFloat() / safeWaterGoal.toFloat()) * 100f).roundToInt().coerceIn(0, 100)
-                } else 60
-            }
-        }
+        val waterScore = if (waterCurrentMl > 0) {
+            ((waterCurrentMl.toFloat() / safeWaterGoal.toFloat()) * 100f).roundToInt().coerceIn(0, 100)
+        } else 0
+
         val wellnessScoreModel = RadarDimensionScore(
             dimension = RadarDimension.WELLNESS,
             scorePercent = waterScore,
@@ -181,8 +174,7 @@ object ProductivityRadarEngine {
         val totalMilestones = plans.sumOf { it.milestones.size }
         val completedMilestones = plans.sumOf { it.milestones.count { m -> m.isCompleted } }
         val planningScore = when {
-            totalMilestones == 0 && plans.isEmpty() -> 70
-            totalMilestones == 0 -> 75
+            totalMilestones == 0 -> 0
             else -> ((completedMilestones.toFloat() / totalMilestones.toFloat()) * 100f).roundToInt().coerceIn(0, 100)
         }
         val planningScoreModel = RadarDimensionScore(
@@ -201,16 +193,16 @@ object ProductivityRadarEngine {
         }
         val streakRatio = (currentStreak.toFloat() / streakTarget.toFloat()).coerceIn(0f, 1f)
         val disciplineScore = when {
-            currentStreak <= 0 -> 40
+            currentStreak <= 0 -> 0
             currentStreak >= streakTarget -> 100
-            else -> (40f + (streakRatio * 60f)).roundToInt().coerceIn(0, 100)
+            else -> (streakRatio * 100f).roundToInt().coerceIn(0, 100)
         }
         val disciplineScoreModel = RadarDimensionScore(
             dimension = RadarDimension.DISCIPLINE,
             scorePercent = disciplineScore,
             rawValue = "$currentStreak days",
             targetValue = "$streakTarget days",
-            statusSummary = "$currentStreak day streak ongoing"
+            statusSummary = if (currentStreak > 0) "$currentStreak day streak ongoing" else "No active streak"
         )
 
         val dimensionScores = listOf(
@@ -221,19 +213,29 @@ object ProductivityRadarEngine {
             disciplineScoreModel
         )
 
-        val overallPercent = (dimensionScores.map { it.scorePercent }.average()).roundToInt().coerceIn(0, 100)
+        // Real evaluation: check if user has ANY actual records
+        val hasAnyData = totalTasks > 0 || totalHabits > 0 || waterCurrentMl > 0 || plans.isNotEmpty() || currentStreak > 0
+
+        val overallPercent = if (!hasAnyData) {
+            0
+        } else {
+            val activeScores = dimensionScores.map { it.scorePercent }
+            (activeScores.average()).roundToInt().coerceIn(0, 100)
+        }
 
         val (tierName, tierEmoji) = when {
+            !hasAnyData -> "No Activity Recorded" to "📊"
             overallPercent >= 90 -> "Mastery & Peak Flow" to "⚡"
             overallPercent >= 75 -> "Optimal Productivity" to "🚀"
             overallPercent >= 60 -> "Consistent Flow" to "🌱"
             overallPercent >= 40 -> "Building Momentum" to "🔨"
-            else -> "Reset & Focus" to "🧘"
+            overallPercent > 0 -> "Getting Started" to "🌱"
+            else -> "No Activity Recorded" to "📊"
         }
 
         // Actionable guidance tip
         val guidanceTip = if (!hasAnyData) {
-            "Your radar is calibrated with neutral baselines. Complete tasks, log habits, or drink water to generate your live productivity polygon."
+            "No productivity records found for ${period.displayName.lowercase()}. Complete focus tasks, track habits, or log hydration to build your productivity radar."
         } else {
             val lowestDim = dimensionScores.minByOrNull { it.scorePercent }
             when (lowestDim?.dimension) {
@@ -258,4 +260,3 @@ object ProductivityRadarEngine {
         )
     }
 }
-

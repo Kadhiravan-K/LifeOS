@@ -77,10 +77,6 @@ import com.example.ui.components.PriorityBadge
 import com.example.ui.components.QuickHydrationDialog
 import com.example.ui.components.TaskCompletionCircle
 import com.example.ui.components.WaterTrackerCard
-import com.example.ui.components.HoneycombProfileSelector
-import com.example.ui.screens.profile.CreateProfileDialog
-import com.example.ui.screens.profile.DeleteProfileConfirmationDialog
-import com.example.data.local.entities.ProfileEntity
 import com.example.ui.screens.templates.TemplateBrowserDialog
 import com.example.ui.viewmodel.DashboardUiState
 import com.example.ui.viewmodel.LifeViewModel
@@ -116,8 +112,6 @@ fun DashboardScreen(
     var showCustomizeDialog by remember { mutableStateOf(false) }
     var showHydrationDialog by remember { mutableStateOf(false) }
     var showTemplateBrowserDialog by remember { mutableStateOf(false) }
-    var showCreateProfileDialog by remember { mutableStateOf(false) }
-    var profileToDelete by remember { mutableStateOf<ProfileEntity?>(null) }
 
     if (uiState.isLoading) {
         Box(
@@ -258,17 +252,6 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // --- 1.5. Honeycomb Profile Selector (Requirement #9) ---
-        HoneycombProfileSelector(
-            profiles = allProfiles,
-            activeProfileId = activeProfileId,
-            onProfileSelected = { newId -> viewModel.switchProfile(newId) },
-            onAddProfileClick = { showCreateProfileDialog = true },
-            onDeleteProfileClick = { prof -> profileToDelete = prof }
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
         // --- Current & Next Task Live Focus Card ---
         if (uiState.currentTask != null || uiState.nextTask != null) {
             Card(
@@ -397,11 +380,18 @@ fun DashboardScreen(
                                 modifier = Modifier.height(28.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            TextButton(
+                            IconButton(
                                 onClick = { showCustomizeDialog = true },
-                                modifier = Modifier.testTag("customize_honeycomb_button")
+                                modifier = Modifier
+                                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                    .testTag("customize_honeycomb_button")
                             ) {
-                                Text("Customize", fontSize = 12.sp)
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Customize Honeycomb",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                             IconButton(
                                 onClick = { viewModel.setHoneycombEditMode(true) },
@@ -1146,27 +1136,6 @@ fun DashboardScreen(
                 viewModel.installTemplate(template, selectedTasks, selectedHabits, onDone)
             },
             onDismiss = { showTemplateBrowserDialog = false }
-        )
-    }
-
-    if (showCreateProfileDialog) {
-        CreateProfileDialog(
-            onDismiss = { showCreateProfileDialog = false },
-            onConfirm = { name, emoji, colorHex, type ->
-                viewModel.createProfile(name, emoji, colorHex, type)
-                showCreateProfileDialog = false
-            }
-        )
-    }
-
-    profileToDelete?.let { prof ->
-        DeleteProfileConfirmationDialog(
-            profile = prof,
-            onDismiss = { profileToDelete = null },
-            onConfirm = {
-                viewModel.deleteProfile(prof.id)
-                profileToDelete = null
-            }
         )
     }
 }

@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.domain.model.TaskPriority
 import com.example.ui.components.CalendarHeatmapView
+import com.example.ui.components.ProductivityHeatmap
 import com.example.ui.components.ProductivityRadarChart
 import com.example.ui.viewmodel.LifeViewModel
 
@@ -247,14 +248,11 @@ fun AnalyticsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 35-Day Consistency Heatmap
-            Text(
-                text = "Consistency Heatmap (Last 35 Days)",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+            // GitHub-Style Productivity Consistency Heatmap (Issue #5)
+            ProductivityHeatmap(
+                tasks = allTasks,
+                habits = habitsState.habits
             )
-            Spacer(modifier = Modifier.height(6.dp))
-            CalendarHeatmapView(days = habitsState.heatmapDays)
 
             Spacer(modifier = Modifier.height(16.dp))
 

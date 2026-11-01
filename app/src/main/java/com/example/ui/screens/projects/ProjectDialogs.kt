@@ -131,7 +131,7 @@ fun EditProjectBottomSheet(
             ) {
                 OutlinedTextField(
                     value = emoji,
-                    onValueChange = { if (it.isNotBlank()) emoji = it.take(4) },
+                    onValueChange = { if (it.isNotBlank()) emoji = com.example.utils.EmojiUtils.extractFirstEmoji(it) ?: it },
                     label = { Text("Icon") },
                     modifier = Modifier
                         .width(72.dp)

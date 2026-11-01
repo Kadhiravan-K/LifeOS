@@ -124,9 +124,15 @@ fun CalendarScreen(
         uiState.datesWithTasks
     } else {
         remember(allTasksList, visibleDates) {
-            val activeTasks = allTasksList.filter { !it.isArchived }
+            // Issue #7: Filter out daily recurring background tasks from calendar dots
+            val indicatorTasks = allTasksList.filter { task ->
+                if (task.isArchived) return@filter false
+                val isDailyRecurring = task.recurrenceType == RecurrenceType.DAILY ||
+                        (task.recurrenceType == RecurrenceType.CUSTOM && task.recurrenceUnit.equals("DAYS", ignoreCase = true) && task.recurrenceInterval == 1)
+                !isDailyRecurring
+            }
             visibleDates.filter { dateIso ->
-                activeTasks.any { task ->
+                indicatorTasks.any { task ->
                     RecurrenceEngine.isTaskScheduledOnDate(task, dateIso)
                 }
             }.toSet()
@@ -134,7 +140,12 @@ fun CalendarScreen(
     }
 
     val datesWithRecurringTasks = remember(allTasksList, visibleDates) {
-        val recurringTasks = allTasksList.filter { !it.isArchived && it.recurrenceType != RecurrenceType.NONE }
+        val recurringTasks = allTasksList.filter { task ->
+            if (task.isArchived || task.recurrenceType == RecurrenceType.NONE) return@filter false
+            val isDaily = task.recurrenceType == RecurrenceType.DAILY ||
+                    (task.recurrenceType == RecurrenceType.CUSTOM && task.recurrenceUnit.equals("DAYS", ignoreCase = true) && task.recurrenceInterval == 1)
+            !isDaily
+        }
         visibleDates.filter { dateIso ->
             recurringTasks.any { task ->
                 RecurrenceEngine.isTaskScheduledOnDate(task, dateIso)

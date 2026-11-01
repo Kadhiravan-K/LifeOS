@@ -142,12 +142,24 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         } else {
+                            val shouldQuickAdd = intent?.getBooleanExtra("extra_quick_add", false) == true
+                            val targetProfileId = intent?.getLongExtra("extra_profile_id", -1L) ?: -1L
+                            if (targetProfileId > 0 && targetProfileId != activeProfileId) {
+                                LaunchedEffect(targetProfileId) {
+                                    viewModel.switchProfile(targetProfileId)
+                                }
+                            }
+
                             val initialDest = if (intent?.getStringExtra("extra_destination") == "analytics") {
                                 com.example.ui.navigation.NavigationItem.ANALYTICS
                             } else {
                                 com.example.ui.navigation.NavigationItem.HOME
                             }
-                            MainScreen(viewModel = viewModel, initialDestination = initialDest)
+                            MainScreen(
+                                viewModel = viewModel,
+                                initialDestination = initialDest,
+                                initialOpenQuickAdd = shouldQuickAdd
+                            )
                         }
                     }
                 }

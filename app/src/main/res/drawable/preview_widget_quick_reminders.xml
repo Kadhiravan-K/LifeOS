@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="16dp" />
+            <solid android:color="#18181B" />
+            <stroke android:width="1dp" android:color="#27272A" />
+        </shape>
+    </item>
+    <!-- Header title -->
+    <item android:top="10dp" android:left="12dp" android:right="12dp" android:height="14dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="4dp" />
+            <solid android:color="#33F59E0B" />
+        </shape>
+    </item>
+    <!-- Honeycomb grid row 1 -->
+    <item android:top="32dp" android:left="20dp" android:width="28dp" android:height="28dp">
+        <shape android:shape="oval">
+            <solid android:color="#3B82F6" />
+        </shape>
+    </item>
+    <item android:top="32dp" android:left="56dp" android:width="28dp" android:height="28dp">
+        <shape android:shape="oval">
+            <solid android:color="#10B981" />
+        </shape>
+    </item>
+    <item android:top="32dp" android:left="92dp" android:width="28dp" android:height="28dp">
+        <shape android:shape="oval">
+            <solid android:color="#F59E0B" />
+        </shape>
+    </item>
+    <!-- Honeycomb grid row 2 -->
+    <item android:top="66dp" android:left="38dp" android:width="28dp" android:height="28dp">
+        <shape android:shape="oval">
+            <solid android:color="#8B5CF6" />
+        </shape>
+    </item>
+    <item android:top="66dp" android:left="74dp" android:width="28dp" android:height="28dp">
+        <shape android:shape="oval">
+            <solid android:color="#EC4899" />
+        </shape>
+    </item>
+</layer-list>

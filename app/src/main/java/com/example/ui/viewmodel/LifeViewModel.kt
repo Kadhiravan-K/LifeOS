@@ -1221,9 +1221,15 @@ class LifeViewModel(
             }
 
             val visibleDates = (monthGrid + weekGrid + threeDays + listOf(selDate)).filter { it.isNotBlank() }.toSet()
-            val activeTasks = allTasks.filter { !it.isArchived }
+            // Issue #7: Filter out daily recurring background tasks from calendar dots so they do not flood every day with indicators
+            val indicatorTasks = allTasks.filter { task ->
+                if (task.isArchived) return@filter false
+                val isDailyRecurring = task.recurrenceType == RecurrenceType.DAILY ||
+                        (task.recurrenceType == RecurrenceType.CUSTOM && task.recurrenceUnit.equals("DAYS", ignoreCase = true) && task.recurrenceInterval == 1)
+                !isDailyRecurring
+            }
             val datesWithTasks = visibleDates.filter { dateIso ->
-                activeTasks.any { task ->
+                indicatorTasks.any { task ->
                     RecurrenceEngine.isTaskScheduledOnDate(task, dateIso)
                 }
             }.toSet()
@@ -2855,7 +2861,11 @@ class LifeViewModel(
     }
 
     suspend fun importDataJson(jsonStr: String): Boolean {
-        return DataExportImportManager.importData(AppDatabase.getInstance(getApplication()), jsonStr)
+        val result = DataExportImportManager.importData(AppDatabase.getInstance(getApplication()), jsonStr)
+        if (result) {
+            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
+        }
+        return result
     }
 
     // ==========================================

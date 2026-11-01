@@ -14,7 +14,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /**
- * Comprehensive Unit Tests for ProductivityRadarEngine (#17).
+ * Comprehensive Unit Tests for ProductivityRadarEngine (#17, Issue #2).
  * Validates deterministic mathematical scoring across 5 axes:
  * 1. Focus (Tasks)
  * 2. Consistency (Habits)
@@ -22,15 +22,15 @@ import java.time.format.DateTimeFormatter
  * 4. Vision (Planning)
  * 5. Discipline (Streaks)
  *
- * Covers all time periods: Daily, Weekly, Monthly, Yearly,
- * zero division protection, sparse data guidance, and score bounds.
+ * Confirms strict elimination of all synthetic fallback scores (80, 75, 70, 40)
+ * and verifies genuine empty states.
  */
 class ProductivityRadarEngineUnitTest {
 
     private val todayIso = "2026-11-01"
 
     @Test
-    fun `test empty data yields neutral baseline and uncalibrated guidance`() {
+    fun `test empty data yields zero scores and genuine empty state`() {
         val result = ProductivityRadarEngine.calculate(
             tasks = emptyList(),
             habits = emptyList(),
@@ -43,12 +43,15 @@ class ProductivityRadarEngineUnitTest {
         )
 
         assertFalse("Empty data must indicate hasSufficientData == false", result.hasSufficientData)
-        assertTrue("Guidance tip should prompt user to start logging", result.guidanceTip.contains("calibrated with neutral baselines"))
-        assertEquals("Neutral task baseline", 80, result.scoreFor(RadarDimension.TASKS))
-        assertEquals("Neutral habit baseline", 75, result.scoreFor(RadarDimension.HABITS))
-        assertEquals("Zero hydration", 0, result.scoreFor(RadarDimension.WELLNESS))
-        assertEquals("Neutral planning baseline", 70, result.scoreFor(RadarDimension.PLANNING))
-        assertEquals("Base streak discipline", 40, result.scoreFor(RadarDimension.DISCIPLINE))
+        assertEquals("Overall score must be 0 when no activity exists", 0, result.overallScorePercent)
+        assertEquals("Empty tasks yields 0%", 0, result.scoreFor(RadarDimension.TASKS))
+        assertEquals("Empty habits yields 0%", 0, result.scoreFor(RadarDimension.HABITS))
+        assertEquals("Zero hydration yields 0%", 0, result.scoreFor(RadarDimension.WELLNESS))
+        assertEquals("Empty plans yields 0%", 0, result.scoreFor(RadarDimension.PLANNING))
+        assertEquals("Zero streak yields 0%", 0, result.scoreFor(RadarDimension.DISCIPLINE))
+        assertEquals("No Activity Recorded", result.ratingTier)
+        assertEquals("📊", result.ratingTierEmoji)
+        assertTrue("Guidance tip mentions no records", result.guidanceTip.contains("No productivity records", ignoreCase = true))
     }
 
     @Test
@@ -125,9 +128,9 @@ class ProductivityRadarEngineUnitTest {
         assertEquals(25, result.scoreFor(RadarDimension.TASKS))
         assertEquals(50, result.scoreFor(RadarDimension.HABITS))
         assertEquals(50, result.scoreFor(RadarDimension.WELLNESS))
-        assertEquals(70, result.scoreFor(RadarDimension.PLANNING)) // neutral baseline
-        // streak 3 of 7: 40 + (3/7 * 60) ≈ 40 + 25.7 ≈ 66%
-        assertTrue("Discipline score between 60 and 70", result.scoreFor(RadarDimension.DISCIPLINE) in 60..70)
+        assertEquals(0, result.scoreFor(RadarDimension.PLANNING)) // No plans = 0%
+        // streak 3 of 7: 3/7 * 100 ≈ 43%
+        assertEquals(43, result.scoreFor(RadarDimension.DISCIPLINE))
     }
 
     @Test
@@ -194,13 +197,23 @@ class ProductivityRadarEngineUnitTest {
 
     @Test
     fun `test personalized guidance tip targets lowest scoring pillar`() {
+        val completedPlan = listOf(
+            PlanItem(
+                id = 1,
+                title = "Strategic Vision",
+                startDateIso = todayIso,
+                targetDateIso = todayIso,
+                milestones = listOf(PlanMilestone(id = 1, planId = 1, title = "M1", isCompleted = true))
+            )
+        )
+
         // Wellness trailing
         val resultWellnessTrailing = ProductivityRadarEngine.calculate(
             tasks = listOf(TaskItem(id = 1, title = "Task", dueDateIso = todayIso, isOneTimeCompleted = true)),
             habits = listOf(HabitItem(id = 1, title = "Habit", isCompletedToday = true)),
-            waterCurrentMl = 100, // Very low wellness
+            waterCurrentMl = 100, // Very low wellness: 100/2500 = 4%
             waterGoalMl = 2500,
-            plans = emptyList(),
+            plans = completedPlan,
             currentStreak = 7,
             todayIso = todayIso
         )
@@ -219,7 +232,7 @@ class ProductivityRadarEngineUnitTest {
             habits = listOf(HabitItem(id = 1, title = "Habit", isCompletedToday = true)),
             waterCurrentMl = 2500,
             waterGoalMl = 2000,
-            plans = emptyList(),
+            plans = completedPlan,
             currentStreak = 7,
             todayIso = todayIso
         )

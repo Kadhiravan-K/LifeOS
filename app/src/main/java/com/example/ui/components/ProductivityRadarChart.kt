@@ -220,12 +220,18 @@ fun ProductivityRadarChart(
                         )
                     }
 
-                    // 3. Shaded Data Polygon
+                    // 3. Shaded Data Polygon (only rendered when genuine data is present)
                     val dataPath = Path()
                     val vertexPoints = mutableListOf<Offset>()
+                    val hasLivePolygon = data.hasSufficientData && data.overallScorePercent > 0
+
                     for (i in 0 until n) {
                         val dimScore = data.dimensions[i]
-                        val fraction = (dimScore.scorePercent.toFloat() / 100f).coerceIn(0.12f, 1f)
+                        val fraction = if (hasLivePolygon) {
+                            (dimScore.scorePercent.toFloat() / 100f).coerceIn(0.05f, 1f)
+                        } else {
+                            0f
+                        }
                         val angle = (2 * Math.PI * i / n - Math.PI / 2).toFloat()
                         val r = maxR * fraction
                         val x = center.x + r * cos(angle)
@@ -236,18 +242,20 @@ fun ProductivityRadarChart(
                     }
                     dataPath.close()
 
-                    // Fill data polygon with primary accent translucency
-                    drawPath(
-                        path = dataPath,
-                        color = primaryColor.copy(alpha = 0.32f),
-                        style = Fill
-                    )
-                    // Draw outer border stroke
-                    drawPath(
-                        path = dataPath,
-                        color = primaryColor,
-                        style = Stroke(width = 2.5.dp.toPx())
-                    )
+                    if (hasLivePolygon) {
+                        // Fill data polygon with primary accent translucency
+                        drawPath(
+                            path = dataPath,
+                            color = primaryColor.copy(alpha = 0.32f),
+                            style = Fill
+                        )
+                        // Draw outer border stroke
+                        drawPath(
+                            path = dataPath,
+                            color = primaryColor,
+                            style = Stroke(width = 2.5.dp.toPx())
+                        )
+                    }
 
                     // 4. Vertex Pins & Outer Labels
                     val textPaint = android.graphics.Paint().apply {
@@ -263,18 +271,20 @@ fun ProductivityRadarChart(
                         val isHighlighted = selectedDimension == data.dimensions[i].dimension
                         val pinRadius = if (isHighlighted) 6.dp.toPx() else 4.5.dp.toPx()
 
-                        // Outer ring
-                        drawCircle(
-                            color = if (isHighlighted) tertiaryColor else primaryColor,
-                            radius = pinRadius,
-                            center = pt
-                        )
-                        // Inner white center
-                        drawCircle(
-                            color = Color.White,
-                            radius = pinRadius * 0.45f,
-                            center = pt
-                        )
+                        if (hasLivePolygon) {
+                            // Outer ring
+                            drawCircle(
+                                color = if (isHighlighted) tertiaryColor else primaryColor,
+                                radius = pinRadius,
+                                center = pt
+                            )
+                            // Inner white center
+                            drawCircle(
+                                color = Color.White,
+                                radius = pinRadius * 0.45f,
+                                center = pt
+                            )
+                        }
 
                         // Draw dimension emoji label around perimeter
                         val angle = (2 * Math.PI * i / n - Math.PI / 2).toFloat()
