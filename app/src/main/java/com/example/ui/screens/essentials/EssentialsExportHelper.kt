@@ -82,8 +82,17 @@ object EssentialsExportHelper {
         return text.replace("\"", "\"\"")
     }
 
+    private fun getSharedReportsDir(context: Context): File {
+        val dir = File(context.cacheDir, "shared_reports")
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+        return dir
+    }
+
     fun shareCsvContent(context: Context, filename: String, content: String) {
-        val file = File(context.cacheDir, filename)
+        val dir = getSharedReportsDir(context)
+        val file = File(dir, filename)
         file.writeText(content)
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 
@@ -159,7 +168,8 @@ object EssentialsExportHelper {
 
         pdfDoc.finishPage(page)
 
-        val file = File(context.cacheDir, "LifeOS_Trackers_Report.pdf")
+        val dir = getSharedReportsDir(context)
+        val file = File(dir, "LifeOS_Trackers_Report.pdf")
         FileOutputStream(file).use { out ->
             pdfDoc.writeTo(out)
         }
@@ -249,7 +259,8 @@ object EssentialsExportHelper {
 
         pdfDoc.finishPage(page)
 
-        val file = File(context.cacheDir, "LifeOS_Subscriptions_Report.pdf")
+        val dir = getSharedReportsDir(context)
+        val file = File(dir, "LifeOS_Subscriptions_Report.pdf")
         FileOutputStream(file).use { out ->
             pdfDoc.writeTo(out)
         }

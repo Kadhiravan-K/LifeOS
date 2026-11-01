@@ -256,21 +256,15 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
                     if (tile.isCompleted) View.VISIBLE else View.GONE
                 )
 
-                // Individual PendingIntent per tile passing shortcutId for 100% linked execution
-                val toggleIntent = Intent(context, QuickRemindersWidgetProvider::class.java).apply {
-                    action = ACTION_WIDGET_TOGGLE_TASK
-                    putExtra("extra_shortcut_id", tile.shortcutId)
-                    putExtra("extra_type", tile.type)
-                    putExtra("extra_task_id", tile.taskId ?: -1L)
-                    putExtra("extra_target_id", tile.targetId)
-                    putExtra("extra_widget_id", appWidgetId)
-                    data = "lifeos://widget/qr/$appWidgetId/$i/${tile.shortcutId}".toUri()
-                }
-                val togglePi = PendingIntent.getBroadcast(
-                    context,
-                    appWidgetId * 100 + i,
-                    toggleIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                // Individual PendingIntent per tile routed via unexported QuickRemindersActionReceiver (SEC-01)
+                val togglePi = QuickRemindersActionReceiver.createPendingIntent(
+                    context = context,
+                    appWidgetId = appWidgetId,
+                    slotIndex = i,
+                    shortcutId = tile.shortcutId,
+                    type = tile.type,
+                    taskId = tile.taskId,
+                    targetId = tile.targetId
                 )
                 rv.setOnClickPendingIntent(tileContainerIds[i], togglePi)
             } else {
@@ -414,121 +408,5 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == ACTION_WIDGET_TOGGLE_TASK) {
-            // Validate URI scheme to ensure intent originated from legitimate LifeOS widget PendingIntent
-            if (intent.data?.scheme != "lifeos") {
-                return
-            }
-            val shortcutId = intent.getLongExtra("extra_shortcut_id", -1L)
-            val fallbackType = intent.getStringExtra("extra_type") ?: "TASK"
-            val fallbackTaskId = intent.getLongExtra("extra_task_id", -1L)
-            val fallbackTargetId = intent.getStringExtra("extra_target_id") ?: ""
-
-            val db = AppDatabase.getInstance(context)
-            val prefs = UserPreferences(context)
-            val entitlementRepo = LocalPremiumEntitlementRepository(context)
-            val repository = LifeRepository(db, prefs, entitlementRepo)
-            val todayIso = DateUtils.todayString()
-
-            CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
-                val sc = if (shortcutId != -1L) {
-                    db.honeycombShortcutDao().getShortcutById(shortcutId)
-                } else null
-
-                val effectiveType = sc?.type ?: fallbackType
-                val effectiveTargetId = sc?.targetId ?: fallbackTargetId
-                val effectiveTitle = sc?.title ?: effectiveTargetId
-
-                when (effectiveType) {
-                    "TASK" -> {
-                        val validTaskId = if (fallbackTaskId != -1L) {
-                            fallbackTaskId
-                        } else {
-                            val candidateId = effectiveTargetId.toLongOrNull()
-                            if (candidateId != null) {
-                                candidateId
-                            } else {
-                                val task = repository.getOrCreateTaskForShortcut(
-                                    title = effectiveTitle.ifBlank { "Discipline" },
-                                    emoji = sc?.emoji ?: "🔥",
-                                    category = "Routines",
-                                    recurrence = RecurrenceType.DAILY
-                                )
-                                task.id
-                            }
-                        }
-                        repository.toggleTaskCompletion(validTaskId, todayIso)
-                    }
-                    "HABIT" -> {
-                        val habitId = effectiveTargetId.toLongOrNull()
-                        val matchedHabitId = if (habitId != null) {
-                            habitId
-                        } else {
-                            val habits = db.habitDao().getAllHabitsList()
-                            val found = habits.find {
-                                it.id.toString() == effectiveTargetId ||
-                                it.title.equals(effectiveTargetId, ignoreCase = true) ||
-                                it.title.equals(effectiveTitle, ignoreCase = true)
-                            }
-                            found?.id ?: repository.insertHabit(
-                                HabitItem(
-                                    title = effectiveTitle.ifBlank { "Routine Habit" },
-                                    emoji = sc?.emoji ?: "☀️",
-                                    colorHex = sc?.customColorHex ?: 0xFF10B981L
-                                )
-                            )
-                        }
-                        repository.toggleHabitCompletion(matchedHabitId, todayIso)
-                    }
-                    "WATER" -> {
-                        repository.addWater(250, todayIso)
-                    }
-                    "CHALLENGE_RULE" -> {
-                        val activeChallenge = db.challengeDao().getActiveChallenge()
-                        val rules = activeChallenge?.let { JsonMappers.parseChallengeRules(it.rulesJson) } ?: emptyList()
-                        val matchedRule = rules.find {
-                            it.id == effectiveTargetId ||
-                            it.title.equals(effectiveTargetId, ignoreCase = true) ||
-                            it.title.equals(effectiveTitle, ignoreCase = true)
-                        }
-                        if (matchedRule != null) {
-                            repository.toggleChallengeRule(matchedRule.id, todayIso)
-                        } else {
-                            // Fallback to task deduplication & daily routine toggle
-                            val task = repository.getOrCreateTaskForShortcut(
-                                title = effectiveTitle.ifBlank { "Discipline" },
-                                emoji = sc?.emoji ?: "🔥",
-                                category = "Routines",
-                                recurrence = RecurrenceType.DAILY
-                            )
-                            repository.toggleTaskCompletion(task.id, todayIso)
-                        }
-                    }
-                    else -> {
-                        val task = repository.getOrCreateTaskForShortcut(
-                            title = effectiveTitle.ifBlank { "Discipline" },
-                            emoji = sc?.emoji ?: "✅",
-                            category = "Routines",
-                            recurrence = RecurrenceType.DAILY
-                        )
-                        repository.toggleTaskCompletion(task.id, todayIso)
-                    }
-                }
-
-                // 1. Notify global coordinator for in-app and widget sync
-                WidgetRefreshCoordinator.notifyAllWidgetsChanged(context)
-
-                // 2. Immediately update all active widget instances in-place
-                try {
-                    val appWidgetManager = AppWidgetManager.getInstance(context)
-                    val thisWidget = ComponentName(context, QuickRemindersWidgetProvider::class.java)
-                    val widgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
-                    for (wId in widgetIds) {
-                        val updatedViews = buildWidgetViews(context, wId)
-                        appWidgetManager.updateAppWidget(wId, updatedViews)
-                    }
-                } catch (_: Exception) {}
-            }
-        }
     }
 }

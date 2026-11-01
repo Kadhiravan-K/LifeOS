@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+   LifeOS FileProvider Scope (SEC-04 Remediation)
+   Least-privilege sharing paths:
+   - Root files-path mapping completely removed.
+   - Cache-path restricted strictly to dedicated shared_reports/ subfolder.
+-->
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <cache-path name="cached_reports" path="." />
-    <files-path name="app_files" path="." />
+    <cache-path name="shared_reports" path="shared_reports/" />
 </paths>

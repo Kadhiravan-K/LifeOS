@@ -4,8 +4,9 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 1.0.0-rc.1 / 1.0.x | :white_check_mark: |
-| < 1.0.0 | :x: |
+| 4.0.x / Release 4 | :white_check_mark: |
+| 3.0.x / Release 3 | :white_check_mark: |
+| < 3.0.0 | :x: |
 
 ## Security Model & Threat Assessment
 
