@@ -1219,7 +1219,7 @@ private fun WorkspaceCalendarView(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(date, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                            IconButton(onClick = { onAddForDate(date) }, modifier = Modifier.size(24.dp)) {
+                            IconButton(onClick = { onAddForDate(date) }) {
                                 Icon(Icons.Default.Add, contentDescription = "Add for date", modifier = Modifier.size(16.dp))
                             }
                         }

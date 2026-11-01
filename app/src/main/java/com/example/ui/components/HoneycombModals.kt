@@ -735,7 +735,7 @@ fun CustomizeDashboardDialog(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Customize Dashboard", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-                IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                IconButton(onClick = onDismiss) {
                     Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
                 }
             }
@@ -1064,7 +1064,7 @@ fun CustomizeChallengePresetsDialog(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Customize 75-Day Program", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-                IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                IconButton(onClick = onDismiss) {
                     Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
                 }
             }
