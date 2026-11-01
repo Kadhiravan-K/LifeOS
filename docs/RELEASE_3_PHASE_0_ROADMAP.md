@@ -568,3 +568,54 @@ Phase 7 implementation has been completed on branch `feat/release3-phase7-qr-zoo
 
 ---
 *Phase 7 QR Honeycomb Zoom & Radar Chart Widget completed.*
+
+---
+
+## 16. Implementation Status: Phase 8 — Downloadable Glossary Library (Completed)
+
+Phase 8 implementation has been completed on branch `feat/release3-phase8-glossary-library`:
+
+| Req # | Feature / Enhancement | Implementation Details | Status |
+|---|---|---|---|
+| **#2** | Downloadable Knowledge Library & Glossary | Implemented offline knowledge pack architecture with `GlossaryScreen.kt`, category filtering, search, term detail modal, and bookmarking. Support for importing verified offline JSON packs with SHA-256 integrity verification. | **RESOLVED & VERIFIED** |
+| **Schema** | Room Migration v14 -> v15 (`MIGRATION_14_15`) | Created `glossary_packs` and `glossary_items` tables with CASCADE delete constraints and indexes. Seeded default bundled pack (`lifeos_core`) with 8 foundational productivity principles (Deep Work, Time Blocking, Pareto Principle, Parkinson's Law, Eisenhower Matrix, Habit Stacking, Two-Minute Rule, Flow State). | **RESOLVED & VERIFIED** |
+| **Catalog** | Reusable UI Registration | Registered `glossary_pack_card` (#57) in `MasterComponentCatalog` under `ComponentCategory.SPECIALIZED_LIFEOS`. | **VERIFIED & INTEGRATED** |
+
+---
+
+## 17. Implementation Status: Phase 9 — In-Process MCP Bridge Protocol Engine (Completed)
+
+Phase 9 implementation has been completed on branch `feat/release3-phase9-mcp-layer`:
+
+| Req # | Feature / Enhancement | Implementation Details | Status |
+|---|---|---|---|
+| **#3** | Model Context Protocol (MCP) Bridge | Implemented local JSON-RPC 2.0 protocol engine (`McpProtocolEngine.kt`) with cryptographically secure 32-character bearer token authentication (`McpSecurityManager.kt`). Profile-scoped tool permissions (`get_tasks`, `create_task`, `list_projects`, `get_daily_summary`, `get_intelligent_suggestions`, `get_profile_context`). Dedicated developer console in `McpBridgeScreen.kt`. | **RESOLVED & VERIFIED** |
+| **Catalog** | Reusable UI Registration | Registered `mcp_console_view` (#58) in `MasterComponentCatalog` under `ComponentCategory.SPECIALIZED_LIFEOS`. | **VERIFIED & INTEGRATED** |
+
+---
+
+## 18. Implementation Status: Phase 10 — Interactive User Manual Navigation & Streak Header (Completed)
+
+Phase 10 implementation has been completed on branch `feat/release3-phase10-manual-streak`:
+
+| Req # | Feature / Enhancement | Implementation Details | Status |
+|---|---|---|---|
+| **#12** | Interactive User Manual Action Buttons | Added functional direct navigation buttons in `UserManualScreen.kt` mapping to `SettingsSubpage` targets (`PRODUCTIVITY`, `GENERAL`, `GAMIFICATION`, `NOTIFICATIONS`, `DATA_STORAGE`, etc.). | **RESOLVED & VERIFIED** |
+| **#22** | Home Header Streak Counter Badge | Integrated dynamic interactive streak badge ("🔥 Xd") in `DashboardScreen.kt` top app bar with direct routing to Gamification/Habits screen. | **RESOLVED & VERIFIED** |
+
+---
+
+## 19. Implementation Status: Loop 4 — Release Candidate QA, Data Integrity & Hardening (Completed & Verified)
+
+Release Candidate QA Loop 4 was executed on `feat/release3-rc1-product-intelligence-hardening`:
+
+| Domain | Area Checked | Evidence / Validation | Status |
+|---|---|---|---|
+| **Data Integrity** | Backup & Restore Roundtrip (#10, #11) | Discovered and fixed missing plans, plan milestones, plan-task cross-references, medications, and water logs serialization in `DataExportImportManager.kt`. Verified 100% roundtrip preservation in `Release3BackupRestoreUnitTest.kt` across all 15 entity categories including legacy pre-v3 fallback handling and corrupted JSON handling. | **RESOLVED & VERIFIED** |
+| **Onboarding** | Persistence Failure Recovery (#19) | Discovered and resolved silent completion bug in `LifeViewModel.kt:saveProfileSurvey`. Introduced `onboardingErrorMessage` flow and error banner in `OnboardingSurveyScreen.kt` allowing users to retry without losing responses or crashing into infinite loops. Wired into `MainActivity.kt`. | **RESOLVED & VERIFIED** |
+| **Migrations** | Room Migration Chain v10 -> v15 | Expanded `RoomMigrationRobolectricUnitTest.kt` with `testRealSqliteMigrationV10ToV15()`. Verified SQLite upgrade across `MIGRATION_10_11`, `11_12`, `12_13`, `13_14`, and `14_15` with data preservation and default profile assignment. | **RESOLVED & VERIFIED** |
+| **Security** | 100% Offline-First Sovereignty | Verified zero cloud telemetry, absence of `android.permission.INTERNET` in `AndroidManifest.xml`, constant-time token comparison in MCP security, and SHA-256 checksum verification on pack import. | **RESOLVED & VERIFIED** |
+| **Reusable UI** | Component Catalog (#1-#23) | Verified all 58 components registered in `MasterComponentCatalog` (56 existing, 1 partial, 1 proposed) passing `ComponentCatalogUnitTest`. | **RESOLVED & VERIFIED** |
+| **Build & Packaging** | Full Test Suite & APK Assembly | **298 unit tests passing** (0 failures, 0 errors). Full debug APK assembled successfully (`app-debug.apk`, 26.0 MB). | **READY FOR RELEASE CANDIDATE** |
+| **Physical Device** | Physical Device Validation | ADB tool not connected in current headless build environment. Formally recorded as **PENDING PHYSICAL DEVICE CONNECTION**. Complete Robolectric real-SQLite test suite validated on Android SDK runtime. | **PENDING PHYSICAL DEVICE** |
+

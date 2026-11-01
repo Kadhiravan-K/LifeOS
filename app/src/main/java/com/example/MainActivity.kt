@@ -107,11 +107,14 @@ class MainActivity : ComponentActivity() {
                         val showOnStartup by viewModel.showProfileSelectorOnLaunchFlow.collectAsStateWithLifecycle()
                         val allProfiles by viewModel.allProfilesFlow.collectAsStateWithLifecycle()
                         val activeProfileId by viewModel.activeProfileIdFlow.collectAsStateWithLifecycle()
+                        val onboardingError by viewModel.onboardingErrorMessage.collectAsStateWithLifecycle()
 
                         if (hasCompletedOnboarding == false) {
                             com.example.ui.screens.onboarding.OnboardingSurveyScreen(
                                 profileId = activeProfileId,
                                 isEditMode = false,
+                                errorMessage = onboardingError,
+                                onErrorDismiss = { viewModel.clearOnboardingError() },
                                 onComplete = { survey ->
                                     viewModel.saveProfileSurvey(survey)
                                 },

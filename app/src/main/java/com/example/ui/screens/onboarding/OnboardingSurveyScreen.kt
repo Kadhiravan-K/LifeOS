@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.LocalDrink
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -90,6 +91,8 @@ fun OnboardingSurveyScreen(
     profileId: Long,
     initialSurvey: ProfileSurveyEntity? = null,
     isEditMode: Boolean = false,
+    errorMessage: String? = null,
+    onErrorDismiss: () -> Unit = {},
     onComplete: (ProfileSurveyEntity) -> Unit,
     onSkipAll: () -> Unit,
     modifier: Modifier = Modifier
@@ -97,6 +100,13 @@ fun OnboardingSurveyScreen(
     var currentStep by rememberSaveable { mutableIntStateOf(1) }
     val totalSteps = 5
     var isSubmitting by rememberSaveable { mutableStateOf(false) }
+
+    // Reset submitting state if an error is received from view model
+    androidx.compose.runtime.LaunchedEffect(errorMessage) {
+        if (!errorMessage.isNullOrBlank()) {
+            isSubmitting = false
+        }
+    }
 
     // Field states initialized from existing survey if available
     var displayName by rememberSaveable { mutableStateOf(initialSurvey?.displayName ?: "") }
@@ -310,6 +320,48 @@ fun OnboardingSurveyScreen(
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            if (!errorMessage.isNullOrBlank()) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "Error",
+                                tint = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = errorMessage,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                        IconButton(onClick = onErrorDismiss) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Dismiss",
+                                tint = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+            }
+
             AnimatedContent(
                 targetState = currentStep,
                 transitionSpec = {

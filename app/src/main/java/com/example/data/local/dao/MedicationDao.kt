@@ -42,6 +42,9 @@ interface MedicationDao {
     @Query("SELECT * FROM medications ORDER BY createdAt DESC")
     fun getAllMedicationsFlow(): Flow<List<MedicationEntity>>
 
+    @Query("SELECT * FROM medications ORDER BY createdAt DESC")
+    suspend fun getAllMedicationsList(): List<MedicationEntity>
+
     @Query("SELECT * FROM medications WHERE profileId = :profileId ORDER BY createdAt DESC")
     fun getAllMedicationsForProfileFlow(profileId: Long): Flow<List<MedicationEntity>>
 

@@ -86,6 +86,9 @@ interface PlanDao {
     @Query("SELECT * FROM plan_milestones WHERE planId = :planId ORDER BY orderIndex ASC")
     fun getMilestonesForPlan(planId: Long): Flow<List<PlanMilestoneEntity>>
 
+    @Query("SELECT * FROM plan_milestones ORDER BY orderIndex ASC")
+    suspend fun getAllMilestonesList(): List<PlanMilestoneEntity>
+
     @Query("SELECT * FROM plan_milestones WHERE planId = :planId ORDER BY orderIndex ASC")
     suspend fun getMilestonesForPlanList(planId: Long): List<PlanMilestoneEntity>
 
@@ -99,6 +102,9 @@ interface PlanDao {
     suspend fun deleteMilestonesForPlan(planId: Long)
 
     // Linked Tasks
+    @Query("SELECT * FROM plan_task_cross_refs")
+    suspend fun getAllPlanTaskCrossRefs(): List<PlanTaskCrossRef>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertPlanTaskCrossRefs(refs: List<PlanTaskCrossRef>)
 

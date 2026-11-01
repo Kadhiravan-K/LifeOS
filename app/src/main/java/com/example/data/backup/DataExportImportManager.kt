@@ -216,7 +216,57 @@ object DataExportImportManager {
         root.put("honeycomb_shortcuts", scArr)
 
         // 6. Plans
-        val plans = database.planDao().getAllPlans()
+        val plans = database.planDao().getAllPlansList()
+        val plansArr = JSONArray()
+        plans.forEach { p ->
+            val obj = JSONObject().apply {
+                put("id", p.id)
+                put("profileId", p.profileId)
+                put("title", p.title)
+                put("description", p.description)
+                put("level", p.level)
+                put("startDateIso", p.startDateIso)
+                put("targetDateIso", p.targetDateIso)
+                put("status", p.status)
+                put("manualProgress", p.manualProgress)
+                put("isAutoProgress", p.isAutoProgress)
+                put("parentPlanId", p.parentPlanId ?: JSONObject.NULL)
+                put("projectId", p.projectId ?: JSONObject.NULL)
+                put("priority", p.priority)
+                put("createdAt", p.createdAt)
+                put("updatedAt", p.updatedAt)
+            }
+            plansArr.put(obj)
+        }
+        root.put("plans", plansArr)
+
+        // 6b. Plan Milestones
+        val milestones = database.planDao().getAllMilestonesList()
+        val milestonesArr = JSONArray()
+        milestones.forEach { m ->
+            val obj = JSONObject().apply {
+                put("id", m.id)
+                put("planId", m.planId)
+                put("title", m.title)
+                put("isCompleted", m.isCompleted)
+                put("orderIndex", m.orderIndex)
+            }
+            milestonesArr.put(obj)
+        }
+        root.put("plan_milestones", milestonesArr)
+
+        // 6c. Plan Task Links
+        val planTaskRefs = database.planDao().getAllPlanTaskCrossRefs()
+        val planRefsArr = JSONArray()
+        planTaskRefs.forEach { r ->
+            val obj = JSONObject().apply {
+                put("planId", r.planId)
+                put("taskId", r.taskId)
+            }
+            planRefsArr.put(obj)
+        }
+        root.put("plan_task_cross_refs", planRefsArr)
+
         // 7. Gamification Profile
         val profile = database.gamificationDao().getProfile()
         if (profile != null) {
@@ -230,7 +280,18 @@ object DataExportImportManager {
         }
 
         // 8. Water Logs
-        val water = database.waterLogDao().getRecentWaterLogs()
+        val waterLogs = database.waterLogDao().getAllWaterLogsList()
+        val waterArr = JSONArray()
+        waterLogs.forEach { w ->
+            val obj = JSONObject().apply {
+                put("dateIso", w.dateIso)
+                put("amountMl", w.amountMl)
+                put("goalMl", w.goalMl)
+                put("updatedAt", w.updatedAt)
+            }
+            waterArr.put(obj)
+        }
+        root.put("water_logs", waterArr)
 
         // 9. Smart Trackers
         val trackers = database.trackerDao().getAllTrackersList()
@@ -489,6 +550,46 @@ object DataExportImportManager {
             glossaryItemsArr.put(obj)
         }
         root.put("glossary_items", glossaryItemsArr)
+
+        // 15. Medications (#11)
+        val medications = database.medicationDao().getAllMedicationsList()
+        val medsArr = JSONArray()
+        for (m in medications) {
+            val obj = JSONObject().apply {
+                put("id", m.id)
+                put("profileId", m.profileId)
+                put("taskId", m.taskId)
+                put("name", m.name)
+                put("form", m.form)
+                put("dosageAmount", m.dosageAmount)
+                put("dosageUnit", m.dosageUnit)
+                put("strength", m.strength)
+                put("instructions", m.instructions)
+                put("scheduleType", m.scheduleType)
+                put("mealPeriodsJson", m.mealPeriodsJson)
+                put("fixedTimesJson", m.fixedTimesJson)
+                put("intervalHours", m.intervalHours)
+                put("intervalModel", m.intervalModel)
+                put("intervalAnchorTime", m.intervalAnchorTime)
+                put("allowOvernight", m.allowOvernight)
+                put("selectedDaysOfWeek", m.selectedDaysOfWeek)
+                put("startDateIso", m.startDateIso)
+                put("endDateIso", m.endDateIso ?: JSONObject.NULL)
+                put("courseDurationDays", m.courseDurationDays ?: JSONObject.NULL)
+                put("isAsNeeded", m.isAsNeeded)
+                put("isPaused", m.isPaused)
+                put("reminderSound", m.reminderSound)
+                put("alertStyle", m.alertStyle)
+                put("snoozeMinutes", m.snoozeMinutes)
+                put("followUpEnabled", m.followUpEnabled)
+                put("followUpIntervalMinutes", m.followUpIntervalMinutes)
+                put("maxFollowUps", m.maxFollowUps)
+                put("privacySafeNotification", m.privacySafeNotification)
+                put("createdAt", m.createdAt)
+            }
+            medsArr.put(obj)
+        }
+        root.put("medications", medsArr)
 
         return@withContext root.toString(2)
     }
@@ -964,6 +1065,121 @@ object DataExportImportManager {
                     itemsList.add(item)
                 }
                 database.glossaryDao().insertItems(itemsList)
+            }
+
+            // Import Plans (#10)
+            val plansArr = root.optJSONArray("plans")
+            if (plansArr != null) {
+                for (i in 0 until plansArr.length()) {
+                    val obj = plansArr.getJSONObject(i)
+                    val plan = com.example.data.local.entities.PlanEntity(
+                        id = obj.optLong("id", 0L),
+                        profileId = obj.optLong("profileId", 1L),
+                        title = obj.getString("title"),
+                        description = obj.optString("description", ""),
+                        level = obj.getString("level"),
+                        startDateIso = obj.getString("startDateIso"),
+                        targetDateIso = obj.getString("targetDateIso"),
+                        status = obj.optString("status", "ACTIVE"),
+                        manualProgress = obj.optInt("manualProgress", 0),
+                        isAutoProgress = obj.optBoolean("isAutoProgress", true),
+                        parentPlanId = if (obj.isNull("parentPlanId")) null else obj.optLong("parentPlanId"),
+                        projectId = if (obj.isNull("projectId")) null else obj.optLong("projectId"),
+                        priority = obj.optString("priority", "MEDIUM"),
+                        createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                        updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                    )
+                    database.planDao().insertPlan(plan)
+                }
+            }
+
+            // Import Plan Milestones (#10)
+            val milestonesArr = root.optJSONArray("plan_milestones")
+            if (milestonesArr != null) {
+                val milestonesList = mutableListOf<com.example.data.local.entities.PlanMilestoneEntity>()
+                for (i in 0 until milestonesArr.length()) {
+                    val obj = milestonesArr.getJSONObject(i)
+                    val milestone = com.example.data.local.entities.PlanMilestoneEntity(
+                        id = obj.optLong("id", 0L),
+                        planId = obj.getLong("planId"),
+                        title = obj.getString("title"),
+                        isCompleted = obj.optBoolean("isCompleted", false),
+                        orderIndex = obj.optInt("orderIndex", 0)
+                    )
+                    milestonesList.add(milestone)
+                }
+                database.planDao().insertMilestones(milestonesList)
+            }
+
+            // Import Plan Task Links (#10)
+            val planRefsArr = root.optJSONArray("plan_task_cross_refs")
+            if (planRefsArr != null) {
+                val refsList = mutableListOf<com.example.data.local.entities.PlanTaskCrossRef>()
+                for (i in 0 until planRefsArr.length()) {
+                    val obj = planRefsArr.getJSONObject(i)
+                    val ref = com.example.data.local.entities.PlanTaskCrossRef(
+                        planId = obj.getLong("planId"),
+                        taskId = obj.getLong("taskId")
+                    )
+                    refsList.add(ref)
+                }
+                database.planDao().insertPlanTaskCrossRefs(refsList)
+            }
+
+            // Import Water Logs
+            val waterArr = root.optJSONArray("water_logs")
+            if (waterArr != null) {
+                for (i in 0 until waterArr.length()) {
+                    val obj = waterArr.getJSONObject(i)
+                    val water = com.example.data.local.entities.WaterLogEntity(
+                        dateIso = obj.getString("dateIso"),
+                        amountMl = obj.optInt("amountMl", 0),
+                        goalMl = obj.optInt("goalMl", 2000),
+                        updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                    )
+                    database.waterLogDao().insertOrUpdateWaterLog(water)
+                }
+            }
+
+            // Import Medications (#11)
+            val medsArr = root.optJSONArray("medications")
+            if (medsArr != null) {
+                for (i in 0 until medsArr.length()) {
+                    val obj = medsArr.getJSONObject(i)
+                    val med = com.example.data.local.entities.MedicationEntity(
+                        id = obj.optLong("id", 0L),
+                        profileId = obj.optLong("profileId", 1L),
+                        taskId = obj.getLong("taskId"),
+                        name = obj.getString("name"),
+                        form = obj.getString("form"),
+                        dosageAmount = obj.getString("dosageAmount"),
+                        dosageUnit = obj.getString("dosageUnit"),
+                        strength = obj.optString("strength", ""),
+                        instructions = obj.optString("instructions", ""),
+                        scheduleType = obj.getString("scheduleType"),
+                        mealPeriodsJson = obj.optString("mealPeriodsJson", "[]"),
+                        fixedTimesJson = obj.optString("fixedTimesJson", "[]"),
+                        intervalHours = obj.optInt("intervalHours", 4),
+                        intervalModel = obj.optString("intervalModel", "FIXED_SCHEDULE"),
+                        intervalAnchorTime = obj.optString("intervalAnchorTime", "08:00"),
+                        allowOvernight = obj.optBoolean("allowOvernight", false),
+                        selectedDaysOfWeek = obj.optString("selectedDaysOfWeek", ""),
+                        startDateIso = obj.getString("startDateIso"),
+                        endDateIso = if (obj.isNull("endDateIso")) null else obj.optString("endDateIso"),
+                        courseDurationDays = if (obj.isNull("courseDurationDays")) null else obj.optInt("courseDurationDays"),
+                        isAsNeeded = obj.optBoolean("isAsNeeded", false),
+                        isPaused = obj.optBoolean("isPaused", false),
+                        reminderSound = obj.optString("reminderSound", "CHIME"),
+                        alertStyle = obj.optString("alertStyle", "STANDARD"),
+                        snoozeMinutes = obj.optInt("snoozeMinutes", 10),
+                        followUpEnabled = obj.optBoolean("followUpEnabled", true),
+                        followUpIntervalMinutes = obj.optInt("followUpIntervalMinutes", 15),
+                        maxFollowUps = obj.optInt("maxFollowUps", 2),
+                        privacySafeNotification = obj.optBoolean("privacySafeNotification", true),
+                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                    )
+                    database.medicationDao().insertMedication(med)
+                }
             }
 
             true

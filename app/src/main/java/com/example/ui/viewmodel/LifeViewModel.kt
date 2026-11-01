@@ -430,6 +430,13 @@ class LifeViewModel(
     private val _isAppEntrySelectorDismissed = MutableStateFlow(false)
     val isAppEntrySelectorDismissed: StateFlow<Boolean> = _isAppEntrySelectorDismissed.asStateFlow()
 
+    private val _onboardingErrorMessage = MutableStateFlow<String?>(null)
+    val onboardingErrorMessage: StateFlow<String?> = _onboardingErrorMessage.asStateFlow()
+
+    fun clearOnboardingError() {
+        _onboardingErrorMessage.value = null
+    }
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val currentProfileSurveyFlow: StateFlow<com.example.data.local.entities.ProfileSurveyEntity?> = activeProfileIdFlow.flatMapLatest { profileId ->
         repository.getSurveyForProfileFlow(profileId)
@@ -2123,8 +2130,7 @@ class LifeViewModel(
                 com.example.widgets.WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
             } catch (e: Exception) {
                 android.util.Log.e("LifeViewModel", "Failed to save profile survey", e)
-                preferences.recordProfileOnboardingCompleted(survey.profileId)
-                dismissAppEntryProfileSelector()
+                _onboardingErrorMessage.value = "Failed to save survey: ${e.message ?: "Database persistence error"}. Your responses have been preserved. Please retry."
             }
         }
     }
@@ -2132,12 +2138,12 @@ class LifeViewModel(
     fun skipProfileSurvey(profileId: Long) {
         viewModelScope.launch {
             try {
+                _onboardingErrorMessage.value = null
                 repository.skipSurvey(profileId)
                 dismissAppEntryProfileSelector()
             } catch (e: Exception) {
                 android.util.Log.e("LifeViewModel", "Failed to skip profile survey", e)
-                preferences.recordProfileOnboardingCompleted(profileId)
-                dismissAppEntryProfileSelector()
+                _onboardingErrorMessage.value = "Failed to skip survey: ${e.message ?: "Database persistence error"}. Please retry."
             }
         }
     }
