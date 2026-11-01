@@ -919,7 +919,7 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
         com.example.data.local.entities.McpAuditLogEntity::class
     ],
     version = 18,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun profileDao(): ProfileDao

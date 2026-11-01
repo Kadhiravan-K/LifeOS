@@ -101,6 +101,14 @@ android {
     includeInApk = false
     includeInBundle = true
   }
+  sourceSets {
+    getByName("androidTest").assets.srcDirs("$projectDir/schemas")
+    getByName("test").assets.srcDirs("$projectDir/schemas")
+  }
+}
+
+ksp {
+  arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {

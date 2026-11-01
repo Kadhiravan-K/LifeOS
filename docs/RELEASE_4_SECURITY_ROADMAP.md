@@ -76,3 +76,42 @@ This document tracks the validation, architecture, and remediation of security f
 - **Phase 4.3**: Authenticated Password-Protected Encrypted Export/Import (`.lifeospkg` - SEC-08).
 - **Phase 4.4**: SQLCipher Hardware-Backed KeyStore Database Migration (SEC-02).
 - **Phase 4.5**: Release Build Minification & R8 Shrinking (SEC-05).
+
+---
+
+## 5. Phase P0: Engineering Safety Net & Schema Export (Completed)
+
+### 5.1 Room Schema Export Configuration
+- Room schema export enabled with `exportSchema = true` in `com.example.data.local.AppDatabase`.
+- Configured KSP compiler argument in `app/build.gradle.kts`:
+  ```kotlin
+  ksp {
+      arg("room.schemaLocation", "$projectDir/schemas")
+  }
+  ```
+- Configured Gradle `sourceSets` for `test` and `androidTest` to include `$projectDir/schemas` as asset directories for migration testing.
+- Schema artifact generated and committed: `app/schemas/com.example.data.local.AppDatabase/18.json` (formatVersion: 1, identityHash: `bfee67a22c51641ea30e02c65c2198b0`).
+
+### 5.2 Room Database Migrations Test Suite
+Verified complete sequential migration chain across historical SQLite versions (1 through 18) using Robolectric in `RoomMigrationRobolectricUnitTest.kt`:
+1. `testRealSqliteMigrationV1ToV6`: Tests M1_2 through M5_6 on real SQLite schemas.
+2. `testRealSqliteMigrationV6ToV10`: Tests gamification, medication, tracker, and finance migrations.
+3. `testRealSqliteMigrationV10ToV15`: Tests profile partitioning (M10_11), recurrence windows, intervals, workspaces, and glossary migrations.
+4. `testFullSequentialMigrationV1ToV18`: Real SQLite database initialized at Version 1 and migrated sequentially through all 17 migrations (1 -> 2 -> ... -> 18). Confirms `PRAGMA integrity_check == "ok"`, table count, column persistence, and profile isolation default constraints.
+
+### 5.3 40-Entity Baseline Inventory & P1 Backup Gap Analysis
+The Release 4 Room database contains **40 entities**. Current backup export in `DataExportImportManager.kt` covers 27 entity types. Exactly **13 tables** are missing from current backup and restoration routines, scheduled for full coverage in Phase P1:
+1. `challenges` (`ChallengeEntity`)
+2. `task_label_cross_ref` (`TaskLabelCrossRef`)
+3. `task_reminders` (`TaskReminderEntity`)
+4. `medication_doses` (`MedicationDoseEntity`)
+5. `trash_items` (`TrashItemEntity`)
+6. `xp_events` (`XpEventEntity`)
+7. `achievements` (`AchievementEntity`)
+8. `reward_items` (`RewardItemEntity`)
+9. `reward_redemptions` (`RewardRedemptionEntity`)
+10. `usage_entries` (`UsageEntryEntity`)
+11. `inventory_adjustments` (`InventoryAdjustmentEntity`)
+12. `price_history` (`PriceHistoryEntity`)
+13. `mcp_audit_logs` (`McpAuditLogEntity`)
+

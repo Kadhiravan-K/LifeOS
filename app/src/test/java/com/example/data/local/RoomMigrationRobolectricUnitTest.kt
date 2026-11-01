@@ -441,4 +441,246 @@ class RoomMigrationRobolectricUnitTest {
         v15Db.close()
         context.deleteDatabase(dbName)
     }
+
+    @Test
+    fun testRealSqliteMigrationV1ToV6() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val dbName = "test_robolectric_migration_v1_to_v6.db"
+        context.deleteDatabase(dbName)
+
+        val factory = FrameworkSQLiteOpenHelperFactory()
+
+        // 1. Create DB at version 1
+        val v1Config = SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(dbName)
+            .callback(object : SupportSQLiteOpenHelper.Callback(1) {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    db.execSQL("""
+                        CREATE TABLE IF NOT EXISTS `tasks` (
+                            `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            `title` TEXT NOT NULL,
+                            `description` TEXT NOT NULL DEFAULT '',
+                            `category` TEXT NOT NULL DEFAULT 'Routines',
+                            `priority` TEXT NOT NULL DEFAULT 'MEDIUM',
+                            `dueDateIso` TEXT NOT NULL DEFAULT '',
+                            `dueTime` TEXT DEFAULT NULL,
+                            `isCompleted` INTEGER NOT NULL DEFAULT 0,
+                            `completedAt` INTEGER DEFAULT NULL,
+                            `createdAt` INTEGER NOT NULL DEFAULT 0,
+                            `updatedAt` INTEGER NOT NULL DEFAULT 0,
+                            `recurrenceType` TEXT NOT NULL DEFAULT 'NONE',
+                            `recurrenceInterval` INTEGER NOT NULL DEFAULT 1,
+                            `recurrenceDaysOfWeek` TEXT NOT NULL DEFAULT '',
+                            `completedDatesJson` TEXT NOT NULL DEFAULT '[]'
+                        )
+                    """.trimIndent())
+                    db.execSQL("INSERT INTO tasks (id, title, category) VALUES (1, 'Initial V1 Task', 'Work')")
+                }
+
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+            })
+            .build()
+
+        val v1Db = factory.create(v1Config).writableDatabase
+        v1Db.close()
+
+        // 2. Upgrade to version 6 applying migrations 1->2, 2->3, 3->4, 4->5, 5->6
+        val v6Config = SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(dbName)
+            .callback(object : SupportSQLiteOpenHelper.Callback(6) {
+                override fun onCreate(db: SupportSQLiteDatabase) {}
+
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
+                    if (oldVersion <= 1) MIGRATION_1_2.migrate(db)
+                    if (oldVersion <= 2) MIGRATION_2_3.migrate(db)
+                    if (oldVersion <= 3) MIGRATION_3_4.migrate(db)
+                    if (oldVersion <= 4) MIGRATION_4_5.migrate(db)
+                    if (oldVersion <= 5) MIGRATION_5_6.migrate(db)
+                }
+            })
+            .build()
+
+        val v6Db = factory.create(v6Config).writableDatabase
+
+        // 3. Verify task 1 preserved with migrated columns from MIGRATION_1_2, 3_4, 4_5, 5_6
+        val taskCursor = v6Db.query("SELECT id, title, durationMinutes, notes, schedulingMode, recurrenceEndCondition FROM tasks WHERE id = 1")
+        assertTrue("Task 1 must exist after v1->v6 migration", taskCursor.moveToFirst())
+        assertEquals(1L, taskCursor.getLong(0))
+        assertEquals("Initial V1 Task", taskCursor.getString(1))
+        assertEquals(30, taskCursor.getInt(2))
+        assertEquals("", taskCursor.getString(3))
+        assertEquals("DURATION", taskCursor.getString(4))
+        assertEquals("NEVER", taskCursor.getString(5))
+        taskCursor.close()
+
+        // 4. Verify honeycomb_shortcuts table created with coordQ and coordR
+        val scCursor = v6Db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='honeycomb_shortcuts'")
+        assertTrue("honeycomb_shortcuts table must exist in v6", scCursor.moveToFirst())
+        scCursor.close()
+
+        // 5. Verify task_reminders table created
+        val reminderCursor = v6Db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='task_reminders'")
+        assertTrue("task_reminders table must exist in v6", reminderCursor.moveToFirst())
+        reminderCursor.close()
+
+        v6Db.close()
+        context.deleteDatabase(dbName)
+    }
+
+    @Test
+    fun testFullSequentialMigrationV1ToV18() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val dbName = "test_robolectric_migration_full_v1_to_v18.db"
+        context.deleteDatabase(dbName)
+
+        val factory = FrameworkSQLiteOpenHelperFactory()
+
+        // 1. Create DB at version 1 with initial v1 tables
+        val v1Config = SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(dbName)
+            .callback(object : SupportSQLiteOpenHelper.Callback(1) {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    db.execSQL("""
+                        CREATE TABLE IF NOT EXISTS `tasks` (
+                            `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            `title` TEXT NOT NULL,
+                            `description` TEXT NOT NULL DEFAULT '',
+                            `category` TEXT NOT NULL DEFAULT 'Routines',
+                            `priority` TEXT NOT NULL DEFAULT 'MEDIUM',
+                            `dueDateIso` TEXT NOT NULL DEFAULT '',
+                            `dueTime` TEXT DEFAULT NULL,
+                            `isCompleted` INTEGER NOT NULL DEFAULT 0,
+                            `completedAt` INTEGER DEFAULT NULL,
+                            `createdAt` INTEGER NOT NULL DEFAULT 0,
+                            `updatedAt` INTEGER NOT NULL DEFAULT 0,
+                            `recurrenceType` TEXT NOT NULL DEFAULT 'NONE',
+                            `recurrenceInterval` INTEGER NOT NULL DEFAULT 1,
+                            `recurrenceDaysOfWeek` TEXT NOT NULL DEFAULT '',
+                            `completedDatesJson` TEXT NOT NULL DEFAULT '[]'
+                        )
+                    """.trimIndent())
+
+                    db.execSQL("""
+                        CREATE TABLE IF NOT EXISTS `habits` (
+                            `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            `title` TEXT NOT NULL,
+                            `emoji` TEXT NOT NULL DEFAULT '⚡',
+                            `description` TEXT NOT NULL DEFAULT '',
+                            `reminderTime` TEXT DEFAULT NULL,
+                            `colorHex` INTEGER NOT NULL DEFAULT 4282065654,
+                            `completedDatesJson` TEXT NOT NULL DEFAULT '[]',
+                            `orderIndex` INTEGER NOT NULL DEFAULT 0,
+                            `createdAt` INTEGER NOT NULL DEFAULT 0
+                        )
+                    """.trimIndent())
+
+                    db.execSQL("""
+                        CREATE TABLE IF NOT EXISTS `challenges` (
+                            `id` INTEGER PRIMARY KEY NOT NULL,
+                            `startDateIso` TEXT NOT NULL,
+                            `targetDays` INTEGER NOT NULL DEFAULT 75,
+                            `status` TEXT NOT NULL DEFAULT 'ACTIVE',
+                            `rulesJson` TEXT NOT NULL DEFAULT '[]',
+                            `dailyLogsJson` TEXT NOT NULL DEFAULT '{}',
+                            `createdAt` INTEGER NOT NULL DEFAULT 0,
+                            `updatedAt` INTEGER NOT NULL DEFAULT 0
+                        )
+                    """.trimIndent())
+
+                    db.execSQL("""
+                        CREATE TABLE IF NOT EXISTS `water_logs` (
+                            `dateIso` TEXT PRIMARY KEY NOT NULL,
+                            `amountMl` INTEGER NOT NULL DEFAULT 0,
+                            `goalMl` INTEGER NOT NULL DEFAULT 2000,
+                            `updatedAt` INTEGER NOT NULL DEFAULT 0
+                        )
+                    """.trimIndent())
+
+                    db.execSQL("INSERT INTO tasks (id, title, category) VALUES (1, 'Genesis Task V1', 'Personal')")
+                    db.execSQL("INSERT INTO habits (id, title) VALUES (1, 'Genesis Habit V1')")
+                    db.execSQL("INSERT INTO water_logs (dateIso, amountMl, goalMl) VALUES ('2024-01-01', 500, 2000)")
+                }
+
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+            })
+            .build()
+
+        val v1Db = factory.create(v1Config).writableDatabase
+        v1Db.close()
+
+        // 2. Upgrade all the way from v1 to v18 sequentially
+        val v18Config = SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(dbName)
+            .callback(object : SupportSQLiteOpenHelper.Callback(18) {
+                override fun onCreate(db: SupportSQLiteDatabase) {}
+
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
+                    if (oldVersion <= 1) MIGRATION_1_2.migrate(db)
+                    if (oldVersion <= 2) MIGRATION_2_3.migrate(db)
+                    if (oldVersion <= 3) MIGRATION_3_4.migrate(db)
+                    if (oldVersion <= 4) MIGRATION_4_5.migrate(db)
+                    if (oldVersion <= 5) MIGRATION_5_6.migrate(db)
+                    if (oldVersion <= 6) MIGRATION_6_7.migrate(db)
+                    if (oldVersion <= 7) MIGRATION_7_8.migrate(db)
+                    if (oldVersion <= 8) MIGRATION_8_9.migrate(db)
+                    if (oldVersion <= 9) MIGRATION_9_10.migrate(db)
+                    if (oldVersion <= 10) MIGRATION_10_11.migrate(db)
+                    if (oldVersion <= 11) MIGRATION_11_12.migrate(db)
+                    if (oldVersion <= 12) MIGRATION_12_13.migrate(db)
+                    if (oldVersion <= 13) MIGRATION_13_14.migrate(db)
+                    if (oldVersion <= 14) MIGRATION_14_15.migrate(db)
+                    if (oldVersion <= 15) MIGRATION_15_16.migrate(db)
+                    if (oldVersion <= 16) MIGRATION_16_17.migrate(db)
+                    if (oldVersion <= 17) MIGRATION_17_18.migrate(db)
+                }
+            })
+            .build()
+
+        val v18Db = factory.create(v18Config).writableDatabase
+
+        // 3. Verify SQLite integrity
+        val integrityCursor = v18Db.query("PRAGMA integrity_check")
+        assertTrue("PRAGMA integrity_check must succeed", integrityCursor.moveToFirst())
+        assertEquals("ok", integrityCursor.getString(0))
+        integrityCursor.close()
+
+        // 4. Verify original Genesis Task 1 is preserved and has profileId = 1
+        val taskCursor = v18Db.query("SELECT id, title, profileId, durationMinutes, isArchived FROM tasks WHERE id = 1")
+        assertTrue("Task 1 must exist after full 1->18 migration", taskCursor.moveToFirst())
+        assertEquals(1L, taskCursor.getLong(0))
+        assertEquals("Genesis Task V1", taskCursor.getString(1))
+        assertEquals("profileId must default to 1", 1L, taskCursor.getLong(2))
+        assertEquals(30, taskCursor.getInt(3))
+        assertEquals(0, taskCursor.getInt(4))
+        taskCursor.close()
+
+        val habitCursor = v18Db.query("SELECT id, title, profileId FROM habits WHERE id = 1")
+        assertTrue("Habit 1 must exist after full 1->18 migration", habitCursor.moveToFirst())
+        assertEquals("Genesis Habit V1", habitCursor.getString(1))
+        assertEquals("profileId must default to 1", 1L, habitCursor.getLong(2))
+        habitCursor.close()
+
+        // 5. Verify default profile exists
+        val profileCursor = v18Db.query("SELECT id, name FROM profiles WHERE id = 1")
+        assertTrue("Default profile must exist in v18", profileCursor.moveToFirst())
+        assertEquals("Personal", profileCursor.getString(1))
+        profileCursor.close()
+
+        // 6. Verify core glossary pack exists
+        val glossaryCursor = v18Db.query("SELECT id FROM glossary_packs WHERE id = 'lifeos_core'")
+        assertTrue("lifeos_core must exist in v18", glossaryCursor.moveToFirst())
+        glossaryCursor.close()
+
+        // 7. Verify MCP tables exist
+        val mcpServerCursor = v18Db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='mcp_servers'")
+        assertTrue("mcp_servers table must exist in v18", mcpServerCursor.moveToFirst())
+        mcpServerCursor.close()
+
+        val mcpAuditCursor = v18Db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='mcp_audit_logs'")
+        assertTrue("mcp_audit_logs table must exist in v18", mcpAuditCursor.moveToFirst())
+        mcpAuditCursor.close()
+
+        v18Db.close()
+        context.deleteDatabase(dbName)
+    }
 }
