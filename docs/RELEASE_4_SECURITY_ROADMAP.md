@@ -552,6 +552,78 @@ Previously, `countOccurrencesUpTo` performed an `O(N)` day-by-day loop (up to 1,
 - `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
 - `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (Clean debug APK artifact).
 
+---
+
+## 12. Phase P4-L1: Transactional Task Save, Update, and Delete (I1 / DI-01)
+
+### 12.1 Defect Analysis (DI-01)
+Previously, task write operations in `LifeRepository.kt` (`insertTask`, `updateTask`, `deleteTask`, `saveTaskLabels`, and `saveTaskReminders`) executed multiple discrete DAO statements sequentially without a database transaction wrapper (`database.withTransaction`):
+- **Task Insertion Failure Scenario**:
+  - `taskDao.insertTask` inserted the task entity into the `tasks` table.
+  - Subsequently, `saveTaskLabels` (clearing and writing to `task_label_cross_ref`) and `saveTaskReminders` (clearing and writing to `task_reminders`) executed.
+  - If an exception occurred during label cross-reference insertion or reminder insertion (e.g. process termination, disk error, constraint error), the outer method failed, but the row in `tasks` remained committed in SQLite without its associated labels or reminders (partial write / orphaned record).
+- **Task Update Failure Scenario**:
+  - `taskDao.updateTask` updated task title/properties in `tasks`.
+  - `saveTaskLabels` cleared existing labels and began inserting new ones; `saveTaskReminders` cleared existing reminders and inserted new ones.
+  - If a failure occurred during label or reminder insertion, the task's prior labels/reminders were wiped out while the updated task was left in a corrupted, half-migrated state.
+- **Task Deletion Failure Scenario**:
+  - `deleteTask` sequentially deleted entries from `task_label_cross_ref`, `task_reminders`, `honeycomb_shortcuts`, `medications`, and `medication_doses`, and finally deleted the row from `tasks`.
+  - If a failure occurred prior to executing `taskDao.deleteTaskById(taskId)`, all related labels, reminders, shortcuts, and medication records were stripped from the database, while the parent task row itself remained alive in SQLite without its associated relations.
+
+### 12.2 Atomic Transaction Boundaries
+All task write and delete operations in `LifeRepository.kt` are now enclosed in atomic database transactions using Room's `database.withTransaction`:
+- **`insertTask(task: TaskItem): Long`**:
+  - Enclosed entirely in `database.withTransaction { ... }`.
+  - Sequentially inserts the task entity, inserts task-label cross-references via `saveTaskLabelsInternal`, and inserts task reminders via `saveTaskRemindersInternal`.
+  - Any exception thrown anywhere in the block causes SQLite to roll back all changes completely, ensuring no orphan task row ever remains.
+- **`updateTask(task: TaskItem)`**:
+  - Enclosed entirely in `database.withTransaction { ... }`.
+  - Updates the task entity, clears and re-inserts task labels via `saveTaskLabelsInternal`, and clears and re-inserts reminders via `saveTaskRemindersInternal`.
+  - Any mid-flight failure rolls back the entire block, preserving the previous task state, labels, and reminders intact.
+- **`deleteTask(taskId: Long)`**:
+  - Enclosed in `database.withTransaction { ... }`.
+  - Clears task labels, reminders, shortcuts, linked medications, linked medication doses, and deletes the task row itself in a single atomic transaction.
+  - If any step fails, all deletions are rolled back and all relationships remain preserved.
+- **`saveTaskLabels` and `saveTaskReminders`**:
+  - Refactored to delegate to `saveTaskLabelsInternal` and `saveTaskRemindersInternal`.
+  - Public entry points are wrapped in `database.withTransaction { ... }` so standalone calls from `LifeViewModel` execute atomically.
+
+### 12.3 Controlled Failure Testing & Rollback Verification
+Controlled failure injection was implemented via `@VisibleForTesting internal var testTransactionInterceptor: ((step: String) -> Unit)? = null` in `LifeRepository.kt` and verified in `LifeRepositoryTransactionUnitTest.kt`:
+1. **`testSuccessfulTaskInsertWithLabelsAndReminders`**:
+   - Confirms normal, end-to-end insertion of task, labels, and reminders within the transaction.
+2. **`testTaskInsertRollbackOnFailure`**:
+   - Injects a failure immediately after `taskDao.insertTask` (`AFTER_INSERT_TASK`).
+   - Prior to transaction wrapping, the defect was reproduced: the task row persisted in `tasks`.
+   - With transaction wrapping: Room rolls back 100%; database verifies 0 tasks, 0 label cross-references, and 0 reminders exist.
+3. **`testTaskUpdateRollbackOnFailure`**:
+   - Injects a failure after `taskDao.updateTask` during label update (`AFTER_UPDATE_TASK`).
+   - Verifies complete rollback: task title, original labels, and original reminders are preserved exactly as before the failed update.
+4. **`testTaskDeleteRollbackOnFailure`**:
+   - Injects a failure immediately before `taskDao.deleteTaskById` (`BEFORE_DELETE_TASK_ROW`).
+   - Verifies complete rollback: task row, label cross-references, reminders, shortcuts, medications, and doses are 100% preserved.
+
+### 12.4 Caller Audit: Hard Deletion vs. Soft Deletion (Trash)
+An audit of all deletion callers across the codebase was conducted:
+- **`TasksScreen.kt:687`**: Calls `viewModel.deleteTask(task.id)` which delegates directly to `repository.deleteTask(taskId)`. This performs a hard deletion that removes the task and its child relations from SQLite without sending it to Trash.
+- **`LifeViewModel.kt:1579`**: Provides `bulkDeleteTasks(taskIds)` which delegates to `repository.bulkDeleteTasks(taskIds)` (hard delete).
+- **`LifeViewModel.kt:2693`**: Provides `softDeleteTask(task: TaskItem)` which serializes the task into JSON and inserts it into `trashDao.insertTrashItem` with an expiration date for retention. However, `softDeleteTask` is not currently invoked from the primary UI task deletion paths.
+- **Policy Adherence**: In accordance with the prompt constraints, existing user-facing deletion behavior was preserved without alterations (no hard deletes were converted to soft deletes in this loop).
+
+### 12.5 Database Schema & Migration Verification
+- **Schema Modification**: **None**.
+- **Room Version**: Maintained at **18**.
+- **Room Entities**: Maintained at **40**.
+- **Migrations**: **0** migrations added or modified.
+- **Foreign Keys**: Foreign keys were **NOT** introduced in this loop; foreign key constraints are strictly isolated to Loop P4-L2.
+
+### 12.6 Quality Gate Status
+- `.\gradlew.bat testDebugUnitTest --tests "com.example.data.repository.LifeRepositoryTransactionUnitTest"`: **PASSED** (4/4 tests, 0 failures, 0 errors).
+- `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (Full repository unit test suite passing).
+- `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
+- `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (Clean debug APK artifact).
+
+
 
 
 

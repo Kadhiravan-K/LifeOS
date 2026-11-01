@@ -142,6 +142,9 @@ class LifeRepository(
     private val projectWorkspaceDao = database.projectWorkspaceDao()
     private val glossaryDao = database.glossaryDao()
 
+    @androidx.annotation.VisibleForTesting
+    internal var testTransactionInterceptor: ((step: String) -> Unit)? = null
+
     // --- Release 3 Phase 5 Profile Isolation & Management (#9) ---
     val activeProfileIdFlow: Flow<Long> = preferences.activeProfileId
     val allProfilesFlow: Flow<List<ProfileEntity>> = profileDao.getAllProfilesFlow()
@@ -574,10 +577,15 @@ class LifeRepository(
             projectId = validatedProjectId,
             labels = validatedLabels
         )
-        val taskId = taskDao.insertTask(safeTask.toEntity())
-        saveTaskLabels(taskId, safeTask.labels)
-        saveTaskReminders(taskId, safeTask.reminders)
-        return taskId
+        return database.withTransaction {
+            val taskId = taskDao.insertTask(safeTask.toEntity())
+            testTransactionInterceptor?.invoke("AFTER_INSERT_TASK")
+            saveTaskLabelsInternal(taskId, safeTask.labels)
+            testTransactionInterceptor?.invoke("AFTER_SAVE_LABELS")
+            saveTaskRemindersInternal(taskId, safeTask.reminders)
+            testTransactionInterceptor?.invoke("AFTER_SAVE_REMINDERS")
+            taskId
+        }
     }
 
     suspend fun updateTask(task: TaskItem) {
@@ -595,18 +603,27 @@ class LifeRepository(
             projectId = validatedProjectId,
             labels = validatedLabels
         )
-        taskDao.updateTask(safeTask.toEntity())
-        saveTaskLabels(safeTask.id, safeTask.labels)
-        saveTaskReminders(safeTask.id, safeTask.reminders)
+        database.withTransaction {
+            taskDao.updateTask(safeTask.toEntity())
+            testTransactionInterceptor?.invoke("AFTER_UPDATE_TASK")
+            saveTaskLabelsInternal(safeTask.id, safeTask.labels)
+            testTransactionInterceptor?.invoke("AFTER_UPDATE_LABELS")
+            saveTaskRemindersInternal(safeTask.id, safeTask.reminders)
+            testTransactionInterceptor?.invoke("AFTER_UPDATE_REMINDERS")
+        }
     }
 
     suspend fun deleteTask(taskId: Long) {
-        labelDao.clearLabelsForTask(taskId)
-        taskReminderDao.deleteRemindersForTask(taskId)
-        honeycombShortcutDao.deleteShortcutByTarget("TASK", taskId.toString())
-        database.medicationDao().deleteMedicationByTaskId(taskId)
-        database.medicationDao().deleteDosesByTaskId(taskId)
-        taskDao.deleteTaskById(taskId)
+        database.withTransaction {
+            labelDao.clearLabelsForTask(taskId)
+            taskReminderDao.deleteRemindersForTask(taskId)
+            honeycombShortcutDao.deleteShortcutByTarget("TASK", taskId.toString())
+            database.medicationDao().deleteMedicationByTaskId(taskId)
+            database.medicationDao().deleteDosesByTaskId(taskId)
+            testTransactionInterceptor?.invoke("BEFORE_DELETE_TASK_ROW")
+            taskDao.deleteTaskById(taskId)
+            testTransactionInterceptor?.invoke("AFTER_DELETE_TASK_ROW")
+        }
     }
 
     suspend fun getTaskById(taskId: Long): TaskItem? {
@@ -618,12 +635,24 @@ class LifeRepository(
     }
 
     suspend fun saveTaskLabels(taskId: Long, labels: List<LabelItem>) {
+        database.withTransaction {
+            saveTaskLabelsInternal(taskId, labels)
+        }
+    }
+
+    private suspend fun saveTaskLabelsInternal(taskId: Long, labels: List<LabelItem>) {
         labelDao.clearLabelsForTask(taskId)
         val refs = labels.map { TaskLabelCrossRef(taskId = taskId, labelId = it.id) }
         labelDao.insertTaskLabelCrossRefs(refs)
     }
 
     suspend fun saveTaskReminders(taskId: Long, reminders: List<TaskReminderItem>) {
+        database.withTransaction {
+            saveTaskRemindersInternal(taskId, reminders)
+        }
+    }
+
+    private suspend fun saveTaskRemindersInternal(taskId: Long, reminders: List<TaskReminderItem>) {
         taskReminderDao.deleteRemindersForTask(taskId)
         val entities = reminders.map { it.toEntity(taskId) }
         taskReminderDao.insertReminders(entities)
