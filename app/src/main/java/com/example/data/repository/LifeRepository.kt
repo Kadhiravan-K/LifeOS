@@ -27,8 +27,6 @@ import com.example.domain.tracker.UsageCycleItem
 import com.example.domain.tracker.UsageEntryItem
 import com.example.domain.tracker.TrackerPurchaseItem
 import com.example.domain.tracker.InventoryAdjustmentItem
-import com.example.domain.tracker.CycleStatus
-import com.example.domain.tracker.InventoryPolicy
 import com.example.domain.subscription.SubscriptionItem
 import com.example.domain.subscription.BillingOccurrenceItem
 import com.example.domain.subscription.SubscriptionPaymentItem
@@ -36,11 +34,6 @@ import com.example.domain.subscription.PriceHistoryItem
 import com.example.domain.subscription.SubscriptionStatus
 import com.example.domain.subscription.BillStatus
 import com.example.domain.subscription.SubscriptionScheduleEngine
-import com.example.data.local.entities.TrackerEntity
-import com.example.data.local.entities.UsageCycleEntity
-import com.example.data.local.entities.UsageEntryEntity
-import com.example.data.local.entities.TrackerPurchaseEntity
-import com.example.data.local.entities.InventoryAdjustmentEntity
 import com.example.data.local.entities.SubscriptionEntity
 import com.example.data.local.entities.BillingOccurrenceEntity
 import com.example.data.local.entities.SubscriptionPaymentEntity
@@ -122,7 +115,8 @@ class LifeRepository(
     private val database: AppDatabase,
     private val preferences: UserPreferences,
     private val entitlementRepo: PremiumEntitlementRepository? = null,
-    val subscriptionRepository: SubscriptionRepository = SubscriptionRepository(database, preferences)
+    val subscriptionRepository: SubscriptionRepository = SubscriptionRepository(database, preferences),
+    val trackerRepository: TrackerRepository = TrackerRepository(database, preferences)
 ) {
     private val profileDao = database.profileDao()
     private val taskDao = database.taskDao()
@@ -136,7 +130,6 @@ class LifeRepository(
     private val trashDao = database.trashDao()
     private val planDao = database.planDao()
     private val gamificationDao = database.gamificationDao()
-    private val trackerDao = database.trackerDao()
     private val medicationDao = database.medicationDao()
     private val profileSurveyDao = database.profileSurveyDao()
     private val projectWorkspaceDao = database.projectWorkspaceDao()
@@ -193,7 +186,7 @@ class LifeRepository(
             labelDao.deleteAllLabelsForProfile(id)
             trashDao.deleteAllTrashForProfile(id)
             planDao.deleteAllPlansForProfile(id)
-            trackerDao.deleteAllTrackersForProfile(id)
+            trackerRepository.deleteAllTrackersForProfile(id)
             subscriptionRepository.deleteAllSubscriptionsForProfile(id)
             medicationDao.deleteAllMedicationsForProfile(id)
             projectWorkspaceDao.deleteAllItemsForProfile(id)
@@ -777,7 +770,7 @@ class LifeRepository(
     suspend fun deleteProject(projectId: Long) {
         // Safe deletion: move associated tasks to Inbox (projectId = null), unassign trackers & subscriptions
         projectDao.unassignTasksFromProject(projectId)
-        trackerDao.unassignTrackersFromProject(projectId)
+        trackerRepository.unassignTrackersFromProject(projectId)
         subscriptionRepository.unassignSubscriptionsFromProject(projectId)
         projectDao.deleteProjectById(projectId)
     }
@@ -3135,88 +3128,73 @@ class LifeRepository(
 
     // ==========================================
     // --- SMART TRACKER REPOSITORY METHODS ---
+    // (Delegated to dedicated TrackerRepository - P7-A3)
     // ==========================================
 
-    val allTrackersFlow: Flow<List<TrackerItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
-        trackerDao.getAllTrackersForProfileFlow(profileId).map { list ->
-            list.map { it.toDomain() }
-        }
-    }
+    val allTrackersFlow: Flow<List<TrackerItem>>
+        get() = trackerRepository.allTrackersFlow
 
-    val activeTrackersFlow: Flow<List<TrackerItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
-        trackerDao.getActiveTrackersForProfileFlow(profileId).map { list ->
-            list.map { it.toDomain() }
-        }
-    }
+    val activeTrackersFlow: Flow<List<TrackerItem>>
+        get() = trackerRepository.activeTrackersFlow
 
     suspend fun getTrackerById(id: Long): TrackerItem? {
-        return trackerDao.getTrackerById(id)?.toDomain()
+        return trackerRepository.getTrackerById(id)
     }
 
     suspend fun insertTracker(tracker: TrackerItem): Long {
-        val effectiveProfileId = if (tracker.profileId > 0) tracker.profileId else getActiveProfileId()
-        return trackerDao.insertTracker(TrackerEntity.fromDomain(tracker.copy(profileId = effectiveProfileId)))
+        return trackerRepository.insertTracker(tracker)
     }
 
     suspend fun updateTracker(tracker: TrackerItem) {
-        trackerDao.updateTracker(TrackerEntity.fromDomain(tracker))
+        trackerRepository.updateTracker(tracker)
     }
 
     suspend fun setTrackerArchived(id: Long, isArchived: Boolean) {
-        trackerDao.setTrackerArchived(id, isArchived)
+        trackerRepository.setTrackerArchived(id, isArchived)
     }
 
     suspend fun deleteTracker(id: Long) {
-        trackerDao.deleteCyclesForTracker(id)
-        trackerDao.deleteTrackerById(id)
+        trackerRepository.deleteTracker(id)
     }
 
     fun getCyclesForTrackerFlow(trackerId: Long): Flow<List<UsageCycleItem>> {
-        return trackerDao.getCyclesForTrackerFlow(trackerId).map { list ->
-            list.map { it.toDomain() }
-        }
+        return trackerRepository.getCyclesForTrackerFlow(trackerId)
     }
 
     suspend fun insertCycle(cycle: UsageCycleItem): Long {
-        return trackerDao.insertCycle(UsageCycleEntity.fromDomain(cycle))
+        return trackerRepository.insertCycle(cycle)
     }
 
     suspend fun updateCycle(cycle: UsageCycleItem) {
-        trackerDao.updateCycle(UsageCycleEntity.fromDomain(cycle))
+        trackerRepository.updateCycle(cycle)
     }
 
     suspend fun deleteCycle(id: Long) {
-        trackerDao.deleteCycleById(id)
+        trackerRepository.deleteCycle(id)
     }
 
     fun getEntriesForCycleFlow(cycleId: Long): Flow<List<UsageEntryItem>> {
-        return trackerDao.getEntriesForCycleFlow(cycleId).map { list ->
-            list.map { it.toDomain() }
-        }
+        return trackerRepository.getEntriesForCycleFlow(cycleId)
     }
 
     suspend fun insertUsageEntry(entry: UsageEntryItem): Long {
-        return trackerDao.insertUsageEntry(UsageEntryEntity.fromDomain(entry))
+        return trackerRepository.insertUsageEntry(entry)
     }
 
     fun getPurchasesForTrackerFlow(trackerId: Long): Flow<List<TrackerPurchaseItem>> {
-        return trackerDao.getPurchasesForTrackerFlow(trackerId).map { list ->
-            list.map { it.toDomain() }
-        }
+        return trackerRepository.getPurchasesForTrackerFlow(trackerId)
     }
 
     suspend fun insertPurchase(purchase: TrackerPurchaseItem): Long {
-        return trackerDao.insertPurchase(TrackerPurchaseEntity.fromDomain(purchase))
+        return trackerRepository.insertPurchase(purchase)
     }
 
     fun getAdjustmentsForTrackerFlow(trackerId: Long): Flow<List<InventoryAdjustmentItem>> {
-        return trackerDao.getAdjustmentsForTrackerFlow(trackerId).map { list ->
-            list.map { it.toDomain() }
-        }
+        return trackerRepository.getAdjustmentsForTrackerFlow(trackerId)
     }
 
     suspend fun insertAdjustment(adjustment: InventoryAdjustmentItem): Long {
-        return trackerDao.insertAdjustment(InventoryAdjustmentEntity.fromDomain(adjustment))
+        return trackerRepository.insertAdjustment(adjustment)
     }
 
     // ==========================================

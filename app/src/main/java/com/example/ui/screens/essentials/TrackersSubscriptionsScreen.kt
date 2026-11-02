@@ -77,15 +77,21 @@ import com.example.domain.subscription.BillingOccurrenceItem
 import com.example.domain.subscription.BillStatus
 import com.example.domain.subscription.SubscriptionItem
 import com.example.domain.subscription.SubscriptionStatus
+import com.example.domain.model.ProjectItem
 import com.example.domain.tracker.InventoryPolicy
 import com.example.domain.tracker.TrackerItem
 import com.example.ui.viewmodel.LifeViewModel
+import com.example.ui.viewmodel.SubscriptionViewModel
+import com.example.ui.viewmodel.TrackerViewModel
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackersSubscriptionsScreen(
-    viewModel: LifeViewModel,
+    trackerViewModel: TrackerViewModel,
+    subscriptionViewModel: SubscriptionViewModel,
+    projects: List<ProjectItem> = emptyList(),
+    isPremium: Boolean = false,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -111,18 +117,17 @@ fun TrackersSubscriptionsScreen(
     var subscriptionFilter by remember { mutableStateOf("ALL") } // ALL, ACTIVE, TRIAL, PAUSED
 
     // Data flows
-    val trackers by viewModel.allTrackers.collectAsStateWithLifecycle()
-    val subscriptions by viewModel.allSubscriptions.collectAsStateWithLifecycle()
-    val bills by viewModel.allBills.collectAsStateWithLifecycle()
-    val projects by viewModel.allProjects.collectAsStateWithLifecycle()
-    val isPremium by viewModel.isPremiumActive.collectAsStateWithLifecycle()
+    val trackers by trackerViewModel.allTrackers.collectAsStateWithLifecycle()
+    val subscriptions by subscriptionViewModel.allSubscriptions.collectAsStateWithLifecycle()
+    val bills by subscriptionViewModel.allBills.collectAsStateWithLifecycle()
 
     // Handle back button when viewing detail
     if (viewingTrackerId != null) {
         BackHandler { viewingTrackerId = null }
         TrackerDetailScreen(
             trackerId = viewingTrackerId!!,
-            viewModel = viewModel,
+            trackerViewModel = trackerViewModel,
+            projects = projects,
             onNavigateBack = { viewingTrackerId = null },
             onEditTracker = { t ->
                 trackerToEdit = t
@@ -134,7 +139,7 @@ fun TrackersSubscriptionsScreen(
                 tracker = trackerToEdit,
                 projects = projects,
                 onSave = { item ->
-                    viewModel.saveTracker(item)
+                    trackerViewModel.saveTracker(item)
                 },
                 onDismiss = { showTrackerEditor = false }
             )
@@ -146,7 +151,7 @@ fun TrackersSubscriptionsScreen(
         BackHandler { viewingSubscriptionId = null }
         SubscriptionDetailScreen(
             subscriptionId = viewingSubscriptionId!!,
-            subscriptionViewModel = viewModel.subscriptionViewModel,
+            subscriptionViewModel = subscriptionViewModel,
             projects = projects,
             onNavigateBack = { viewingSubscriptionId = null },
             onEditSubscription = { s ->
@@ -159,7 +164,7 @@ fun TrackersSubscriptionsScreen(
                 subscription = subscriptionToEdit,
                 projects = projects,
                 onSave = { item ->
-                    viewModel.saveSubscription(item)
+                    subscriptionViewModel.saveSubscription(item)
                 },
                 onDismiss = { showSubscriptionEditor = false }
             )
@@ -495,7 +500,7 @@ fun TrackersSubscriptionsScreen(
             tracker = trackerToEdit,
             projects = projects,
             onSave = { item ->
-                viewModel.saveTracker(item)
+                trackerViewModel.saveTracker(item)
             },
             onDismiss = { showTrackerEditor = false }
         )
@@ -507,7 +512,7 @@ fun TrackersSubscriptionsScreen(
             subscription = subscriptionToEdit,
             projects = projects,
             onSave = { item ->
-                viewModel.saveSubscription(item)
+                subscriptionViewModel.saveSubscription(item)
             },
             onDismiss = { showSubscriptionEditor = false }
         )
@@ -519,17 +524,38 @@ fun TrackersSubscriptionsScreen(
             selectedTabIndex = selectedTabIndex,
             onSelectTrackerTemplate = { template ->
                 showTemplateCatalogSheet = false
-                viewModel.saveTracker(template.toTrackerItem())
+                trackerViewModel.saveTracker(template.toTrackerItem())
                 Toast.makeText(context, "Added '${template.title}' from templates!", Toast.LENGTH_SHORT).show()
             },
             onSelectSubscriptionTemplate = { template ->
                 showTemplateCatalogSheet = false
-                viewModel.saveSubscription(template.toSubscriptionItem())
+                subscriptionViewModel.saveSubscription(template.toSubscriptionItem())
                 Toast.makeText(context, "Added '${template.title}' subscription!", Toast.LENGTH_SHORT).show()
             },
             onDismiss = { showTemplateCatalogSheet = false }
         )
     }
+}
+
+/**
+ * Backward-compatible overload for [TrackersSubscriptionsScreen] accepting legacy [LifeViewModel].
+ */
+@Composable
+fun TrackersSubscriptionsScreen(
+    viewModel: LifeViewModel,
+    onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val projects by viewModel.allProjects.collectAsStateWithLifecycle()
+    val isPremium by viewModel.isPremiumActive.collectAsStateWithLifecycle()
+    TrackersSubscriptionsScreen(
+        trackerViewModel = viewModel.trackerViewModel,
+        subscriptionViewModel = viewModel.subscriptionViewModel,
+        projects = projects,
+        isPremium = isPremium,
+        onNavigateBack = onNavigateBack,
+        modifier = modifier
+    )
 }
 
 @Composable

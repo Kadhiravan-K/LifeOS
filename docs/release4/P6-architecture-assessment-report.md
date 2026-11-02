@@ -326,6 +326,86 @@ To preserve 100% backward compatibility:
 - **Build Assembly**: Executed `.\gradlew.bat assembleDebug` — **BUILD SUCCESSFUL in 54s** (Clean APK generated).
 
 ### 9.5 Next Recommended Decomposition (P7-A3)
-- `TrackerViewModel` (smart trackers, cycle records, reading logs, inventory adjustments) to decouple the remainder of `TrackersSubscriptionsScreen.kt`.
+- `TrackerRepository` and `TrackerViewModel` (smart trackers, cycle records, reading logs, inventory adjustments) to decouple the remainder of `TrackersSubscriptionsScreen.kt`.
+
+---
+
+## 10. Post-Assessment Execution: Phase P7-A3 Tracker Decomposition
+
+### 10.1 Objective & Strangler Pattern Strategy
+Following the P6 architectural roadmap (`ARCH-01`, `ARCH-02`) and continuing the modularization initiated in P7-A1 and P7-A2, Phase P7-A3 extracts the Smart Trackers domain from both the monolithic `LifeRepository.kt` and `LifeViewModel.kt` into:
+1. `TrackerRepository.kt`
+2. `TrackerViewModel.kt`
+
+The extraction encapsulates all smart tracker definitions, usage cycles, continuous/discrete inventory tracking, odometer and quantity log entries, restocking purchases, and inventory reconciliations.
+
+To ensure strict zero-regression backward compatibility:
+- `LifeRepository` retains 100% backward-compatible tracker methods and flows, delegating all operations to `trackerRepository`. `trackerDao` was completely excised from `LifeRepository.kt`.
+- `LifeViewModel` retains matching public StateFlow properties (`allTrackers`, `activeTrackers`) and action methods (`saveTracker`, `deleteTracker`, `logUsageEntry`, etc.) as an delegating facade to `trackerViewModel`.
+- `TrackerDetailScreen.kt` was refactored to take `trackerViewModel: TrackerViewModel` as its primary dependency, with an overload for callers passing `LifeViewModel`.
+- `TrackersSubscriptionsScreen.kt` was refactored to take `trackerViewModel: TrackerViewModel` and `subscriptionViewModel: SubscriptionViewModel` as its primary dependencies, fully decoupling both features from `LifeViewModel`.
+- Zero Hilt, Koin, or Gradle multi-module restructuring; standard Android ViewModel instantiation via `TrackerViewModelFactory` and `LifeViewModelFactory`.
+
+### 10.2 Extracted Architecture Components
+
+#### A. Repository Layer ([`TrackerRepository.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/data/repository/TrackerRepository.kt))
+- **Injected Dependencies**: `AppDatabase`, `UserPreferences`, `TrackerDao`, `CoroutineDispatcher = Dispatchers.IO`.
+- **Exposed Reactive Streams**:
+  - `allTrackersFlow: Flow<List<TrackerItem>>`
+  - `activeTrackersFlow: Flow<List<TrackerItem>>`
+  - `getCyclesForTrackerFlow(trackerId: Long): Flow<List<UsageCycleItem>>`
+  - `getEntriesForCycleFlow(cycleId: Long): Flow<List<UsageEntryItem>>`
+  - `getPurchasesForTrackerFlow(trackerId: Long): Flow<List<TrackerPurchaseItem>>`
+  - `getAdjustmentsForTrackerFlow(trackerId: Long): Flow<List<InventoryAdjustmentItem>>`
+- **Domain Operations**:
+  - Tracker CRUD: `getTrackerById`, `insertTracker`, `updateTracker`, `setTrackerArchived`, `deleteTracker` (with transactional cycle cleanup).
+  - Profile and Project isolation: `deleteAllTrackersForProfile(profileId)`, `unassignTrackersFromProject(projectId)`.
+  - Usage Cycles: `insertCycle`, `updateCycle`, `deleteCycle`.
+  - Usage Entries: `insertUsageEntry`.
+  - Purchases & Inventory Adjustments: `insertPurchase`, `insertAdjustment`.
+
+#### B. Presentation Layer ([`TrackerViewModel.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/viewmodel/TrackerViewModel.kt))
+- **Injected Dependency**: `TrackerRepository`.
+- **Exposed Reactive States**:
+  - `val allTrackers: StateFlow<List<TrackerItem>>`
+  - `val activeTrackers: StateFlow<List<TrackerItem>>`
+  - `val isLoading: StateFlow<Boolean>`
+  - `val errorMessage: StateFlow<String?>`
+- **Feature Operations**:
+  - `saveTracker(tracker, onComplete)`: Inserts or updates tracker definitions.
+  - `setTrackerArchived(trackerId, isArchived, onComplete)`: Toggles archive state.
+  - `deleteTracker(trackerId, onComplete)`: Deletes tracker with transactional cascade.
+  - `getCyclesForTracker(trackerId)`: Retrieves reactive cycles.
+  - `saveCycle(cycle, onComplete)`: Starts new cycle or updates cycle details.
+  - `finishCycle(cycle, finishDateIso, finishOdometer, finalRemainingQuantity, notes, onComplete)`: Closes cycle with final odometer and remaining quantity readings.
+  - `pauseResumeCycle(cycle, isPaused, onComplete)`: Transitions between ACTIVE and PAUSED.
+  - `logUsageEntry(entry, cycle, onComplete)`: Records consumption log, updates cycle odometer, and decrements/sets remaining stock.
+  - `getPurchasesForTracker(trackerId)` / `recordPurchase(purchase, onComplete)`: Restock management.
+  - `getAdjustmentsForTracker(trackerId)` / `recordStockAdjustment(adjustment, onComplete)`: Physical stock reconciliation.
+  - `clearError()`: Resets error state.
+- **Factory**: `TrackerViewModelFactory` implementing `ViewModelProvider.Factory`.
+
+### 10.3 UI Screen Migration
+- **[`TrackerDetailScreen.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/screens/essentials/TrackerDetailScreen.kt)**:
+  - Primary composable accepts `trackerViewModel: TrackerViewModel` and `projects: List<ProjectItem> = emptyList()`.
+  - Overload provided accepting legacy `viewModel: LifeViewModel` to preserve existing callers.
+- **[`TrackersSubscriptionsScreen.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/screens/essentials/TrackersSubscriptionsScreen.kt)**:
+  - Primary composable accepts `trackerViewModel: TrackerViewModel`, `subscriptionViewModel: SubscriptionViewModel`, `projects: List<ProjectItem> = emptyList()`, `isPremium: Boolean = false`.
+  - Overload provided accepting legacy `viewModel: LifeViewModel` to preserve existing navigation destinations.
+
+### 10.4 Quality Gates & Verification Evidence
+- **Targeted Unit Tests**:
+  - [`TrackerRepositoryUnitTest.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/test/java/com/example/data/repository/TrackerRepositoryUnitTest.kt): Standalone tracker CRUD, cycles, entries, purchases, adjustments, cascade deletions, project unassign, and facade parity (**9/9 tests passed**).
+  - [`TrackerViewModelUnitTest.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/test/java/com/example/ui/viewmodel/TrackerViewModelUnitTest.kt): Initial state, saving, archive toggle, deletion, cycle lifecycle, usage logging, restock purchases, stock adjustment, error handling, and factory instantiation (**11/11 tests passed**).
+- **Regression Verification**:
+  - [`SubscriptionRepositoryUnitTest.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/test/java/com/example/data/repository/SubscriptionRepositoryUnitTest.kt) (**5/5 tests passed**).
+  - [`SubscriptionViewModelUnitTest.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/test/java/com/example/ui/viewmodel/SubscriptionViewModelUnitTest.kt) (**11/11 tests passed**).
+  - Combined P7 test execution: **36/36 tests PASSED in 1m 19s**.
+- **Static Analysis**: `.\gradlew.bat lintDebug` — **BUILD SUCCESSFUL in 4m 13s** (0 errors).
+- **Assembly**: `.\gradlew.bat assembleDebug` — **BUILD SUCCESSFUL in 1m 22s** (Clean APK generated).
+
+### 10.5 Next Recommended Decomposition (P7-A4)
+- `MedicationRepository` and `MedicationViewModel` (medication inventory, dosage tracking, intake logs, and medication notification scheduling) to continue decomposing `LifeRepository` and `LifeViewModel`.
+
 
 

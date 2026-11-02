@@ -89,8 +89,6 @@ import com.example.domain.tracker.UsageCycleItem
 import com.example.domain.tracker.UsageEntryItem
 import com.example.domain.tracker.TrackerPurchaseItem
 import com.example.domain.tracker.InventoryAdjustmentItem
-import com.example.domain.tracker.CycleStatus
-import com.example.domain.tracker.InventoryPolicy
 import com.example.domain.subscription.SubscriptionItem
 import com.example.domain.subscription.BillingOccurrenceItem
 import com.example.domain.subscription.SubscriptionPaymentItem
@@ -221,7 +219,8 @@ class LifeViewModel(
     application: Application,
     private val repository: LifeRepository,
     private val preferences: UserPreferences,
-    val subscriptionViewModel: SubscriptionViewModel = SubscriptionViewModel(repository.subscriptionRepository)
+    val subscriptionViewModel: SubscriptionViewModel = SubscriptionViewModel(repository.subscriptionRepository),
+    val trackerViewModel: TrackerViewModel = TrackerViewModel(repository.trackerRepository)
 ) : AndroidViewModel(application) {
 
     private val _currentDateIso = MutableStateFlow(DateUtils.todayString())
@@ -553,18 +552,9 @@ class LifeViewModel(
         initialValue = null
     )
 
-    // --- Smart Tracker Flows ---
-    val allTrackers: StateFlow<List<TrackerItem>> = repository.allTrackersFlow.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
-
-    val activeTrackers: StateFlow<List<TrackerItem>> = repository.activeTrackersFlow.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
+    // --- Smart Tracker Flows (delegated to TrackerViewModel facade) ---
+    val allTrackers: StateFlow<List<TrackerItem>> get() = trackerViewModel.allTrackers
+    val activeTrackers: StateFlow<List<TrackerItem>> get() = trackerViewModel.activeTrackers
 
     // --- Subscription Flows (delegated to SubscriptionViewModel facade) ---
     val allSubscriptions: StateFlow<List<SubscriptionItem>> get() = subscriptionViewModel.allSubscriptions
@@ -2994,47 +2984,27 @@ class LifeViewModel(
     }
 
     // ==========================================
-    // --- SMART TRACKER VIEWMODEL ACTIONS ---
+    // --- SMART TRACKER VIEWMODEL ACTIONS (Delegated Facade) ---
     // ==========================================
 
     fun saveTracker(tracker: TrackerItem, onComplete: ((Long) -> Unit)? = null) {
-        viewModelScope.launch {
-            val id = if (tracker.id == 0L) {
-                repository.insertTracker(tracker)
-            } else {
-                repository.updateTracker(tracker)
-                tracker.id
-            }
-            onComplete?.invoke(id)
-        }
+        trackerViewModel.saveTracker(tracker, onComplete)
     }
 
     fun setTrackerArchived(trackerId: Long, isArchived: Boolean) {
-        viewModelScope.launch {
-            repository.setTrackerArchived(trackerId, isArchived)
-        }
+        trackerViewModel.setTrackerArchived(trackerId, isArchived)
     }
 
     fun deleteTracker(trackerId: Long) {
-        viewModelScope.launch {
-            repository.deleteTracker(trackerId)
-        }
+        trackerViewModel.deleteTracker(trackerId)
     }
 
     fun getCyclesForTracker(trackerId: Long): Flow<List<UsageCycleItem>> {
-        return repository.getCyclesForTrackerFlow(trackerId)
+        return trackerViewModel.getCyclesForTracker(trackerId)
     }
 
     fun saveCycle(cycle: UsageCycleItem, onComplete: ((Long) -> Unit)? = null) {
-        viewModelScope.launch {
-            val id = if (cycle.id == 0L) {
-                repository.insertCycle(cycle)
-            } else {
-                repository.updateCycle(cycle)
-                cycle.id
-            }
-            onComplete?.invoke(id)
-        }
+        trackerViewModel.saveCycle(cycle, onComplete)
     }
 
     fun finishCycle(
@@ -3044,71 +3014,31 @@ class LifeViewModel(
         finalRemainingQuantity: Double?,
         notes: String = ""
     ) {
-        viewModelScope.launch {
-            val updated = cycle.copy(
-                status = CycleStatus.FINISHED,
-                finishDateIso = finishDateIso,
-                finishOdometer = finishOdometer ?: cycle.currentOdometer,
-                remainingQuantity = finalRemainingQuantity ?: cycle.remainingQuantity,
-                notes = if (notes.isNotBlank()) "${cycle.notes}\n$notes".trim() else cycle.notes,
-                updatedAt = System.currentTimeMillis()
-            )
-            repository.updateCycle(updated)
-        }
+        trackerViewModel.finishCycle(cycle, finishDateIso, finishOdometer, finalRemainingQuantity, notes)
     }
 
     fun pauseResumeCycle(cycle: UsageCycleItem, isPaused: Boolean) {
-        viewModelScope.launch {
-            val updated = cycle.copy(
-                status = if (isPaused) CycleStatus.PAUSED else CycleStatus.ACTIVE,
-                isPaused = isPaused,
-                updatedAt = System.currentTimeMillis()
-            )
-            repository.updateCycle(updated)
-        }
+        trackerViewModel.pauseResumeCycle(cycle, isPaused)
     }
 
     fun logUsageEntry(entry: UsageEntryItem, cycle: UsageCycleItem) {
-        viewModelScope.launch {
-            repository.insertUsageEntry(entry)
-            var newOdometer = cycle.currentOdometer
-            if (entry.odometerReading != null && entry.odometerReading > newOdometer) {
-                newOdometer = entry.odometerReading
-            }
-            var newRemaining = cycle.remainingQuantity
-            if (entry.manualRemainingQuantity != null) {
-                newRemaining = entry.manualRemainingQuantity
-            } else if (entry.quantityDeducted != null) {
-                newRemaining = (newRemaining - entry.quantityDeducted).coerceAtLeast(0.0)
-            }
-            repository.updateCycle(
-                cycle.copy(
-                    currentOdometer = newOdometer,
-                    remainingQuantity = newRemaining,
-                    updatedAt = System.currentTimeMillis()
-                )
-            )
-        }
+        trackerViewModel.logUsageEntry(entry, cycle)
     }
 
     fun getPurchasesForTracker(trackerId: Long): Flow<List<TrackerPurchaseItem>> {
-        return repository.getPurchasesForTrackerFlow(trackerId)
+        return trackerViewModel.getPurchasesForTracker(trackerId)
     }
 
     fun recordPurchase(purchase: TrackerPurchaseItem) {
-        viewModelScope.launch {
-            repository.insertPurchase(purchase)
-        }
+        trackerViewModel.recordPurchase(purchase)
     }
 
     fun getAdjustmentsForTracker(trackerId: Long): Flow<List<InventoryAdjustmentItem>> {
-        return repository.getAdjustmentsForTrackerFlow(trackerId)
+        return trackerViewModel.getAdjustmentsForTracker(trackerId)
     }
 
     fun recordStockAdjustment(adjustment: InventoryAdjustmentItem) {
-        viewModelScope.launch {
-            repository.insertAdjustment(adjustment)
-        }
+        trackerViewModel.recordStockAdjustment(adjustment)
     }
 
     // ==========================================
@@ -3667,16 +3597,21 @@ class LifeViewModelFactory(
     private val application: Application,
     private val repository: LifeRepository,
     private val preferences: UserPreferences,
-    private val subscriptionViewModel: SubscriptionViewModel? = null
+    private val subscriptionViewModel: SubscriptionViewModel? = null,
+    private val trackerViewModel: TrackerViewModel? = null
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(LifeViewModel::class.java)) {
             val subVm = subscriptionViewModel ?: SubscriptionViewModel(repository.subscriptionRepository)
-            return LifeViewModel(application, repository, preferences, subVm) as T
+            val trackVm = trackerViewModel ?: TrackerViewModel(repository.trackerRepository)
+            return LifeViewModel(application, repository, preferences, subVm, trackVm) as T
         }
         if (modelClass.isAssignableFrom(SubscriptionViewModel::class.java)) {
             return (subscriptionViewModel ?: SubscriptionViewModel(repository.subscriptionRepository)) as T
+        }
+        if (modelClass.isAssignableFrom(TrackerViewModel::class.java)) {
+            return (trackerViewModel ?: TrackerViewModel(repository.trackerRepository)) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

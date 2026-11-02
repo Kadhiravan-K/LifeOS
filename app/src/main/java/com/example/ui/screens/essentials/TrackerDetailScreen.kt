@@ -62,6 +62,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.domain.model.ProjectItem
 import com.example.domain.tracker.CycleStatus
 import com.example.domain.tracker.InventoryAdjustmentItem
 import com.example.domain.tracker.InventoryPolicy
@@ -71,29 +72,30 @@ import com.example.domain.tracker.TrackerPurchaseItem
 import com.example.domain.tracker.UsageCycleItem
 import com.example.domain.tracker.UsageEntryItem
 import com.example.ui.viewmodel.LifeViewModel
+import com.example.ui.viewmodel.TrackerViewModel
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackerDetailScreen(
     trackerId: Long,
-    viewModel: LifeViewModel,
+    trackerViewModel: TrackerViewModel,
+    projects: List<ProjectItem> = emptyList(),
     onNavigateBack: () -> Unit,
     onEditTracker: (TrackerItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val trackers by viewModel.allTrackers.collectAsStateWithLifecycle()
+    val trackers by trackerViewModel.allTrackers.collectAsStateWithLifecycle()
     val tracker = trackers.find { it.id == trackerId }
-    val projects by viewModel.allProjects.collectAsStateWithLifecycle()
     val project = projects.find { it.id == tracker?.projectId }
 
-    val cyclesFlow = remember(trackerId) { viewModel.getCyclesForTracker(trackerId) }
+    val cyclesFlow = remember(trackerId) { trackerViewModel.getCyclesForTracker(trackerId) }
     val cycles by cyclesFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
-    val purchasesFlow = remember(trackerId) { viewModel.getPurchasesForTracker(trackerId) }
+    val purchasesFlow = remember(trackerId) { trackerViewModel.getPurchasesForTracker(trackerId) }
     val purchases by purchasesFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
-    val adjustmentsFlow = remember(trackerId) { viewModel.getAdjustmentsForTracker(trackerId) }
+    val adjustmentsFlow = remember(trackerId) { trackerViewModel.getAdjustmentsForTracker(trackerId) }
     val adjustments by adjustmentsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
     var selectedTabIndex by remember { mutableIntStateOf(0) } // 0: Active Cycles, 1: Inventory & History, 2: Analytics
@@ -295,7 +297,7 @@ fun TrackerDetailScreen(
                                     tracker = tracker,
                                     onLogEntry = { cycleToLogEntry = cycle },
                                     onTogglePause = {
-                                        viewModel.pauseResumeCycle(cycle, !cycle.isPaused)
+                                        trackerViewModel.pauseResumeCycle(cycle, !cycle.isPaused)
                                     },
                                     onFinish = { cycleToFinish = cycle }
                                 )
@@ -448,7 +450,7 @@ fun TrackerDetailScreen(
                             remainingQuantity = parsedQty,
                             notes = notes.trim()
                         )
-                        viewModel.saveCycle(cycle)
+                        trackerViewModel.saveCycle(cycle)
                         showStartCycleDialog = false
                     }
                 ) {
@@ -528,7 +530,7 @@ fun TrackerDetailScreen(
                             quantityDeducted = deltaQty,
                             notes = entryNotes.trim()
                         )
-                        viewModel.logUsageEntry(entry, cycle)
+                        trackerViewModel.logUsageEntry(entry, cycle)
                         cycleToLogEntry = null
                     }
                 ) {
@@ -596,7 +598,7 @@ fun TrackerDetailScreen(
                     onClick = {
                         val finalOdo = finalOdometerText.toDoubleOrNull() ?: cycle.currentOdometer
                         val finalQty = finalRemainingQuantityText.toDoubleOrNull() ?: cycle.remainingQuantity
-                        viewModel.finishCycle(
+                        trackerViewModel.finishCycle(
                             cycle = cycle,
                             finishDateIso = LocalDate.now().toString(),
                             finishOdometer = finalOdo,
@@ -666,7 +668,7 @@ fun TrackerDetailScreen(
                             totalCost = total,
                             notes = notesText.trim()
                         )
-                        viewModel.recordPurchase(purchase)
+                        trackerViewModel.recordPurchase(purchase)
                         showPurchaseDialog = false
                     }
                 ) {
@@ -730,7 +732,7 @@ fun TrackerDetailScreen(
                             isRefillExchange = isRefillReturn,
                             reason = reasonText.trim()
                         )
-                        viewModel.recordStockAdjustment(adj)
+                        trackerViewModel.recordStockAdjustment(adj)
                         showAdjustmentDialog = false
                     }
                 ) {
@@ -757,7 +759,7 @@ fun TrackerDetailScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.deleteTracker(tracker.id)
+                        trackerViewModel.deleteTracker(tracker.id)
                         showDeleteConfirmDialog = false
                         onNavigateBack()
                     },
@@ -1075,4 +1077,26 @@ private fun AnalyticsStatCard(
             Text(text = subtitle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+/**
+ * Backward-compatible overload for [TrackerDetailScreen] accepting the legacy [LifeViewModel].
+ */
+@Composable
+fun TrackerDetailScreen(
+    trackerId: Long,
+    viewModel: LifeViewModel,
+    onNavigateBack: () -> Unit,
+    onEditTracker: (TrackerItem) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val projects by viewModel.allProjects.collectAsStateWithLifecycle()
+    TrackerDetailScreen(
+        trackerId = trackerId,
+        trackerViewModel = viewModel.trackerViewModel,
+        projects = projects,
+        onNavigateBack = onNavigateBack,
+        onEditTracker = onEditTracker,
+        modifier = modifier
+    )
 }
