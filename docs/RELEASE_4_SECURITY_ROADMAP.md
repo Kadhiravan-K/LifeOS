@@ -623,6 +623,72 @@ An audit of all deletion callers across the codebase was conducted:
 - `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
 - `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (Clean debug APK artifact).
 
+---
+
+## 13. Phase P4-L2: Foreign-Key Enforcement and Orphan-Data Migration (I1 / DI-01)
+
+### 13.1 Preflight & Database Version Approval
+- **Preceding Loop Verification**: P0, P1, P2-L1, P2-L2, P2-L3, P3-L1, P3-L2, and P4-L1 verified present, tested, committed, and synchronized.
+- **Release 3 Tag Baseline**: Tag `v3.0.0` confirmed pointing to commit `2233a958a23194e5461bea4c76d4b69b99ad3147` (unchanged).
+- **Approved Target Database Version**: **Version 19** (`MIGRATION_18_19`) explicitly authorized by product owner.
+- **Migration History Continuity**: Migrations `1_2` through `17_18` verified contiguous and conflict-free. `MIGRATION_18_19` sequentially advances Room database version from 18 to 19.
+
+### 13.2 Relationship Matrix
+
+| Parent Table & Key | Child Table | Foreign Key Column | `ON DELETE` Action | Orphan Risk Scenario | Backup/Restore Impact |
+|---|---|---|---|---|---|
+| `tasks(id)` | `task_label_cross_ref` | `taskId` | `CASCADE` | Direct or non-transactional task deletion leaves lingering label refs. | Validated in v2 backup (FK ordered). |
+| `labels(id)` | `task_label_cross_ref` | `labelId` | `CASCADE` | Direct or legacy label deletion leaves invalid task associations. | Validated in v2 backup (FK ordered). |
+| `tasks(id)` | `task_reminders` | `taskId` | `CASCADE` | Task deletion without reminder deletion triggers orphaned alarm triggers. | Validated in v2 backup (FK ordered). |
+| `medications(id)` | `medication_doses` | `medicationId` | `CASCADE` | Deleting medication record leaves unlinked dosage records in SQLite. | Validated in v2 backup (FK ordered). |
+| `tracker_cycles(id)` | `tracker_usage_entries` | `cycleId` | `CASCADE` | Cycle deletion leaves lingering usage logs without parent context. | Validated in v2 backup (FK ordered). |
+| `subscriptions(id)` | `subscription_bills` | `subscriptionId` | `CASCADE` | Subscription deletion leaves unpaid/paid occurrence records alive. | Validated in v2 backup (FK ordered). |
+| `subscription_bills(id)` | `subscription_payments` | `billId` | `CASCADE` | Bill deletion leaves lingering payment transactions with null parent. | Validated in v2 backup (FK ordered). |
+| `subscriptions(id)` | `subscription_payments` | `subscriptionId` | `CASCADE` | Subscription deletion leaves payment entries with orphan subscriptionId. | Validated in v2 backup (FK ordered). |
+
+### 13.3 Orphan-Data Quarantine & Preservation Strategy
+In accordance with zero-silent-data-loss safeguards:
+1. **Quarantine Tables**:
+   - `_orphans_backup_task_label_cross_ref` (`taskId`, `labelId`, `quarantineReason`, `quarantinedAt`)
+   - `_orphans_backup_task_reminders` (`id`, `taskId`, `minutesBefore`, `customTime`, `type`, `referenceType`, `isEnabled`, `createdAt`, `quarantineReason`, `quarantinedAt`)
+   - `_orphans_backup_medication_doses` (`id`, `medicationId`, `taskId`, `medicationName`, `medicationForm`, `dosage`, `instructions`, `scheduledDateIso`, `scheduledTime`, `status`, `actionTimestamp`, `snoozeCount`, `followUpCount`, `notes`, `quarantineReason`, `quarantinedAt`)
+   - `_orphans_backup_tracker_usage_entries` (`id`, `cycleId`, `dateIso`, `odometerReading`, `quantityDeducted`, `manualRemainingQuantity`, `notes`, `timestamp`, `quarantineReason`, `quarantinedAt`)
+   - `_orphans_backup_subscription_bills` (`id`, `subscriptionId`, `dueDateIso`, `expectedAmount`, `currency`, `status`, `notes`, `createdAt`, `quarantineReason`, `quarantinedAt`)
+   - `_orphans_backup_subscription_payments` (`id`, `billId`, `subscriptionId`, `amountPaid`, `paymentDateIso`, `paymentMethod`, `transactionRef`, `notes`, `timestamp`, `quarantineReason`, `quarantinedAt`)
+2. **Quarantine Reasons Recorded**:
+   - `PARENT_TASK_MISSING`, `PARENT_LABEL_MISSING`, `PARENT_TASK_AND_LABEL_MISSING`
+   - `PARENT_MEDICATION_MISSING`
+   - `PARENT_CYCLE_MISSING`
+   - `PARENT_SUBSCRIPTION_MISSING`
+   - `PARENT_BILL_MISSING`, `PARENT_SUB_MISSING`, `PARENT_BILL_AND_SUB_MISSING`
+3. **Data Recovery & Inspection**:
+   - Quarantined records remain accessible in SQLite for forensic analysis or manual reassignment without polluting active application flows or violating foreign key constraints.
+
+### 13.4 Migration Execution (`MIGRATION_18_19`)
+1. Disables foreign keys temporarily during table recreation (`PRAGMA foreign_keys = OFF`).
+2. Extracts and copies all orphan records matching `WHERE child_key NOT IN (SELECT id FROM parent)` into the respective `_orphans_backup_*` table.
+3. Recreates each child table using Room-conforming schema with `FOREIGN KEY ... ON UPDATE NO ACTION ON DELETE CASCADE`.
+4. Copies only valid, constrained rows from the old table to the new table.
+5. Drops old table and renames `_new_*` to canonical table name.
+6. Explicitly recreates all primary keys, indexes, and unique constraints.
+7. Re-enables foreign key constraints (`PRAGMA foreign_keys = ON`).
+8. Executes `PRAGMA foreign_key_check` and verifies 0 violations; throws `IllegalStateException` on any violation to trigger full transaction rollback.
+
+### 13.5 Performance Benchmark & Verification
+- **Test Suite**: [`RoomMigration18To19UnitTest.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/test/java/com/example/data/local/RoomMigration18To19UnitTest.kt)
+- **Functional Verification**: Verified valid record survival, complete orphan quarantine, foreign-key constraint rejection on invalid inserts, and cascade deletion across all 6 child tables (`tests="2" failures="0" errors="0"`).
+- **Large-Fixture Performance**: Evaluated on 50,000+ rows in SQLite; completed in **4,029ms** (target: < 5,000ms).
+- **Full Sequential Upgrade**: [`RoomMigrationRobolectricUnitTest.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/test/java/com/example/data/local/RoomMigrationRobolectricUnitTest.kt) verified end-to-end migration from v1 (Genesis) to v19 with `PRAGMA integrity_check = ok` and `PRAGMA foreign_key_check = 0 violations`.
+- **Backup & Restore v2**: [`Release4BackupRestoreV2UnitTest.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/test/java/com/example/data/backup/Release4BackupRestoreV2UnitTest.kt) verified all 40 entities round-trip with `databaseVersion = 19`.
+
+### 13.6 Quality Gate Status
+- `.\gradlew.bat testDebugUnitTest --tests "com.example.data.local.RoomMigration18To19UnitTest"`: **PASSED** (2/2 tests, 0 failures).
+- `.\gradlew.bat testDebugUnitTest --tests "com.example.data.local.RoomMigrationRobolectricUnitTest" --tests "com.example.data.backup.Release4BackupRestoreV2UnitTest"`: **PASSED** (12/12 tests, 0 failures).
+- `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (Full unit test suite passing).
+- `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
+- `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (Clean debug APK artifact).
+
+
 
 
 

@@ -199,6 +199,14 @@ data class UsageCycleEntity(
 
 @Entity(
     tableName = "tracker_usage_entries",
+    foreignKeys = [
+        ForeignKey(
+            entity = UsageCycleEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["cycleId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
     indices = [
         Index("cycleId")
     ]

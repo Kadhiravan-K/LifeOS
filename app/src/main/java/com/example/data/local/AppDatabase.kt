@@ -875,6 +875,340 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
     }
 }
 
+val MIGRATION_18_19 = object : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        val now = System.currentTimeMillis()
+
+        // 1. Temporarily disable foreign keys during table recreation
+        db.execSQL("PRAGMA foreign_keys = OFF")
+
+        // -------------------------------------------------------------
+        // 2. task_label_cross_ref: quarantine orphans & recreate with FK
+        // -------------------------------------------------------------
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `_orphans_backup_task_label_cross_ref` (
+                `taskId` INTEGER NOT NULL,
+                `labelId` INTEGER NOT NULL,
+                `quarantineReason` TEXT NOT NULL,
+                `quarantinedAt` INTEGER NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO `_orphans_backup_task_label_cross_ref` (`taskId`, `labelId`, `quarantineReason`, `quarantinedAt`)
+            SELECT `taskId`, `labelId`,
+                CASE
+                    WHEN `taskId` NOT IN (SELECT `id` FROM `tasks`) AND `labelId` NOT IN (SELECT `id` FROM `labels`) THEN 'PARENT_TASK_AND_LABEL_MISSING'
+                    WHEN `taskId` NOT IN (SELECT `id` FROM `tasks`) THEN 'PARENT_TASK_MISSING'
+                    ELSE 'PARENT_LABEL_MISSING'
+                END AS `quarantineReason`,
+                $now AS `quarantinedAt`
+            FROM `task_label_cross_ref`
+            WHERE `taskId` NOT IN (SELECT `id` FROM `tasks`) OR `labelId` NOT IN (SELECT `id` FROM `labels`)
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `_new_task_label_cross_ref` (
+                `taskId` INTEGER NOT NULL,
+                `labelId` INTEGER NOT NULL,
+                PRIMARY KEY(`taskId`, `labelId`),
+                FOREIGN KEY(`taskId`) REFERENCES `tasks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`labelId`) REFERENCES `labels`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO `_new_task_label_cross_ref` (`taskId`, `labelId`)
+            SELECT `taskId`, `labelId` FROM `task_label_cross_ref`
+            WHERE `taskId` IN (SELECT `id` FROM `tasks`) AND `labelId` IN (SELECT `id` FROM `labels`)
+        """.trimIndent())
+        db.execSQL("DROP TABLE `task_label_cross_ref`")
+        db.execSQL("ALTER TABLE `_new_task_label_cross_ref` RENAME TO `task_label_cross_ref`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_task_label_cross_ref_taskId` ON `task_label_cross_ref` (`taskId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_task_label_cross_ref_labelId` ON `task_label_cross_ref` (`labelId`)")
+
+        // -------------------------------------------------------------
+        // 3. task_reminders: quarantine orphans & recreate with FK
+        // -------------------------------------------------------------
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `_orphans_backup_task_reminders` (
+                `id` INTEGER NOT NULL,
+                `taskId` INTEGER NOT NULL,
+                `minutesBefore` INTEGER NOT NULL,
+                `customTime` TEXT,
+                `type` TEXT NOT NULL,
+                `referenceType` TEXT NOT NULL,
+                `isEnabled` INTEGER NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                `quarantineReason` TEXT NOT NULL,
+                `quarantinedAt` INTEGER NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO `_orphans_backup_task_reminders` (`id`, `taskId`, `minutesBefore`, `customTime`, `type`, `referenceType`, `isEnabled`, `createdAt`, `quarantineReason`, `quarantinedAt`)
+            SELECT `id`, `taskId`, `minutesBefore`, `customTime`, `type`, `referenceType`, `isEnabled`, `createdAt`,
+                'PARENT_TASK_MISSING' AS `quarantineReason`,
+                $now AS `quarantinedAt`
+            FROM `task_reminders`
+            WHERE `taskId` NOT IN (SELECT `id` FROM `tasks`)
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `_new_task_reminders` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `taskId` INTEGER NOT NULL,
+                `minutesBefore` INTEGER NOT NULL,
+                `customTime` TEXT,
+                `type` TEXT NOT NULL,
+                `referenceType` TEXT NOT NULL,
+                `isEnabled` INTEGER NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                FOREIGN KEY(`taskId`) REFERENCES `tasks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO `_new_task_reminders` (`id`, `taskId`, `minutesBefore`, `customTime`, `type`, `referenceType`, `isEnabled`, `createdAt`)
+            SELECT `id`, `taskId`, `minutesBefore`, `customTime`, `type`, `referenceType`, `isEnabled`, `createdAt`
+            FROM `task_reminders`
+            WHERE `taskId` IN (SELECT `id` FROM `tasks`)
+        """.trimIndent())
+        db.execSQL("DROP TABLE `task_reminders`")
+        db.execSQL("ALTER TABLE `_new_task_reminders` RENAME TO `task_reminders`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_task_reminders_taskId` ON `task_reminders` (`taskId`)")
+
+        // -------------------------------------------------------------
+        // 4. medication_doses: quarantine orphans & recreate with FK
+        // -------------------------------------------------------------
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `_orphans_backup_medication_doses` (
+                `id` INTEGER NOT NULL,
+                `medicationId` INTEGER NOT NULL,
+                `taskId` INTEGER NOT NULL,
+                `medicationName` TEXT NOT NULL,
+                `medicationForm` TEXT NOT NULL,
+                `dosage` TEXT NOT NULL,
+                `instructions` TEXT NOT NULL,
+                `scheduledDateIso` TEXT NOT NULL,
+                `scheduledTime` TEXT NOT NULL,
+                `status` TEXT NOT NULL,
+                `actionTimestamp` INTEGER,
+                `snoozeCount` INTEGER NOT NULL,
+                `followUpCount` INTEGER NOT NULL,
+                `notes` TEXT NOT NULL,
+                `quarantineReason` TEXT NOT NULL,
+                `quarantinedAt` INTEGER NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO `_orphans_backup_medication_doses` (`id`, `medicationId`, `taskId`, `medicationName`, `medicationForm`, `dosage`, `instructions`, `scheduledDateIso`, `scheduledTime`, `status`, `actionTimestamp`, `snoozeCount`, `followUpCount`, `notes`, `quarantineReason`, `quarantinedAt`)
+            SELECT `id`, `medicationId`, `taskId`, `medicationName`, `medicationForm`, `dosage`, `instructions`, `scheduledDateIso`, `scheduledTime`, `status`, `actionTimestamp`, `snoozeCount`, `followUpCount`, `notes`,
+                'PARENT_MEDICATION_MISSING' AS `quarantineReason`,
+                $now AS `quarantinedAt`
+            FROM `medication_doses`
+            WHERE `medicationId` NOT IN (SELECT `id` FROM `medications`)
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `_new_medication_doses` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `medicationId` INTEGER NOT NULL,
+                `taskId` INTEGER NOT NULL,
+                `medicationName` TEXT NOT NULL,
+                `medicationForm` TEXT NOT NULL,
+                `dosage` TEXT NOT NULL,
+                `instructions` TEXT NOT NULL,
+                `scheduledDateIso` TEXT NOT NULL,
+                `scheduledTime` TEXT NOT NULL,
+                `status` TEXT NOT NULL,
+                `actionTimestamp` INTEGER,
+                `snoozeCount` INTEGER NOT NULL,
+                `followUpCount` INTEGER NOT NULL,
+                `notes` TEXT NOT NULL,
+                FOREIGN KEY(`medicationId`) REFERENCES `medications`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO `_new_medication_doses` (`id`, `medicationId`, `taskId`, `medicationName`, `medicationForm`, `dosage`, `instructions`, `scheduledDateIso`, `scheduledTime`, `status`, `actionTimestamp`, `snoozeCount`, `followUpCount`, `notes`)
+            SELECT `id`, `medicationId`, `taskId`, `medicationName`, `medicationForm`, `dosage`, `instructions`, `scheduledDateIso`, `scheduledTime`, `status`, `actionTimestamp`, `snoozeCount`, `followUpCount`, `notes`
+            FROM `medication_doses`
+            WHERE `medicationId` IN (SELECT `id` FROM `medications`)
+        """.trimIndent())
+        db.execSQL("DROP TABLE `medication_doses`")
+        db.execSQL("ALTER TABLE `_new_medication_doses` RENAME TO `medication_doses`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_medication_doses_medicationId` ON `medication_doses` (`medicationId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_medication_doses_taskId` ON `medication_doses` (`taskId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_medication_doses_scheduledDateIso` ON `medication_doses` (`scheduledDateIso`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_medication_doses_status` ON `medication_doses` (`status`)")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_medication_doses_medicationId_scheduledDateIso_scheduledTime` ON `medication_doses` (`medicationId`, `scheduledDateIso`, `scheduledTime`)")
+
+        // -------------------------------------------------------------
+        // 5. tracker_usage_entries: quarantine orphans & recreate with FK
+        // -------------------------------------------------------------
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `_orphans_backup_tracker_usage_entries` (
+                `id` INTEGER NOT NULL,
+                `cycleId` INTEGER NOT NULL,
+                `dateIso` TEXT NOT NULL,
+                `odometerReading` REAL,
+                `quantityDeducted` REAL,
+                `manualRemainingQuantity` REAL,
+                `notes` TEXT NOT NULL,
+                `timestamp` INTEGER NOT NULL,
+                `quarantineReason` TEXT NOT NULL,
+                `quarantinedAt` INTEGER NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO `_orphans_backup_tracker_usage_entries` (`id`, `cycleId`, `dateIso`, `odometerReading`, `quantityDeducted`, `manualRemainingQuantity`, `notes`, `timestamp`, `quarantineReason`, `quarantinedAt`)
+            SELECT `id`, `cycleId`, `dateIso`, `odometerReading`, `quantityDeducted`, `manualRemainingQuantity`, `notes`, `timestamp`,
+                'PARENT_CYCLE_MISSING' AS `quarantineReason`,
+                $now AS `quarantinedAt`
+            FROM `tracker_usage_entries`
+            WHERE `cycleId` NOT IN (SELECT `id` FROM `tracker_cycles`)
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `_new_tracker_usage_entries` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `cycleId` INTEGER NOT NULL,
+                `dateIso` TEXT NOT NULL,
+                `odometerReading` REAL,
+                `quantityDeducted` REAL,
+                `manualRemainingQuantity` REAL,
+                `notes` TEXT NOT NULL,
+                `timestamp` INTEGER NOT NULL,
+                FOREIGN KEY(`cycleId`) REFERENCES `tracker_cycles`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO `_new_tracker_usage_entries` (`id`, `cycleId`, `dateIso`, `odometerReading`, `quantityDeducted`, `manualRemainingQuantity`, `notes`, `timestamp`)
+            SELECT `id`, `cycleId`, `dateIso`, `odometerReading`, `quantityDeducted`, `manualRemainingQuantity`, `notes`, `timestamp`
+            FROM `tracker_usage_entries`
+            WHERE `cycleId` IN (SELECT `id` FROM `tracker_cycles`)
+        """.trimIndent())
+        db.execSQL("DROP TABLE `tracker_usage_entries`")
+        db.execSQL("ALTER TABLE `_new_tracker_usage_entries` RENAME TO `tracker_usage_entries`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tracker_usage_entries_cycleId` ON `tracker_usage_entries` (`cycleId`)")
+
+        // -------------------------------------------------------------
+        // 6. subscription_bills: quarantine orphans & recreate with FK
+        // -------------------------------------------------------------
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `_orphans_backup_subscription_bills` (
+                `id` INTEGER NOT NULL,
+                `subscriptionId` INTEGER NOT NULL,
+                `dueDateIso` TEXT NOT NULL,
+                `expectedAmount` REAL NOT NULL,
+                `currency` TEXT NOT NULL,
+                `status` TEXT NOT NULL,
+                `notes` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                `quarantineReason` TEXT NOT NULL,
+                `quarantinedAt` INTEGER NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO `_orphans_backup_subscription_bills` (`id`, `subscriptionId`, `dueDateIso`, `expectedAmount`, `currency`, `status`, `notes`, `createdAt`, `quarantineReason`, `quarantinedAt`)
+            SELECT `id`, `subscriptionId`, `dueDateIso`, `expectedAmount`, `currency`, `status`, `notes`, `createdAt`,
+                'PARENT_SUBSCRIPTION_MISSING' AS `quarantineReason`,
+                $now AS `quarantinedAt`
+            FROM `subscription_bills`
+            WHERE `subscriptionId` NOT IN (SELECT `id` FROM `subscriptions`)
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `_new_subscription_bills` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `subscriptionId` INTEGER NOT NULL,
+                `dueDateIso` TEXT NOT NULL,
+                `expectedAmount` REAL NOT NULL,
+                `currency` TEXT NOT NULL,
+                `status` TEXT NOT NULL,
+                `notes` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                FOREIGN KEY(`subscriptionId`) REFERENCES `subscriptions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO `_new_subscription_bills` (`id`, `subscriptionId`, `dueDateIso`, `expectedAmount`, `currency`, `status`, `notes`, `createdAt`)
+            SELECT `id`, `subscriptionId`, `dueDateIso`, `expectedAmount`, `currency`, `status`, `notes`, `createdAt`
+            FROM `subscription_bills`
+            WHERE `subscriptionId` IN (SELECT `id` FROM `subscriptions`)
+        """.trimIndent())
+        db.execSQL("DROP TABLE `subscription_bills`")
+        db.execSQL("ALTER TABLE `_new_subscription_bills` RENAME TO `subscription_bills`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_subscription_bills_subscriptionId` ON `subscription_bills` (`subscriptionId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_subscription_bills_dueDateIso` ON `subscription_bills` (`dueDateIso`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_subscription_bills_status` ON `subscription_bills` (`status`)")
+
+        // -------------------------------------------------------------
+        // 7. subscription_payments: quarantine orphans & recreate with FK
+        // -------------------------------------------------------------
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `_orphans_backup_subscription_payments` (
+                `id` INTEGER NOT NULL,
+                `billId` INTEGER NOT NULL,
+                `subscriptionId` INTEGER NOT NULL,
+                `amountPaid` REAL NOT NULL,
+                `paymentDateIso` TEXT NOT NULL,
+                `paymentMethod` TEXT NOT NULL,
+                `transactionRef` TEXT NOT NULL,
+                `notes` TEXT NOT NULL,
+                `timestamp` INTEGER NOT NULL,
+                `quarantineReason` TEXT NOT NULL,
+                `quarantinedAt` INTEGER NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO `_orphans_backup_subscription_payments` (`id`, `billId`, `subscriptionId`, `amountPaid`, `paymentDateIso`, `paymentMethod`, `transactionRef`, `notes`, `timestamp`, `quarantineReason`, `quarantinedAt`)
+            SELECT `id`, `billId`, `subscriptionId`, `amountPaid`, `paymentDateIso`, `paymentMethod`, `transactionRef`, `notes`, `timestamp`,
+                CASE
+                    WHEN `billId` NOT IN (SELECT `id` FROM `subscription_bills`) AND `subscriptionId` NOT IN (SELECT `id` FROM `subscriptions`) THEN 'PARENT_BILL_AND_SUB_MISSING'
+                    WHEN `billId` NOT IN (SELECT `id` FROM `subscription_bills`) THEN 'PARENT_BILL_MISSING'
+                    ELSE 'PARENT_SUB_MISSING'
+                END AS `quarantineReason`,
+                $now AS `quarantinedAt`
+            FROM `subscription_payments`
+            WHERE `billId` NOT IN (SELECT `id` FROM `subscription_bills`) OR `subscriptionId` NOT IN (SELECT `id` FROM `subscriptions`)
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `_new_subscription_payments` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `billId` INTEGER NOT NULL,
+                `subscriptionId` INTEGER NOT NULL,
+                `amountPaid` REAL NOT NULL,
+                `paymentDateIso` TEXT NOT NULL,
+                `paymentMethod` TEXT NOT NULL,
+                `transactionRef` TEXT NOT NULL,
+                `notes` TEXT NOT NULL,
+                `timestamp` INTEGER NOT NULL,
+                FOREIGN KEY(`billId`) REFERENCES `subscription_bills`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`subscriptionId`) REFERENCES `subscriptions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO `_new_subscription_payments` (`id`, `billId`, `subscriptionId`, `amountPaid`, `paymentDateIso`, `paymentMethod`, `transactionRef`, `notes`, `timestamp`)
+            SELECT `id`, `billId`, `subscriptionId`, `amountPaid`, `paymentDateIso`, `paymentMethod`, `transactionRef`, `notes`, `timestamp`
+            FROM `subscription_payments`
+            WHERE `billId` IN (SELECT `id` FROM `subscription_bills`) AND `subscriptionId` IN (SELECT `id` FROM `subscriptions`)
+        """.trimIndent())
+        db.execSQL("DROP TABLE `subscription_payments`")
+        db.execSQL("ALTER TABLE `_new_subscription_payments` RENAME TO `subscription_payments`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_subscription_payments_billId` ON `subscription_payments` (`billId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_subscription_payments_subscriptionId` ON `subscription_payments` (`subscriptionId`)")
+
+        // -------------------------------------------------------------
+        // 8. Re-enable foreign keys and verify integrity
+        // -------------------------------------------------------------
+        db.execSQL("PRAGMA foreign_keys = ON")
+        val cursor = db.query("PRAGMA foreign_key_check")
+        try {
+            if (cursor.moveToFirst()) {
+                val table = cursor.getString(0)
+                val rowid = cursor.getLong(1)
+                val targetTable = cursor.getString(2)
+                val fkid = cursor.getInt(3)
+                throw IllegalStateException("Foreign key check violation in table '$table' at rowid $rowid referencing '$targetTable' (fkid=$fkid)")
+            }
+        } finally {
+            cursor.close()
+        }
+    }
+}
+
 @Database(
     entities = [
         ProfileEntity::class,
@@ -918,7 +1252,7 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
         com.example.data.local.entities.McpServerEntity::class,
         com.example.data.local.entities.McpAuditLogEntity::class
     ],
-    version = 18,
+    version = 19,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -963,6 +1297,7 @@ abstract class AppDatabase : RoomDatabase() {
                         }
                         override fun onOpen(db: SupportSQLiteDatabase) {
                             super.onOpen(db)
+                            db.setForeignKeyConstraintsEnabled(true)
                             db.execSQL("""
                                 INSERT OR IGNORE INTO `profiles` (`id`, `name`, `emoji`, `colorHex`, `type`, `orderIndex`, `isDefault`, `createdAt`, `updatedAt`)
                                 VALUES (1, 'Personal', '👤', 4282168054, 'PERSONAL', 0, 1, 1730000000000, 1730000000000)
@@ -986,7 +1321,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_14_15,
                         MIGRATION_15_16,
                         MIGRATION_16_17,
-                        MIGRATION_17_18
+                        MIGRATION_17_18,
+                        MIGRATION_18_19
                     )
                     .build()
                 INSTANCE = instance

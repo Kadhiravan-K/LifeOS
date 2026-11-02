@@ -1,6 +1,7 @@
 package com.example.data.local.entities
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
@@ -49,6 +50,20 @@ data class LabelEntity(
 @Entity(
     tableName = "task_label_cross_ref",
     primaryKeys = ["taskId", "labelId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = TaskEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["taskId"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = LabelEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["labelId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
     indices = [
         Index("taskId"),
         Index("labelId")
@@ -61,6 +76,14 @@ data class TaskLabelCrossRef(
 
 @Entity(
     tableName = "task_reminders",
+    foreignKeys = [
+        ForeignKey(
+            entity = TaskEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["taskId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
     indices = [
         Index("taskId")
     ]

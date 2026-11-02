@@ -67,7 +67,7 @@ object DataExportImportManager {
 
     const val BACKUP_FORMAT_VERSION = 2
     const val APP_VERSION = "4.0.0"
-    const val DATABASE_VERSION = 18
+    const val DATABASE_VERSION = 19
     const val MAX_BACKUP_SIZE_BYTES = 50_000_000
 
     /**

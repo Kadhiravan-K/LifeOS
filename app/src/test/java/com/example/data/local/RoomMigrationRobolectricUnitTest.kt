@@ -6,6 +6,7 @@ import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
 import android.content.Context
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -608,10 +609,10 @@ class RoomMigrationRobolectricUnitTest {
         val v1Db = factory.create(v1Config).writableDatabase
         v1Db.close()
 
-        // 2. Upgrade all the way from v1 to v18 sequentially
+        // 2. Upgrade all the way from v1 to v19 sequentially
         val v18Config = SupportSQLiteOpenHelper.Configuration.builder(context)
             .name(dbName)
-            .callback(object : SupportSQLiteOpenHelper.Callback(18) {
+            .callback(object : SupportSQLiteOpenHelper.Callback(19) {
                 override fun onCreate(db: SupportSQLiteDatabase) {}
 
                 override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -632,6 +633,7 @@ class RoomMigrationRobolectricUnitTest {
                     if (oldVersion <= 15) MIGRATION_15_16.migrate(db)
                     if (oldVersion <= 16) MIGRATION_16_17.migrate(db)
                     if (oldVersion <= 17) MIGRATION_17_18.migrate(db)
+                    if (oldVersion <= 18) MIGRATION_18_19.migrate(db)
                 }
             })
             .build()
@@ -643,6 +645,10 @@ class RoomMigrationRobolectricUnitTest {
         assertTrue("PRAGMA integrity_check must succeed", integrityCursor.moveToFirst())
         assertEquals("ok", integrityCursor.getString(0))
         integrityCursor.close()
+
+        val fkCursor = v18Db.query("PRAGMA foreign_key_check")
+        assertFalse("PRAGMA foreign_key_check must pass after full v1->v19 sequential migration", fkCursor.moveToFirst())
+        fkCursor.close()
 
         // 4. Verify original Genesis Task 1 is preserved and has profileId = 1
         val taskCursor = v18Db.query("SELECT id, title, profileId, durationMinutes, isArchived FROM tasks WHERE id = 1")

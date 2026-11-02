@@ -1,6 +1,7 @@
 package com.example.data.local.entities
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
@@ -48,6 +49,14 @@ data class MedicationEntity(
 
 @Entity(
     tableName = "medication_doses",
+    foreignKeys = [
+        ForeignKey(
+            entity = MedicationEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["medicationId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
     indices = [
         Index(value = ["medicationId"]),
         Index(value = ["taskId"]),

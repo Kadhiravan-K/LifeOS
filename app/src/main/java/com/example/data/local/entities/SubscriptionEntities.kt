@@ -1,6 +1,7 @@
 package com.example.data.local.entities
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.domain.subscription.BillingFrequency
@@ -145,6 +146,14 @@ data class SubscriptionEntity(
 
 @Entity(
     tableName = "subscription_bills",
+    foreignKeys = [
+        ForeignKey(
+            entity = SubscriptionEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["subscriptionId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
     indices = [
         Index("subscriptionId"),
         Index("dueDateIso"),
@@ -193,6 +202,20 @@ data class BillingOccurrenceEntity(
 
 @Entity(
     tableName = "subscription_payments",
+    foreignKeys = [
+        ForeignKey(
+            entity = BillingOccurrenceEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["billId"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = SubscriptionEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["subscriptionId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
     indices = [
         Index("billId"),
         Index("subscriptionId")

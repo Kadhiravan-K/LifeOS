@@ -101,7 +101,7 @@ class Release4BackupRestoreV2UnitTest {
         assertEquals(2, root.getInt("version"))
         assertEquals(2, root.getInt("formatVersion"))
         assertEquals("4.0.0", root.getString("appVersion"))
-        assertEquals(18, root.getInt("databaseVersion"))
+        assertEquals(19, root.getInt("databaseVersion"))
         assertTrue("Export must contain metadata block", root.has("metadata"))
 
         val metadata = root.getJSONObject("metadata")
