@@ -167,7 +167,7 @@ fun GamificationScreen(
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                                 Text(
-                                    text = "Hunter Ranks, XP tracking, streaks, and Reward Shop are premium perks. All core productivity tools (tasks, habits, challenges, calendar) remain 100% free.",
+                                    text = "Support LifeOS development and unlock exclusive premium perks including custom themes and bonus rewards. Includes a 7-day free trial. All core productivity tools (tasks, habits, challenges, calendar, XP earning) remain 100% free.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                                 )
@@ -179,11 +179,20 @@ fun GamificationScreen(
                             horizontalArrangement = Arrangement.End
                         ) {
                             Button(
-                                onClick = { viewModel.toggleSimulatedPremium(true) },
+                                onClick = {
+                                    if (com.example.BuildConfig.DEBUG) {
+                                        viewModel.toggleSimulatedPremium(true)
+                                    } else {
+                                        val activity = context as? android.app.Activity
+                                        if (activity != null) {
+                                            viewModel.launchSubscriptionPurchase(activity)
+                                        }
+                                    }
+                                },
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                             ) {
-                                Text("Unlock Premium", fontSize = 12.sp)
+                                Text(if (com.example.BuildConfig.DEBUG) "Unlock (Dev Mode)" else "Subscribe (7-Day Trial)", fontSize = 12.sp)
                             }
                         }
                     }

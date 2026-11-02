@@ -249,56 +249,58 @@ fun ThemeGalleryScreen(
                 }
             }
 
-            // Developer Entitlement Simulator Card
-            item {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = activeThemeDef.colors.surfaceVariant.copy(alpha = 0.7f)
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, activeThemeDef.colors.outline.copy(alpha = 0.5f)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("developer_entitlement_card")
-                ) {
-                    Row(
+            // Developer Entitlement Simulator Card (Debug builds only)
+            if (com.example.BuildConfig.DEBUG) {
+                item {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = activeThemeDef.colors.surfaceVariant.copy(alpha = 0.7f)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, activeThemeDef.colors.outline.copy(alpha = 0.5f)),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .testTag("developer_entitlement_card")
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Star,
-                                    contentDescription = null,
-                                    tint = if (isPremiumActive) Color(0xFFF59E0B) else activeThemeDef.colors.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = null,
+                                        tint = if (isPremiumActive) Color(0xFFF59E0B) else activeThemeDef.colors.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Developer Entitlement Simulator",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = activeThemeDef.colors.onSurface
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Developer Entitlement Simulator",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = activeThemeDef.colors.onSurface
+                                    text = if (isPremiumActive) "Premium themes unlocked for local testing." else "Simulate active premium entitlement to test unlock flows.",
+                                    fontSize = 11.sp,
+                                    color = activeThemeDef.colors.onSurfaceVariant
                                 )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = if (isPremiumActive) "Premium themes unlocked for local testing." else "Simulate active premium entitlement to test unlock flows.",
-                                fontSize = 11.sp,
-                                color = activeThemeDef.colors.onSurfaceVariant
+
+                            Switch(
+                                checked = isPremiumActive,
+                                onCheckedChange = { active ->
+                                    viewModel.toggleSimulatedPremium(active)
+                                },
+                                modifier = Modifier.testTag("simulate_premium_switch")
                             )
                         }
-
-                        Switch(
-                            checked = isPremiumActive,
-                            onCheckedChange = { active ->
-                                viewModel.toggleSimulatedPremium(active)
-                            },
-                            modifier = Modifier.testTag("simulate_premium_switch")
-                        )
                     }
                 }
             }
@@ -402,28 +404,52 @@ fun ThemeGalleryScreen(
                 }
             },
             text = {
+                val context = androidx.compose.ui.platform.LocalContext.current
                 Column {
                     Text(
                         text = "This theme is a Premium cosmetic enhancement. All core task, habit, and schedule features remain 100% free.",
                         fontSize = 13.sp
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "You can preview it for free anytime! To test full unlock in development mode, activate the Developer Entitlement Simulator toggle.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    if (com.example.BuildConfig.DEBUG) {
+                        Text(
+                            text = "You can preview it for free anytime! To test full unlock in development mode, activate the Developer Entitlement Simulator toggle.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Text(
+                            text = "You can preview it for free anytime, or subscribe to LifeOS Premium (monthly with a 7-day free trial) to unlock all themes.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.toggleSimulatedPremium(true)
-                        viewModel.selectTheme(lockedTheme.id)
-                        showUnlockModalForTheme = null
+                val context = androidx.compose.ui.platform.LocalContext.current
+                if (com.example.BuildConfig.DEBUG) {
+                    Button(
+                        onClick = {
+                            viewModel.toggleSimulatedPremium(true)
+                            viewModel.selectTheme(lockedTheme.id)
+                            showUnlockModalForTheme = null
+                        }
+                    ) {
+                        Text("Enable & Apply (Dev Mode)")
                     }
-                ) {
-                    Text("Enable & Apply (Dev Mode)")
+                } else {
+                    Button(
+                        onClick = {
+                            val activity = context as? android.app.Activity
+                            if (activity != null) {
+                                viewModel.launchSubscriptionPurchase(activity)
+                            }
+                            showUnlockModalForTheme = null
+                        }
+                    ) {
+                        Text("Subscribe (7-Day Trial)")
+                    }
                 }
             },
             dismissButton = {

@@ -688,6 +688,81 @@ In accordance with zero-silent-data-loss safeguards:
 - `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
 - `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (Clean debug APK artifact).
 
+---
+
+## 14. Phase P5-L1: Premium Subscription Foundation (MON-01 — Revised Owner Decision)
+
+### 14.1 Owner-Approved Commercial Model & Boundaries
+In accordance with explicit owner commercial decisions (Prompt P5-L1 Section 1):
+- **Business Model**: Free + optional Premium subscription.
+- **Billing Provider**: Google Play Billing (`com.android.billingclient:billing-ktx:7.1.1`).
+- **Subscription Cadence**: **Monthly only** (`P1M`).
+- **Free Trial**: **7 days** introductory trial.
+- **Explicitly Rejected Models**: Annual subscription (Not approved), Lifetime purchase (Not approved), One-time purchase (Not approved).
+- **Pricing & Currency Sovereignty**: Pricing and currency are owned entirely by the Google Play Console product catalog. Zero hardcoded prices or currency symbols exist in the application code.
+- **Core Free Experience**: All core productivity features—tasks, habits, challenges, calendar, reminders, medications, local backups/restore, and gamification XP earning—remain 100% free and functional.
+
+### 14.2 Architecture & Component Separation
+The subscription architecture strictly separates billing communication, purchase persistence, entitlement evaluation, and UI feature gating:
+1. **Billing Domain Models** ([`BillingModels.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/billing/BillingModels.kt)):
+   - `SubscriptionProduct`: Represents the monthly product details queried dynamically from Google Play (product ID, base plan ID, offer ID, formatted regional price, currency, micros, billing period `P1M`, and 7-day trial info).
+   - `SubscriptionPurchase`: Encapsulates Google Play purchase tokens, order IDs, purchase state, auto-renewing status, and expiry timestamps.
+   - `PurchaseState`: `UNSPECIFIED`, `PURCHASED`, `PENDING`.
+   - `BillingResultStatus`: Clean domain mapping for BillingClient response codes.
+   - `BillingConnectionState`: `DISCONNECTED`, `CONNECTING`, `CONNECTED`, `CLOSED`.
+2. **Entitlement State Machine** ([`PremiumEntitlementState.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/billing/PremiumEntitlementState.kt)):
+   - Expresses all subscription lifecycle states: `Free`, `TrialActive`, `PremiumActive`, `PendingPurchase`, `BillingUnavailable`, `Expired`, `CancelledUntilExpiry`, `GracePeriod`, `AccountHold`, and `Unknown`.
+   - Single authoritative derived property: `val isEntitled: Boolean`. Feature gates query only this state rather than querying BillingClient or raw purchase tokens directly.
+3. **Purchase Verification Contract** ([`PurchaseVerifier.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/billing/PurchaseVerifier.kt)):
+   - Defines `PurchaseVerifier` interface and `ClientSidePurchaseVerifier`.
+   - Flags client-side purchase verification boundaries: marks untrusted purchases in release builds as `UNVERIFIED_CLIENT_ONLY` / `FAILED_VERIFICATION`, isolating client code from server verification assumptions.
+4. **Billing Client Operations** ([`BillingManager.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/billing/BillingManager.kt), [`PlayBillingManager.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/billing/PlayBillingManager.kt)):
+   - Wraps Google Play BillingClient 7.x lifecycle, asynchronous connection management, automatic retries with exponential backoff, product details querying (`QueryProductDetailsParams`), purchase flow launching (`launchBillingFlow`), purchase acknowledgment (`acknowledgePurchase`), and queryPurchasesAsync token caching.
+5. **Entitlement Repository** ([`PremiumEntitlement.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/theme/engine/PremiumEntitlement.kt)):
+   - `LocalPremiumEntitlementRepository` combines Google Play purchase streams with debug verification to expose `entitlementState: Flow<PremiumEntitlementState>` and `isPremiumActive: Flow<Boolean>`.
+   - Legacy simulated toggle in Jetpack DataStore is strictly gated by `BuildConfig.DEBUG` and completely ignored in release builds.
+6. **ViewModel Exposure** ([`LifeViewModel.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/viewmodel/LifeViewModel.kt)):
+   - Exposes `entitlementState: StateFlow<PremiumEntitlementState>` and `subscriptionProduct: StateFlow<SubscriptionProduct?>`.
+   - Dispatches `launchSubscriptionPurchase(activity)` and `restoreSubscriptionPurchases()`.
+   - Enforces `if (!BuildConfig.DEBUG) return` on `toggleSimulatedPremium`.
+
+### 14.3 Removal of Production Developer Simulator & UI Hardening
+- **Theme Gallery Screen** ([`ThemeGalleryScreen.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/screens/themes/ThemeGalleryScreen.kt)):
+  - The "Developer Entitlement Simulator" toggle card is enclosed in `if (com.example.BuildConfig.DEBUG) { ... }`, ensuring it is never rendered in release builds.
+  - The Theme Unlock modal displays "Enable & Apply (Dev Mode)" only in debug builds; in release builds, it presents "Subscribe (7-Day Trial)" launching Google Play Billing flow.
+- **Gamification Screen** ([`GamificationScreen.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/screens/gamification/GamificationScreen.kt)):
+  - Removed misleading banner claiming core XP, streaks, and Hunter Ranks were locked.
+  - Restored XP and coin awards in `LifeRepository.awardXpAndCoins` for all users without entitlement gating.
+  - Subscription banner describes optional Premium perks (custom themes, bonus cosmetic rewards) with a 7-day free trial; unlock button launches `launchSubscriptionPurchase(activity)` in release builds.
+
+### 14.4 Google Play Console Configuration Specification
+To deploy the subscription offer to production, configure the following in Google Play Console:
+1. **Product ID**: `lifeos_premium_monthly`
+2. **Base Plan ID**: `monthly-plan`
+   - Type: Auto-renewing
+   - Billing period: 1 Month (`P1M`)
+   - Renewal type: Automatic renewal
+3. **Offer ID**: `7-day-free-trial`
+   - Eligibility: New customer acquisition (once per user account)
+   - Phase 1: Free trial, duration: 7 days (`P7D`)
+   - Phase 2: Recurring monthly price at regional Play Console rates
+4. **Grace Period**: 7 days enabled.
+5. **Account Hold**: Enabled (up to 30 days while user resolves declined payment methods).
+
+### 14.5 Architecture Boundary & Remote Verification Decision
+- **Current Offline-First Baseline**: LifeOS does not possess a backend server, database, or identity provider.
+- **Security Boundary**: In client-only environments, Google Play Billing purchase tokens returned to the Android client cannot be cryptographically verified against Google's private signing servers without a server-side component holding Google Cloud credentials.
+- **Owner Architecture Recommendation**:
+  - Phase 1 (Current): Client-side integration using Google Play Billing Library 7.x with local purchase caching, token acknowledgment, and `BuildConfig.DEBUG`-gated simulator removal.
+  - Phase 2 (Optional Cloud Verification): Deploy a lightweight Firebase Cloud Function or Google Cloud Run service with a Service Account authorized for the Google Play Android Developer API (`purchases.subscriptionsv2.get`), coupled with Google Cloud Pub/Sub Real-time Developer Notifications (RTDN) for instantaneous subscription lifecycle updates.
+
+### 14.6 Quality Gate Status
+- `.\gradlew.bat testDebugUnitTest --tests "com.example.billing.PremiumEntitlementUnitTest"`: **PASSED** (14/14 tests, 0 failures, 0 errors).
+- `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (Full unit test suite passing).
+- `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
+- `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (Clean debug APK artifact).
+
+
 
 
 

@@ -2224,9 +2224,6 @@ class LifeRepository(
     }
 
     suspend fun awardXpAndCoins(eventKey: String, xp: Int, coins: Int, description: String): Boolean {
-        if (entitlementRepo != null && !entitlementRepo.isPremiumActive.first()) {
-            return false
-        }
         val existing = gamificationDao.getXpEvent(eventKey)
         if (existing != null) return false
 

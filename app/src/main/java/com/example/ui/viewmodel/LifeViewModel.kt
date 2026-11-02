@@ -1,6 +1,7 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
+import android.app.Activity
 import android.content.Context
 import java.util.Locale
 import androidx.lifecycle.AndroidViewModel
@@ -63,6 +64,10 @@ import com.example.ui.theme.engine.CustomColorPalette
 import com.example.ui.theme.engine.IndependentThemeCustomization
 import com.example.ui.theme.engine.PremiumEntitlementRepository
 import com.example.ui.theme.engine.LocalPremiumEntitlementRepository
+import com.example.BuildConfig
+import com.example.billing.BillingResultStatus
+import com.example.billing.PremiumEntitlementState
+import com.example.billing.SubscriptionProduct
 import com.example.domain.model.PlanItem
 import com.example.domain.model.PlanLevel
 import com.example.domain.model.PlanMilestone
@@ -585,6 +590,15 @@ class LifeViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = false
     )
+
+    val entitlementState: StateFlow<PremiumEntitlementState> = entitlementRepo.entitlementState.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = PremiumEntitlementState.Free
+    )
+
+    val subscriptionProduct: StateFlow<SubscriptionProduct?> =
+        entitlementRepo.billingManager?.subscriptionProduct ?: MutableStateFlow(null)
 
     private val _previewThemeId = MutableStateFlow<ThemeId?>(null)
     val previewThemeId: StateFlow<ThemeId?> = _previewThemeId.asStateFlow()
@@ -2162,7 +2176,22 @@ class LifeViewModel(
         _previewThemeId.value = null
     }
 
+    fun launchSubscriptionPurchase(activity: Activity, onResult: (BillingResultStatus) -> Unit = {}) {
+        viewModelScope.launch {
+            val result = entitlementRepo.billingManager?.launchPurchaseFlow(activity) ?: BillingResultStatus.SERVICE_UNAVAILABLE
+            onResult(result)
+        }
+    }
+
+    fun restoreSubscriptionPurchases(onResult: (BillingResultStatus) -> Unit = {}) {
+        viewModelScope.launch {
+            val result = entitlementRepo.billingManager?.restorePurchases() ?: BillingResultStatus.SERVICE_UNAVAILABLE
+            onResult(result)
+        }
+    }
+
     fun toggleSimulatedPremium(active: Boolean) {
+        if (!BuildConfig.DEBUG) return
         viewModelScope.launch {
             entitlementRepo.setSimulatedPremium(active)
         }

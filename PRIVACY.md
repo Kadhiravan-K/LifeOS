@@ -30,7 +30,12 @@ LifeOS allows you to manually export your data as a JSON file. This backup file 
 ### 5. Notifications & Alarms
 LifeOS uses the device's native `AlarmManager` and `NotificationManager` to deliver local reminders. These reminders are processed entirely on-device and do not pass through Firebase Cloud Messaging (FCM) or any push notification servers.
 
-### 6. Children's Privacy
+### 6. Subscriptions and Google Play Billing
+LifeOS offers an optional monthly Premium subscription processed exclusively through Google Play Billing.
+- **Local App Architecture**: LifeOS does not operate any remote servers, user databases, or third-party analytics trackers. Your personal productivity data (tasks, habits, notes, calendar, backups) is never transmitted to Google Play or any external service.
+- **Billing Processing**: When you subscribe or restore purchases, billing transactions and receipt validation are processed directly through the official Google Play Store application on your device under Google's Privacy Policy and Terms of Service. LifeOS accesses subscription status via Google Play's standard on-device client API.
+
+### 7. Children's Privacy
 Because LifeOS collects no personal information whatsoever, it complies with the Children's Online Privacy Protection Act (COPPA) and similar global data protection regulations.
 
 ---

@@ -4,7 +4,16 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.BuildConfig
+import com.example.billing.BillingManager
+import com.example.billing.ClientSidePurchaseVerifier
+import com.example.billing.PlayBillingManager
+import com.example.billing.PremiumEntitlementState
+import com.example.billing.PurchaseState
+import com.example.billing.PurchaseVerificationStatus
+import com.example.billing.PurchaseVerifier
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 private val Context.entitlementDataStore by preferencesDataStore(name = "lifeos_premium_entitlement")
@@ -15,25 +24,89 @@ private val Context.entitlementDataStore by preferencesDataStore(name = "lifeos_
  * Premium access is strictly cosmetic (themes, particle animations, custom engravings).
  */
 interface PremiumEntitlementRepository {
+    val entitlementState: Flow<PremiumEntitlementState>
     val isPremiumActive: Flow<Boolean>
+    val billingManager: BillingManager?
     suspend fun setSimulatedPremium(active: Boolean)
     fun isThemeUnlocked(themeId: ThemeId, isPremiumActive: Boolean): Boolean
 }
 
 class LocalPremiumEntitlementRepository(
-    private val context: Context
+    private val context: Context,
+    override val billingManager: BillingManager? = PlayBillingManager(context.applicationContext),
+    private val purchaseVerifier: PurchaseVerifier = ClientSidePurchaseVerifier(BuildConfig.DEBUG)
 ) : PremiumEntitlementRepository {
 
     companion object {
-        private val KEY_SIMULATED_PREMIUM = booleanPreferencesKey("simulated_developer_premium")
+        // Legacy simulated key: kept purely for debug testing; strictly ignored in release builds.
+        val KEY_SIMULATED_PREMIUM = booleanPreferencesKey("simulated_developer_premium")
     }
 
-    override val isPremiumActive: Flow<Boolean> = context.entitlementDataStore.data.map { prefs ->
-        // In local development simulator mode, reads local simulated toggle.
-        prefs[KEY_SIMULATED_PREMIUM] ?: false
+    private val simulatedPremiumFlow: Flow<Boolean> = context.entitlementDataStore.data.map { prefs ->
+        if (BuildConfig.DEBUG) {
+            prefs[KEY_SIMULATED_PREMIUM] ?: false
+        } else {
+            // CRITICAL: Production release builds NEVER trust a local simulated DataStore flag.
+            false
+        }
     }
+
+    override val entitlementState: Flow<PremiumEntitlementState> = if (billingManager != null) {
+        combine(billingManager.subscriptionPurchase, simulatedPremiumFlow) { purchase, simulatedDebug ->
+            if (BuildConfig.DEBUG && simulatedDebug) {
+                return@combine PremiumEntitlementState.PremiumActive(
+                    expiryTimeMillis = Long.MAX_VALUE,
+                    isAutoRenewing = true
+                )
+            }
+
+            if (purchase == null) {
+                return@combine PremiumEntitlementState.Free
+            }
+
+            when (purchase.purchaseState) {
+                PurchaseState.PENDING -> PremiumEntitlementState.PendingPurchase
+                PurchaseState.PURCHASED -> {
+                    val verification = purchaseVerifier.verifyPurchase(purchase)
+                    if (verification == PurchaseVerificationStatus.FAILED_VERIFICATION) {
+                        PremiumEntitlementState.Free
+                    } else {
+                        val now = System.currentTimeMillis()
+                        val expiry = purchase.expiryTimeMillis ?: (purchase.purchaseTimeMillis + 30L * 24 * 60 * 60 * 1000)
+                        if (now > expiry) {
+                            PremiumEntitlementState.Expired(expiry)
+                        } else if (!purchase.isAutoRenewing) {
+                            PremiumEntitlementState.CancelledUntilExpiry(expiry)
+                        } else {
+                            val trialWindowMillis = 7L * 24 * 60 * 60 * 1000
+                            if (now < purchase.purchaseTimeMillis + trialWindowMillis) {
+                                val remainingDays = (((purchase.purchaseTimeMillis + trialWindowMillis) - now) / (24 * 60 * 60 * 1000)).toInt() + 1
+                                PremiumEntitlementState.TrialActive(purchase.purchaseTimeMillis + trialWindowMillis, remainingDays)
+                            } else {
+                                PremiumEntitlementState.PremiumActive(expiry, isAutoRenewing = true)
+                            }
+                        }
+                    }
+                }
+                else -> PremiumEntitlementState.Free
+            }
+        }
+    } else {
+        simulatedPremiumFlow.map { simulated ->
+            if (BuildConfig.DEBUG && simulated) {
+                PremiumEntitlementState.PremiumActive(Long.MAX_VALUE, true)
+            } else {
+                PremiumEntitlementState.Free
+            }
+        }
+    }
+
+    override val isPremiumActive: Flow<Boolean> = entitlementState.map { it.isEntitled }
 
     override suspend fun setSimulatedPremium(active: Boolean) {
+        // Enforce security safeguard: simulated toggle can ONLY be modified in debug builds.
+        if (!BuildConfig.DEBUG) return
+
         context.entitlementDataStore.edit { prefs ->
             prefs[KEY_SIMULATED_PREMIUM] = active
         }
@@ -42,7 +115,7 @@ class LocalPremiumEntitlementRepository(
     override fun isThemeUnlocked(themeId: ThemeId, isPremiumActive: Boolean): Boolean {
         // Free theme is always unlocked for everyone.
         if (!themeId.isPremium) return true
-        // Premium themes are unlocked when user has active entitlement (or developer simulation).
+        // Premium themes are unlocked when user has active entitlement.
         return isPremiumActive
     }
 }
