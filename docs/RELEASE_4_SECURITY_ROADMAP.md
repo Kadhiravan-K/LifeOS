@@ -762,6 +762,110 @@ To deploy the subscription offer to production, configure the following in Googl
 - `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
 - `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (Clean debug APK artifact).
 
+---
+
+## 15. Phase P5-L2: Free vs Premium Feature Definition and Entitlement Mapping
+
+### 15.1 Preflight & Dependency Baseline Verification
+- **Branch**: `feat/release4-security-audit-remediation`.
+- **Preceding Commit**: `2405ab54602b6d110ec678216c05c1b110d32294` (P5-L1 implementation pushed and synchronized).
+- **Tag Baseline**: Tag `v3.0.0` points to commit `2233a958a23194e5461bea4c76d4b69b99ad3147` (unchanged).
+- **P5-L1 Entitlement Contract**:
+  - `PremiumEntitlementState` sealed hierarchy verified (`Free`, `TrialActive`, `PremiumActive`, `PendingPurchase`, `BillingUnavailable`, `Expired`, `CancelledUntilExpiry`, `GracePeriod`, `AccountHold`, `Unknown`).
+  - Derived property `isEntitled: Boolean` verified.
+  - `BillingManager` & `PlayBillingManager` lifecycle abstraction verified.
+  - Client-side security verification boundary isolated in `PurchaseVerifier.kt`.
+  - Debug simulator toggle isolated behind `BuildConfig.DEBUG` in UI and DataStore.
+
+### 15.2 Source-Audited Feature Inventory (13 Categories)
+
+A comprehensive audit of the production codebase was conducted across all functional domains:
+
+| # | Feature Area | Existing Implementation & Capabilities | Current Access Behaviour | Relevant Source & Screen Files | Data Dependencies | Usability Impact | Tests Protecting Feature |
+|---|---|---|---|---|---|---|---|
+| 1 | **Core Tasks & Execution** | Task CRUD, subtasks, priorities (Low/Med/High/Urgent), due dates, recurrence rules, bulk delete, search, filters. | 100% Free for all users. | `TasksScreen.kt`, `TaskAdvancedEditorSheet.kt`, `TaskQuickAddSheet.kt`, `TaskDao.kt`, `LifeRepository.kt` | `tasks`, `subtasks`, `task_label_cross_ref`, `task_reminders` | **Essential** | `LifeRepositoryTransactionUnitTest.kt`, `Batch02TasksCalendarRegressionUnitTest.kt` |
+| 2 | **Projects & Workspaces** | Project creation, color tagging, custom statuses, custom properties (Text, Number, Date, Checkbox), workspace views (List, Board, Matrix). | 100% Free for all users. | `ProjectWorkspaceScreen.kt`, `ProjectDao.kt`, `ProjectCustomPropertyDao.kt` | `projects`, `project_workspaces`, `project_custom_properties` | **Essential** | `LifeOSDomainUnitTest.kt`, `Release3Phase2Batch02AUnitTest.kt` |
+| 3 | **Reminders & Alarms** | Exact alarms (`SCHEDULE_EXACT_ALARM`), relative offsets (e.g. -15m), custom times, daily summaries, notification health screen, boot reschedule. | 100% Free for all users. | `ReminderScheduler.kt`, `ReminderReceiver.kt`, `BootRescheduleReceiver.kt`, `ReminderHealthScreen.kt` | `task_reminders`, `AlarmManager`, `NotificationManager` | **Essential** | `ReminderSchedulerUnitTest.kt`, `ReminderHealthStateUnitTest.kt`, `BootRescheduleReceiverUnitTest.kt` |
+| 4 | **Habits & Routines** | Habit creation, frequency/cadence, streak tracking, daily check-ins, completion heatmaps, best streak calculation. | 100% Free for all users. | `HabitsScreen.kt`, `HabitEditorSheet.kt`, `HabitDao.kt` | `habits`, `habit_logs` | **Essential** | `Release3Phase10ManualAndStreakUnitTest.kt` |
+| 5 | **Calendar & Scheduling** | Day/Week/Month/Agenda views, event scheduling, recurrence calculation (`RecurrenceEngine`), conflict detection (`ScheduleConflictEngine`). | 100% Free for all users. | `CalendarScreen.kt`, `RecurrenceEngine.kt`, `ScheduleConflictEngine.kt` | `tasks`, `calendar_events` | **Essential** | `RecurrenceEngineWeeklyAlignmentUnitTest.kt`, `DateUtilsParityUnitTest.kt` |
+| 6 | **Medications & Health** | Medication profiles, dosage forms, schedule times, dose logging, snooze, adherence calculation. | 100% Free for all users. | `MedicationsScreen.kt`, `MedicationEditorSheet.kt`, `MedicationScheduler.kt`, `MedicationDao.kt` | `medications`, `medication_doses` | **Essential** | `MedicationScheduleParityUnitTest.kt` |
+| 7 | **Subscriptions & Usage Trackers** | Personal bill tracking, anchor day preservation, expected bills, payment history, odometer/meter logs, CSV export, PDF report export. | Full tracking & CSV are Free. PDF export displays decorative `PRO` badge (`TrackersSubscriptionsScreen.kt:285`), but click execution is currently unblocked. | `TrackersSubscriptionsScreen.kt`, `SubscriptionDetailScreen.kt`, `EssentialsExportHelper.kt` | `subscriptions`, `subscription_bills`, `subscription_payments`, `trackers`, `tracker_cycles` | **Core Tracking Essential; PDF Report Optional** | `SubscriptionUnitTest.kt`, `TrackerUnitTest.kt` |
+| 8 | **Gamification & Rewards** | Hunter Rank progression (E to S-Rank), XP earning per task/habit, level up dialogs, coin accrual, custom Reward Shop. | XP & Ranks are 100% Free. Reward Shop item creation (`+` FAB) checks `!isPremiumActive` (`GamificationScreen.kt:93, 103`) showing Toast. | `GamificationScreen.kt`, `GamificationEngine.kt`, `RewardDao.kt`, `ProfileDao.kt` | `profile`, `rewards` | **XP Core Essential; Custom Rewards Optional** | `Release3Phase10ManualAndStreakUnitTest.kt`, `PremiumEntitlementUnitTest.kt` |
+| 9 | **Analytics & Radar** | 5-dimension Productivity Radar (Execution, Consistency, Velocity, Focus, Balance), 30-day heatmap, task breakdown by Priority, Project, Label, Category. | 100% Free for all users. | `AnalyticsScreen.kt`, `ProductivityRadarChart.kt`, `ProductivityRadarEngine.kt` | `tasks`, `habits`, `productivity_snapshots` | **Essential** | `ProductivityRadarEngineUnitTest.kt`, `ProductivityRadarWidgetUnitTest.kt` |
+| 10 | **Themes & Aesthetics** | Handcrafted complete visual environments with custom typography, shapes, shaders, and animations. 14 total themes: Genesis (Free) + 13 Premium themes. | `ThemeId.GENESIS` is Free. Free users can preview all 13 themes anytime; applying premium themes prompts upgrade dialog. | `ThemeGalleryScreen.kt`, `ThemeRegistry.kt`, `ThemeDefinition.kt`, `PremiumEntitlement.kt` | `user_preferences` DataStore | **Cosmetic Enhancement** | `PremiumEntitlementUnitTest.kt`, `Batch03SettingsWidgetRegressionUnitTest.kt` |
+| 11 | **Local Backup & Restore** | Complete database export to JSON v2 via Android SAF, plaintext/encrypted, full database restoration with foreign key integrity validation. | 100% Free for all users. | `BackupRestoreScreen.kt`, `BackupManager.kt` | All 40 Room entities | **Essential (Data Ownership)** | `Release4BackupRestoreV2UnitTest.kt`, `Release3BackupRestoreUnitTest.kt` |
+| 12 | **Widgets & System Automation** | Quick Reminders Glance widget, Productivity Radar AppWidget, Honeycomb launcher shortcuts, maintenance worker cleanup, boot reschedule. | 100% Free for all users. | `QuickRemindersWidgetProvider.kt`, `ProductivityRadarWidgetProvider.kt`, `MaintenanceWorker.kt` | `app_widgets`, `honeycomb_shortcuts` | **Essential** | `WidgetStabilizationUnitTest.kt`, `ProductivityRadarWidgetUnitTest.kt` |
+| 13 | **Local MCP Server** | Local Model Context Protocol server over HTTP/WebSocket, local tool execution (read tasks, create tasks, read calendar), audit logging. | 100% Free for local testing. | `McpServerScreen.kt`, `McpServerService.kt`, `McpToolDefinition.kt` | `mcp_servers`, `mcp_audit_logs` | **Advanced / Developer Utility** | `Release3Phase9McpUnitTest.kt` |
+
+---
+
+### 15.3 Proposed Commercial Feature Decision Matrix
+
+The following matrix represents the recommended commercial boundary for owner review and approval:
+
+| Feature Item | Existing Behaviour | Proposed Tier | User Value | Technical Impact | Owner Decision |
+|---|---|---|---|---|---|
+| **Core Task & Habit Management** | Unrestricted | **Free** | Core productivity and habit discipline. | No changes. Zero gating. | **Recommended: Free** |
+| **Alarms, Reminders & Health Screen** | Unrestricted | **Free** | On-time notifications, medication safety, exact alarm diagnosis. | No changes. Zero gating. | **Recommended: Free** |
+| **Calendar, Events & Recurrence** | Unrestricted | **Free** | Schedule planning, day/week/month views, recurrence engine. | No changes. Zero gating. | **Recommended: Free** |
+| **Local Backup & Restore (v1 & v2)** | Unrestricted | **Free** | Total data sovereignty, migration, and safekeeping. | No changes. Zero gating. | **Recommended: Free** |
+| **Hunter Rank & XP Gamification** | Unrestricted | **Free** | Motivation, progress tracking, level progression. | No changes. XP earning free for all. | **Recommended: Free** |
+| **All App Widgets & Shortcuts** | Unrestricted | **Free** | Glanceable quick access from device home screen. | No changes. Zero gating. | **Recommended: Free** |
+| **Basic Analytics (Radar & Breakdown)** | Unrestricted | **Free** | Visual insight into productivity trends and categories. | No changes. Zero gating. | **Recommended: Free** |
+| **Default Genesis Theme (Dark & Light)** | Unrestricted | **Free** | Clean, accessible default theme environment. | No changes. Zero gating. | **Recommended: Free** |
+| **Theme Previews (All 13 Premium Themes)** | Unrestricted | **Free** | Risk-free interactive preview of any theme before subscribing. | No changes. Free preview retained. | **Recommended: Free** |
+| **Premium Theme Application (13 Themes)** | Gated in UI | **Premium** | Full aesthetic personalization (Cyberpunk, Retro, Sakura, etc.). | Enforced via `viewModel.isThemeUnlocked`. | **Recommended: Premium** |
+| **Custom Rewards Shop Item Creation** | Gated in UI | **Premium** | Ability to add personalized custom rewards funded by earned coins. | Enforced via `isPremiumActive` on FAB. | **Recommended: Premium** |
+| **PDF Analytical & Tracking Reports** | UI badge only | **Premium** | Formal formatted PDF export documents for trackers/subscriptions. | Gate PDF generation; keep CSV export 100% Free. | **Pending Owner Approval** |
+| **Multi-Period Historical Analytics Comparison** | Unrestricted | **Premium** | Deep comparative analytics across multiple months/quarters. | Optional future analytics enhancement. | **Pending Owner Approval** |
+| **Advanced External MCP Automation / AI** | Unrestricted local | **Future Premium** | External agent / LLM integration and cloud sync. | Separate privacy & infra approval required. | **Deferred to Future Phase** |
+
+---
+
+### 15.4 Impact Analysis of Proposed Premium Boundaries
+
+#### 1. Premium Themes (13 Environments)
+- **What Free Users Retain**: Default Genesis Theme (Dark and Light modes), full unconstrained interactive preview of all 13 premium themes anytime.
+- **What Premium Users Gain**: Ability to persist and apply any of the 13 handcrafted theme environments across the entire application and launcher.
+- **Data Accessibility**: Theme selections are stored in DataStore (`active_theme_id`). If a user's subscription expires while a premium theme was active, the application gracefully falls back to Genesis without crashing or altering any user productivity data.
+- **Backup & Restore Impact**: None. Backups record the theme ID string; restoring onto a Free device defaults to Genesis until re-subscribed.
+- **Schema & Migration Impact**: None (0 database changes).
+- **Privacy & Network Impact**: None (all theme assets are compiled locally on-device).
+
+#### 2. Custom Rewards Shop Creation
+- **What Free Users Retain**: Full XP earning, coin accrual, Hunter Rank leveling, and viewing earned rewards.
+- **What Premium Users Gain**: Ability to define custom real-world reward items (e.g. "Buy Espresso", "Gaming Night") and redeem them with earned coins.
+- **Data Accessibility**: If a user creates rewards during a 7-day trial and the subscription expires, existing rewards remain visible and redeemable in SQLite; only adding *new* rewards requires an active subscription.
+- **Backup & Restore Impact**: None. All reward entities in SQLite are fully backed up and restored for all users.
+- **Schema & Migration Impact**: None.
+- **Privacy & Network Impact**: None.
+
+#### 3. Formal PDF Export Reports (Trackers & Subscriptions)
+- **What Free Users Retain**: Full CSV export of all subscriptions, payment logs, trackers, and usage entries without limits.
+- **What Premium Users Gain**: Formatted, styled PDF document generation with summary cards and charts suitable for printing or filing.
+- **Data Accessibility**: Raw data is always 100% exportable via CSV and JSON v2 backup.
+- **Backup & Restore Impact**: None.
+- **Schema & Migration Impact**: None.
+- **Privacy & Network Impact**: None (PDFs generated on-device via Android `PdfDocument`).
+
+---
+
+### 15.5 Data Preservation & Non-Destructive Downgrade Guarantees
+
+In accordance with Section 8 of Prompt P5-L2:
+1. **Zero Data Deletion on Expiry**: When a user's subscription or 7-day trial expires, no user-created data (tasks, habits, projects, notes, tracker entries, coins, rewards, or backup files) will ever be deleted or corrupted.
+2. **Graceful Fallback**: If an expired user was using a Premium theme, the UI smoothly reverts to the Genesis default theme upon next launch.
+3. **Unrestricted Portability**: Full JSON backup and restore remains 100% available to Free users at all times.
+
+---
+
+### 15.6 Critical Stop Condition Compliance
+In accordance with Prompt P5-L2 Section 13:
+> *Critical stop condition: If the owner has not approved the proposed feature matrix, deliver the inventory and recommendations only. Do not implement paywalls or remove functionality.*
+
+Implementation of proposed restrictions (such as gating PDF report exports or multi-period comparison) is paused pending formal owner review and sign-off on the Decision Matrix above.
+
+
 
 
 
