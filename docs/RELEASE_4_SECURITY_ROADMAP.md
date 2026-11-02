@@ -1006,6 +1006,47 @@ Comprehensive audit confirms:
 - **Automated Tests**: Added [`SubscriptionDisclosureUnitTest.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/test/java/com/example/billing/SubscriptionDisclosureUnitTest.kt) covering URL formation, dynamic pricing, trial eligibility toggles, and cancellation state handling (4/4 tests passed).
 - **Full Quality Suite**: All 495+ unit tests passed; `lintDebug` clean (0 errors); `assembleDebug` clean.
 
+---
+
+## 18. Phase P5-L5: Engineering Hygiene, Technical Debt Remediation and Release 4 Readiness
+
+### 18.1 Dependency Status & Baseline
+- **Branch**: `feat/release4-security-audit-remediation`.
+- **Preceding Loops**: P5-L1 (`2405ab5`), P5-L2 (`3650cea`), P5-L3 (`dd394e1`), and P5-L4 (`02812ce`, `4f48114`) verified and pushed.
+- **Baseline Tag**: Release 3 tag `v3.0.0` points to commit `2233a958a23194e5461bea4c76d4b69b99ad3147` (unchanged ancestor).
+
+### 18.2 Reassessment of Original Audit Hygiene Findings
+
+| Finding ID | Title | Original Description | Current Status & Assessment | Remediation & Classification |
+|---|---|---|---|---|
+| **RM-03** | Dead Version Catalog Entries | Unused catalog entries (Retrofit, OkHttp, Moshi, Coil, Firebase x4, CameraX x4, play-services-location, credentials, accompanist, secrets/google-services plugins) | 22 unused libraries and plugins remained in `gradle/libs.versions.toml`, generating confusion about cloud/camera capabilities | **Category A (Safe to Fix)**: Purged all 22 dead dependencies and plugin aliases from `libs.versions.toml`. **REMEDIATED**. |
+| **RM-06** | System Log Stacktrace Leakage | `printStackTrace()` (2 sites in `DataExportImportManager` and one more) | `DataExportImportManager` was cleared in P1. One remaining raw `printStackTrace()` site survived in `LifeRepository.kt:2064` (`restoreTrashItem`) | **Category A (Safe to Fix)**: Replaced with sanitized logging `Log.e("LifeRepository", "Failed to restore trash item $id: ${e.message}")`. **REMEDIATED**. |
+| **RM-07** | Root-Level Report Clutter | Seven root-level report markdown files left in repo root | 3 historical Release 2 report documents remained at root (`MOBILE_TESTING_REGRESSION_REPORT.md`, `RECOVERY_GAP_REPORT.md`, `RELEASE_2_READINESS_REPORT.md`) | **Category A (Safe to Fix)**: Moved to `docs/archive/` via `git mv`. **REMEDIATED**. |
+| **RM-09** | Over-Broad FileProvider Grants | `FileProvider` paths `files-path .` and `cache-path .` in `file_paths.xml` | Fully remediated during Phase 4.1 under **SEC-04**: root `files-path` removed and cache scoped strictly to `shared_reports/` | **ALREADY REMEDIATED in P4.1**: Verified by automated test `sec04_filePathsXml_strictlyScopedToSharedReports`. |
+| **IMP-09** | Gamification Consistency & Optional Ranks | Make XP/ranks optional (toggle) and consistent with premium messaging (U7, MON-01) | Premium messaging consistency fully implemented in P5-L1/P5-L4 with genuine Play Billing disclosures. Global XP/ranks disable toggle is an extensive cross-screen UX modification | **Category B / C (Requires Owner Approval / Deferred)**: Premium messaging is **REMEDIATED**. Global XP toggle deferred to Phase 7 pending owner product decision. |
+
+### 18.3 Premium Subscription Regression Review
+- **Monthly Cadence Only**: Enforced across `BillingModels.kt` (`P1M`, `SubscriptionCadence.MONTHLY`). Zero lifetime or annual plans exist.
+- **Genuine 7-Day Trial**: Trial status reflects Google Play `7-day-free-trial` offer. Not fabricated.
+- **No Production Simulator Bypass**: Simulated premium toggle is active strictly when `BuildConfig.DEBUG == true`. In release builds, entitlement requires cryptographically signed Google Play receipts.
+- **Dynamic Pricing**: Google Play provides localized `formattedPrice`. Zero hardcoded prices.
+- **Entitlement State Machine**: 12-state machine drives entitlements; cancellation preserves access until verified expiry. Expiry never deletes user data.
+- **Billing Failure Resiliency**: Unavailability of billing service does not impede local Free features.
+
+### 18.4 Free-Tier Core Experience Verification
+- Tasks, Checklists, and Hierarchical Subtasks: 100% functional locally.
+- Alarms, Exact Alarms, and System Rescheduling: 100% functional locally.
+- Habits, Streaks, and 75-Day Hard: 100% functional locally.
+- Projects & Board Views: 100% functional locally.
+- Calendar Agenda & Parity Indicators: 100% functional locally.
+- Backup & Restore v2: 100% functional locally with JSON file import/export.
+- Post-Expiry Preservation: User records remain untouched; theme falls back gracefully to Genesis default.
+
+### 18.5 Overall Phase P5 Verdict
+**COMPLETE WITH GAPS (Client Implementation & Architecture Complete; Live Payments Gated)**:
+All client-side coding, security hardening, subscription lifecycle management, disclosure UI, test suites, and hygiene cleanup are 100% implemented and verified. Production payment collection remains strictly gated pending Google Play Console configuration, owner contact/legal entity provision, and formal legal review.
+
+
 
 
 

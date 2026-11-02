@@ -2061,7 +2061,7 @@ class LifeRepository(
             trashDao.deleteTrashItemById(id)
             return true
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("LifeRepository", "Failed to restore trash item $id: ${e.message}")
             return false
         }
     }
