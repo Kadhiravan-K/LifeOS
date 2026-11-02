@@ -245,3 +245,38 @@ All verification gates were executed against HEAD commit `1d5ff51dc96fcec971ffa7
 1. **Static Analysis & Unit Test Boundary**: This assessment is based on static source analysis and JVM unit/migration tests. Physical on-device performance profiling (e.g. Android Studio Memory Profiler, Macrobenchmark startup tracing) was not performed due to the lack of an attached physical test device.
 2. **Live Google Play Sandbox Testing**: End-to-end purchase and trial renewal testing with Google Play Billing requires the repository owner to configure the subscription in Play Console and test via license-tester Google accounts.
 3. **No Unapproved Source Modifications**: In accordance with the prompt objective, zero application source files were altered during this assessment phase.
+
+---
+
+## 8. Post-Assessment Execution: Phase P7-A1 LifeRepository Decomposition
+
+### 8.1 Extracted Domain & Selection Rationale
+- **Extracted Domain**: **Subscriptions & Recurring Billing** (`SubscriptionRepository.kt`).
+- **Selection Rationale**:
+  - Lowest cross-domain coupling in `LifeRepository.kt`. The subscription domain models (`SubscriptionEntity`, `BillingOccurrenceEntity`, `SubscriptionPaymentEntity`, `PriceHistoryEntity`) interact exclusively with `SubscriptionDao` and `SubscriptionScheduleEngine`.
+  - Zero incoming dependencies from Tasks, Habits, Challenges, Water Logging, Gamification, or Medications.
+  - Multi-table transactional consistency (`insertSubscription` with initial bill, `recordBillPayment` with bill status transition, `updateSubscriptionPrice` with price audit trail) could be cleanly encapsulated without risking core task management flows.
+
+### 8.2 New Repository Responsibilities ([`SubscriptionRepository.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/data/repository/SubscriptionRepository.kt))
+- **CRUD Operations**: `allSubscriptionsFlow`, `activeSubscriptionsFlow`, `getSubscriptionById`, `insertSubscription`, `updateSubscription`, `setSubscriptionStatus`, `deleteSubscription`.
+- **Bill Management**: `allBillsFlow`, `getBillsForSubscriptionFlow`, `insertBill`, `updateBill`, `deleteBill`.
+- **Payment Processing**: `getPaymentsForBillFlow`, `getPaymentsForSubscriptionFlow`, `recordBillPayment`.
+- **Price History Auditing**: `getPriceHistoryFlow`, `updateSubscriptionPrice`.
+- **Profile & Project Isolation**: `deleteAllSubscriptionsForProfile`, `unassignSubscriptionsFromProject`.
+- **Threading & Transactions**: All mutating operations dispatched safely on `Dispatchers.IO` and wrapped in `database.withTransaction`.
+
+### 8.3 Remaining `LifeRepository` Responsibilities & Compatibility Facade
+- `LifeRepository` retains 14 domains (Profiles, Project Workspace, Tasks/Checklists, Habits, 75-Day Challenge, Water Logging, Templates & Routine Installation, Honeycomb Shortcuts, Trash Bin, Planning, Gamification, Medications, Smart Trackers, MCP & Glossary).
+- `LifeRepository` retains 100% backward-compatible public subscription signatures (`allSubscriptionsFlow`, `insertSubscription`, etc.) implemented via pure delegation to `subscriptionRepository`.
+- `subscriptionDao` reference was completely removed from `LifeRepository.kt`, reducing its size and direct DAO dependencies.
+- Zero breaking changes to `LifeViewModel.kt`, UI screens, or background receivers.
+
+### 8.4 Verification & Quality Gates
+- **Targeted Unit Tests**: Added [`SubscriptionRepositoryUnitTest.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/test/java/com/example/data/repository/SubscriptionRepositoryUnitTest.kt) testing standalone repository operations, facade delegation parity, atomic payment processing, and cascade deletions (5/5 tests passed).
+- **Full Unit Test Suite**: `.\gradlew.bat testDebugUnitTest` — **BUILD SUCCESSFUL** (500+ unit tests passing).
+- **Static Analysis (Lint)**: `.\gradlew.bat lintDebug` — **BUILD SUCCESSFUL** (0 errors).
+- **Build Assembly**: `.\gradlew.bat assembleDebug` — **BUILD SUCCESSFUL** (Clean APK artifact).
+
+### 8.5 Remaining Coupling & Follow-Up Work
+- Next recommended extractions: `TrackerRepository` (inventory trackers) and `MedicationRepository` (doses, schedules, medicine alarms).
+

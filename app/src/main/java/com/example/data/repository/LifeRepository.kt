@@ -121,7 +121,8 @@ import com.example.ui.theme.engine.PremiumEntitlementRepository
 class LifeRepository(
     private val database: AppDatabase,
     private val preferences: UserPreferences,
-    private val entitlementRepo: PremiumEntitlementRepository? = null
+    private val entitlementRepo: PremiumEntitlementRepository? = null,
+    val subscriptionRepository: SubscriptionRepository = SubscriptionRepository(database, preferences)
 ) {
     private val profileDao = database.profileDao()
     private val taskDao = database.taskDao()
@@ -136,7 +137,6 @@ class LifeRepository(
     private val planDao = database.planDao()
     private val gamificationDao = database.gamificationDao()
     private val trackerDao = database.trackerDao()
-    private val subscriptionDao = database.subscriptionDao()
     private val medicationDao = database.medicationDao()
     private val profileSurveyDao = database.profileSurveyDao()
     private val projectWorkspaceDao = database.projectWorkspaceDao()
@@ -194,7 +194,7 @@ class LifeRepository(
             trashDao.deleteAllTrashForProfile(id)
             planDao.deleteAllPlansForProfile(id)
             trackerDao.deleteAllTrackersForProfile(id)
-            subscriptionDao.deleteAllSubscriptionsForProfile(id)
+            subscriptionRepository.deleteAllSubscriptionsForProfile(id)
             medicationDao.deleteAllMedicationsForProfile(id)
             projectWorkspaceDao.deleteAllItemsForProfile(id)
             projectWorkspaceDao.deleteAllViewsForProfile(id)
@@ -778,7 +778,7 @@ class LifeRepository(
         // Safe deletion: move associated tasks to Inbox (projectId = null), unassign trackers & subscriptions
         projectDao.unassignTasksFromProject(projectId)
         trackerDao.unassignTrackersFromProject(projectId)
-        subscriptionDao.unassignSubscriptionsFromProject(projectId)
+        subscriptionRepository.unassignSubscriptionsFromProject(projectId)
         projectDao.deleteProjectById(projectId)
     }
 
@@ -3221,136 +3221,63 @@ class LifeRepository(
 
     // ==========================================
     // --- SUBSCRIPTION REPOSITORY METHODS ---
+    // (Delegated to dedicated SubscriptionRepository - P7-A1)
     // ==========================================
 
-    val allSubscriptionsFlow: Flow<List<SubscriptionItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
-        subscriptionDao.getAllSubscriptionsForProfileFlow(profileId).map { list ->
-            list.map { it.toDomain() }
-        }
-    }
+    val allSubscriptionsFlow: Flow<List<SubscriptionItem>>
+        get() = subscriptionRepository.allSubscriptionsFlow
 
-    val activeSubscriptionsFlow: Flow<List<SubscriptionItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
-        subscriptionDao.getActiveSubscriptionsForProfileFlow(profileId).map { list ->
-            list.map { it.toDomain() }
-        }
-    }
+    val activeSubscriptionsFlow: Flow<List<SubscriptionItem>>
+        get() = subscriptionRepository.activeSubscriptionsFlow
 
-    suspend fun getSubscriptionById(id: Long): SubscriptionItem? {
-        return subscriptionDao.getSubscriptionById(id)?.toDomain()
-    }
+    suspend fun getSubscriptionById(id: Long): SubscriptionItem? =
+        subscriptionRepository.getSubscriptionById(id)
 
-    suspend fun insertSubscription(subscription: SubscriptionItem): Long {
-        val effectiveProfileId = if (subscription.profileId > 0) subscription.profileId else getActiveProfileId()
-        val safeSubscription = subscription.copy(profileId = effectiveProfileId)
-        return database.withTransaction {
-            val subId = subscriptionDao.insertSubscription(SubscriptionEntity.fromDomain(safeSubscription))
-            val initialBill = BillingOccurrenceEntity(
-                subscriptionId = subId,
-                dueDateIso = safeSubscription.nextRenewalDateIso.ifBlank { safeSubscription.anchorDateIso },
-                expectedAmount = safeSubscription.amount,
-                currency = safeSubscription.currency,
-                status = BillStatus.UNPAID.name
-            )
-            subscriptionDao.insertBill(initialBill)
-            subId
-        }
-    }
+    suspend fun insertSubscription(subscription: SubscriptionItem): Long =
+        subscriptionRepository.insertSubscription(subscription)
 
-    suspend fun updateSubscription(subscription: SubscriptionItem) {
-        subscriptionDao.updateSubscription(SubscriptionEntity.fromDomain(subscription))
-    }
+    suspend fun updateSubscription(subscription: SubscriptionItem) =
+        subscriptionRepository.updateSubscription(subscription)
 
-    suspend fun setSubscriptionStatus(id: Long, status: SubscriptionStatus) {
-        subscriptionDao.setSubscriptionStatus(id, status.name)
-    }
+    suspend fun setSubscriptionStatus(id: Long, status: SubscriptionStatus) =
+        subscriptionRepository.setSubscriptionStatus(id, status)
 
-    suspend fun deleteSubscription(id: Long) {
-        subscriptionDao.deleteBillsForSubscription(id)
-        subscriptionDao.deleteSubscriptionById(id)
-    }
+    suspend fun deleteSubscription(id: Long) =
+        subscriptionRepository.deleteSubscription(id)
 
-    fun getBillsForSubscriptionFlow(subscriptionId: Long): Flow<List<BillingOccurrenceItem>> {
-        return subscriptionDao.getBillsForSubscriptionFlow(subscriptionId).map { list ->
-            list.map { it.toDomain() }
-        }
-    }
+    fun getBillsForSubscriptionFlow(subscriptionId: Long): Flow<List<BillingOccurrenceItem>> =
+        subscriptionRepository.getBillsForSubscriptionFlow(subscriptionId)
 
-    val allBillsFlow: Flow<List<BillingOccurrenceItem>> = subscriptionDao.getAllBillsFlow().map { list ->
-        list.map { it.toDomain() }
-    }
+    val allBillsFlow: Flow<List<BillingOccurrenceItem>>
+        get() = subscriptionRepository.allBillsFlow
 
-    suspend fun insertBill(bill: BillingOccurrenceItem): Long {
-        return subscriptionDao.insertBill(BillingOccurrenceEntity.fromDomain(bill))
-    }
+    suspend fun insertBill(bill: BillingOccurrenceItem): Long =
+        subscriptionRepository.insertBill(bill)
 
-    suspend fun updateBill(bill: BillingOccurrenceItem) {
-        subscriptionDao.updateBill(BillingOccurrenceEntity.fromDomain(bill))
-    }
+    suspend fun updateBill(bill: BillingOccurrenceItem) =
+        subscriptionRepository.updateBill(bill)
 
-    suspend fun deleteBill(id: Long) {
-        subscriptionDao.deleteBillById(id)
-    }
+    suspend fun deleteBill(id: Long) =
+        subscriptionRepository.deleteBill(id)
 
-    fun getPaymentsForBillFlow(billId: Long): Flow<List<SubscriptionPaymentItem>> {
-        return subscriptionDao.getPaymentsForBillFlow(billId).map { list ->
-            list.map { it.toDomain() }
-        }
-    }
+    fun getPaymentsForBillFlow(billId: Long): Flow<List<SubscriptionPaymentItem>> =
+        subscriptionRepository.getPaymentsForBillFlow(billId)
 
-    fun getPaymentsForSubscriptionFlow(subscriptionId: Long): Flow<List<SubscriptionPaymentItem>> {
-        return subscriptionDao.getPaymentsForSubscriptionFlow(subscriptionId).map { list ->
-            list.map { it.toDomain() }
-        }
-    }
+    fun getPaymentsForSubscriptionFlow(subscriptionId: Long): Flow<List<SubscriptionPaymentItem>> =
+        subscriptionRepository.getPaymentsForSubscriptionFlow(subscriptionId)
 
-    suspend fun recordBillPayment(payment: SubscriptionPaymentItem, todayIso: String): Long {
-        return database.withTransaction {
-            val payId = subscriptionDao.insertPayment(SubscriptionPaymentEntity.fromDomain(payment))
-            val billEntity = subscriptionDao.getBillById(payment.billId)
-            if (billEntity != null) {
-                val allPayments = subscriptionDao.getPaymentsForBillList(payment.billId).map { it.toDomain() }
-                val newStatus = SubscriptionScheduleEngine.evaluateBillStatus(
-                    expectedAmount = billEntity.expectedAmount,
-                    payments = allPayments,
-                    dueDateIso = billEntity.dueDateIso,
-                    todayIso = todayIso,
-                    currentStatus = BillStatus.fromString(billEntity.status)
-                )
-                subscriptionDao.setBillStatus(billEntity.id, newStatus.name)
-            }
-            payId
-        }
-    }
+    suspend fun recordBillPayment(payment: SubscriptionPaymentItem, todayIso: String): Long =
+        subscriptionRepository.recordBillPayment(payment, todayIso)
 
-    fun getPriceHistoryFlow(subscriptionId: Long): Flow<List<PriceHistoryItem>> {
-        return subscriptionDao.getPriceHistoryFlow(subscriptionId).map { list ->
-            list.map { it.toDomain() }
-        }
-    }
+    fun getPriceHistoryFlow(subscriptionId: Long): Flow<List<PriceHistoryItem>> =
+        subscriptionRepository.getPriceHistoryFlow(subscriptionId)
 
     suspend fun updateSubscriptionPrice(
         subscriptionId: Long,
         newPrice: Double,
         effectiveDateIso: String,
         reason: String
-    ) {
-        database.withTransaction {
-            val sub = subscriptionDao.getSubscriptionById(subscriptionId)
-            if (sub != null) {
-                val oldPrice = sub.amount
-                subscriptionDao.insertPriceHistory(
-                    PriceHistoryEntity(
-                        subscriptionId = subscriptionId,
-                        oldAmount = oldPrice,
-                        newAmount = newPrice,
-                        effectiveDateIso = effectiveDateIso,
-                        reason = reason
-                    )
-                )
-                subscriptionDao.updateSubscription(sub.copy(amount = newPrice, updatedAt = System.currentTimeMillis()))
-            }
-        }
-    }
+    ) = subscriptionRepository.updateSubscriptionPrice(subscriptionId, newPrice, effectiveDateIso, reason)
 
     // --- Release 3 Phase 8: Downloadable Feature Modules & Glossary (#2, #10) ---
     val allGlossaryPacksFlow: Flow<List<com.example.domain.glossary.GlossaryPack>> = glossaryDao.getAllPacksFlow().map { list ->
