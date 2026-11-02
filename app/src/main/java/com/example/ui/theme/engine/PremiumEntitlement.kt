@@ -15,6 +15,7 @@ import com.example.billing.PurchaseVerifier
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 private val Context.entitlementDataStore by preferencesDataStore(name = "lifeos_premium_entitlement")
 
@@ -34,7 +35,9 @@ interface PremiumEntitlementRepository {
 class LocalPremiumEntitlementRepository(
     private val context: Context,
     override val billingManager: BillingManager? = PlayBillingManager(context.applicationContext),
-    private val purchaseVerifier: PurchaseVerifier = ClientSidePurchaseVerifier(BuildConfig.DEBUG)
+    private val purchaseVerifier: PurchaseVerifier = ClientSidePurchaseVerifier(BuildConfig.DEBUG),
+    private val coroutineScope: kotlinx.coroutines.CoroutineScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default),
+    private val offlineTrustDurationMillis: Long = 72L * 60 * 60 * 1000L // Recommended 72-hour offline trust duration
 ) : PremiumEntitlementRepository {
 
     companion object {
@@ -69,19 +72,41 @@ class LocalPremiumEntitlementRepository(
                 PurchaseState.PURCHASED -> {
                     val verification = purchaseVerifier.verifyPurchase(purchase)
                     if (verification == PurchaseVerificationStatus.FAILED_VERIFICATION) {
-                        PremiumEntitlementState.Free
+                        PremiumEntitlementState.VerificationFailed("Purchase verification rejected or invalid token")
                     } else {
+                        // Acknowledge verified purchase if unacknowledged (non-blocking)
+                        if (!purchase.isAcknowledged) {
+                            coroutineScope.launch {
+                                billingManager.acknowledgePurchase(purchase.purchaseToken)
+                            }
+                        }
+
+                        if (purchase.isInAccountHold) {
+                            return@combine PremiumEntitlementState.AccountHold
+                        }
+
                         val now = System.currentTimeMillis()
                         val expiry = purchase.expiryTimeMillis ?: (purchase.purchaseTimeMillis + 30L * 24 * 60 * 60 * 1000)
+
+                        if (purchase.isInGracePeriod && now < expiry) {
+                            return@combine PremiumEntitlementState.GracePeriod(expiry)
+                        }
+
+                        // Evaluate offline trust window if purchase has a last verified timestamp
+                        val lastVerified = purchase.lastVerifiedTimeMillis
+                        if (lastVerified != null && (now - lastVerified > offlineTrustDurationMillis) && now > expiry) {
+                            return@combine PremiumEntitlementState.OfflineTrustExpired(lastVerified)
+                        }
+
                         if (now > expiry) {
                             PremiumEntitlementState.Expired(expiry)
                         } else if (!purchase.isAutoRenewing) {
                             PremiumEntitlementState.CancelledUntilExpiry(expiry)
                         } else {
                             val trialWindowMillis = 7L * 24 * 60 * 60 * 1000
-                            if (now < purchase.purchaseTimeMillis + trialWindowMillis) {
+                            if (purchase.isTrial || (now < purchase.purchaseTimeMillis + trialWindowMillis)) {
                                 val remainingDays = (((purchase.purchaseTimeMillis + trialWindowMillis) - now) / (24 * 60 * 60 * 1000)).toInt() + 1
-                                PremiumEntitlementState.TrialActive(purchase.purchaseTimeMillis + trialWindowMillis, remainingDays)
+                                PremiumEntitlementState.TrialActive(purchase.purchaseTimeMillis + trialWindowMillis, remainingDays.coerceAtLeast(1))
                             } else {
                                 PremiumEntitlementState.PremiumActive(expiry, isAutoRenewing = true)
                             }

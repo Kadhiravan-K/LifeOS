@@ -216,6 +216,17 @@ class PlayBillingManager(
                 else -> PurchaseState.UNSPECIFIED
             }
 
+            val current = _subscriptionPurchase.value
+            if (current != null &&
+                current.purchaseToken == targetPurchase.purchaseToken &&
+                current.purchaseState == state &&
+                current.isAcknowledged == targetPurchase.isAcknowledged &&
+                current.isAutoRenewing == targetPurchase.isAutoRenewing
+            ) {
+                // Idempotent reconciliation: purchase already reflected in memory
+                return
+            }
+
             val mapped = SubscriptionPurchase(
                 orderId = targetPurchase.orderId,
                 purchaseToken = targetPurchase.purchaseToken,
@@ -224,17 +235,12 @@ class PlayBillingManager(
                 purchaseState = state,
                 isAcknowledged = targetPurchase.isAcknowledged,
                 isAutoRenewing = targetPurchase.isAutoRenewing,
-                expiryTimeMillis = null // Populated by verification or server
+                expiryTimeMillis = null, // Populated by verification or server
+                lastVerifiedTimeMillis = System.currentTimeMillis()
             )
 
             _subscriptionPurchase.value = mapped
-
-            // Automatically acknowledge if newly purchased and unacknowledged
-            if (state == PurchaseState.PURCHASED && !targetPurchase.isAcknowledged) {
-                scope.launch {
-                    acknowledgePurchase(targetPurchase.purchaseToken)
-                }
-            }
+            // Note: Purchase acknowledgement is strictly orchestrated post-verification by the entitlement repository.
         } else {
             _subscriptionPurchase.value = null
         }

@@ -38,8 +38,19 @@ data class SubscriptionPurchase(
     val isAcknowledged: Boolean,
     val isAutoRenewing: Boolean = true,
     val expiryTimeMillis: Long? = null,
-    val isTrial: Boolean = false
-)
+    val isTrial: Boolean = false,
+    val isInGracePeriod: Boolean = false,
+    val isInAccountHold: Boolean = false,
+    val isEligibleForTrial: Boolean = true,
+    val lastVerifiedTimeMillis: Long? = null
+) {
+    /**
+     * Redacted representation for safe logging.
+     * Prevents raw purchase tokens from being leaked into logcat or telemetry.
+     */
+    val redactedToken: String
+        get() = if (purchaseToken.length > 8) "${purchaseToken.take(4)}...${purchaseToken.takeLast(4)}" else "***"
+}
 
 enum class BillingResultStatus {
     OK,

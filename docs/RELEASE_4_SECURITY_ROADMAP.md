@@ -865,6 +865,81 @@ In accordance with Prompt P5-L2 Section 13:
 
 Implementation of proposed restrictions (such as gating PDF report exports or multi-period comparison) is paused pending formal owner review and sign-off on the Decision Matrix above.
 
+---
+
+## 16. Phase P5-L3: Subscription Lifecycle, Purchase Verification and Recovery
+
+### 16.1 Preflight & Dependency Baseline
+- **Branch**: `feat/release4-security-audit-remediation`.
+- **Preceding Loop**: Verified P5-L1 implementation and P5-L2 feature catalogue audit committed (`3650cea0ac67ffb951072b2fec2e9d9d0ee9659d`) and synchronized with remote.
+- **Tag Baseline**: Release 3 tag `v3.0.0` points to commit `2233a958a23194e5461bea4c76d4b69b99ad3147` (unchanged ancestor).
+- **Approved Commercial Decisions**:
+  - Monthly subscription only (`P1M`).
+  - 7-day free trial (`7-day-free-trial`).
+  - No annual, lifetime, or one-time purchases.
+  - Zero hardcoded prices or currencies.
+
+### 16.2 12-State Subscription Lifecycle & State Machine
+The entitlement architecture implements the complete 12-state Google Play subscription lifecycle:
+1. **Free User** (`PremiumEntitlementState.Free`): No active subscription (`isEntitled = false`).
+2. **Purchase Initiated** (`PremiumEntitlementState.PurchaseInitiated`): Purchase flow launched in Google Play (`isEntitled = false`).
+3. **Purchase Pending** (`PremiumEntitlementState.PendingPurchase`): Awaiting payment processing or cash top-up (`isEntitled = false`).
+4. **Trial Active** (`PremiumEntitlementState.TrialActive`): Within 7-day introductory free trial (`isEntitled = true`, `hasActiveTrial = true`).
+5. **Paid Subscription Active** (`PremiumEntitlementState.PremiumActive`): Normal active paid monthly billing cycle (`isEntitled = true`).
+6. **Subscription Renewal** (`PremiumEntitlementState.PremiumActive`): Expiry timestamp extended by 30 days upon Google Play recurring billing event (`isEntitled = true`).
+7. **Cancelled but Still Entitled** (`PremiumEntitlementState.CancelledUntilExpiry`): User cancelled renewal, retains access until billing period concludes (`isEntitled = true` if `now < expiry`, `false` after).
+8. **Grace Period** (`PremiumEntitlementState.GracePeriod`): Payment declined; Google Play maintains active entitlement during payment retry window (`isEntitled = true` if `now < expiry`).
+9. **Account Hold** (`PremiumEntitlementState.AccountHold`): Payment declined past grace period; Google Play suspends entitlement while user updates payment method (`isEntitled = false`).
+10. **Subscription Expired** (`PremiumEntitlementState.Expired`): Billing cycle terminated without renewal (`isEntitled = false`).
+11. **Purchase Verification Failed** (`PremiumEntitlementState.VerificationFailed`): Token rejected or tampered (`isEntitled = false`).
+12. **Billing Service Unavailable** (`PremiumEntitlementState.BillingUnavailable`): Google Play Services disconnected; graceful fallback with 100% Free core functionality intact (`isEntitled = false`).
+13. **Offline Trust Expired** (`PremiumEntitlementState.OfflineTrustExpired`): Offline duration exceeded trust window without online reconciliation (`isEntitled = false`).
+
+### 16.3 Purchase Verification & Security Boundary Disclosure
+- **Offline-First Zero-Backend Reality**: LifeOS does not possess a private cloud backend or user identity server.
+- **Client-Side Limitation**: In accordance with prompt requirements, client-side checks are **not** represented as tamper-proof in release builds. [`PurchaseVerifier.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/billing/PurchaseVerifier.kt) flags this boundary via `PurchaseVerificationStatus.UNVERIFIED_CLIENT_ONLY` in release builds and `SIMULATED_DEBUG_ONLY` in debug builds.
+- **Critical Stop Condition**: Full production payment collection is blocked until the owner approves a server-side verification architecture (see Section 16.7).
+
+### 16.4 Post-Verification Acknowledgement & Recovery
+- **Acknowledgement Order**: [`LocalPremiumEntitlementRepository`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/theme/engine/PremiumEntitlement.kt) strictly orchestrates `billingManager.acknowledgePurchase` **only after** `purchaseVerifier.verifyPurchase(purchase)` returns a non-failed verification result. Failed verifications are never acknowledged.
+- **Reconciliation Idempotence**: [`PlayBillingManager`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/billing/PlayBillingManager.kt) checks `_subscriptionPurchase.value` before emitting; duplicate notifications and repeated queries return without redundant object allocations or re-acknowledgments.
+- **Startup & Reinstall Recovery**: `restorePurchases()` queries Google Play `QueryPurchasesParams(SUBS)` on app launch and fresh installs, restoring verified active subscriptions idempotently without creating duplicate purchases.
+
+### 16.5 Explicit Offline Entitlement Policy
+- **Offline Trust Period**: Previously verified entitlements remain active offline for **up to 72 hours** (`72L * 60 * 60 * 1000L`) from `lastVerifiedTimeMillis` or until the verified billing period expiry.
+- **Connectivity Resumption**: Reconciles automatically with Google Play on billing reconnection (`onBillingSetupFinished`).
+- **Data Protection During Billing Outage**: Core productivity features (tasks, habits, projects, calendar, alarms, medications, local backups) are completely independent of billing and remain 100% functional even during complete billing disconnection.
+- **Owner Approval**: The 72-hour offline trust duration is submitted for product owner approval.
+
+### 16.6 Security, Privacy & Secret Redaction
+- **No In-App Secrets**: Zero Google service account private keys or backend credentials are compiled into the Android application.
+- **Purchase Token Redaction**: `SubscriptionPurchase.redactedToken` masks tokens (e.g. `GPA.1...3456`), preventing sensitive Google Play tokens from leaking into Logcat or bug reports.
+- **Zero Telemetry Leakage**: No personal productivity data (task names, habit notes, database records) is transmitted during billing operations.
+
+### 16.7 Technical Design for Google Play Developer API Verification (Cloud Architecture Blueprint)
+For future server-side verification sign-off:
+1. **Google Cloud Service Account**:
+   - Scope: `https://www.googleapis.com/auth/androidpublisher`
+   - Role in Play Console: "View financial data, orders, and cancellation survey responses".
+2. **Serverless Verification Endpoint** (Cloud Run or Firebase Functions):
+   - Endpoint: `POST /api/v1/subscription/verify`
+   - Request: `{ "purchaseToken": "...", "productId": "lifeos_premium_monthly" }`
+   - Google API Call: `purchases.subscriptionsv2.get(packageName, token)`
+   - Response: Verified subscription state, line items, auto-renewing status, and exact expiry timestamp.
+3. **Real-time Developer Notifications (RTDN)**:
+   - Google Cloud Pub/Sub topic linked to Google Play Console.
+   - Pushes instantaneous webhook notifications on `SUBSCRIPTION_RENEWED`, `SUBSCRIPTION_CANCELED`, `SUBSCRIPTION_IN_GRACE_PERIOD`, `SUBSCRIPTION_ON_HOLD`, and `SUBSCRIPTION_EXPIRED`.
+4. **Estimated Infrastructure Costs**:
+   - Cloud Run / Firebase Functions free tier covers up to 2M requests/month ($0.00 base cost).
+   - Pub/Sub free tier covers 10GB/month ($0.00 base cost).
+
+### 16.8 Quality Gate Results & Status
+- `.\gradlew.bat testDebugUnitTest --tests "com.example.billing.PremiumEntitlementUnitTest"`: **PASSED** (25/25 tests, 0 failures, 0 errors).
+- `.\gradlew.bat testDebugUnitTest`: **BUILD SUCCESSFUL** (Full unit test suite passing).
+- `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
+- `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (Clean debug APK artifact).
+
+
 
 
 

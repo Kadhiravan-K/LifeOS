@@ -7,6 +7,8 @@ package com.example.billing
 sealed interface PremiumEntitlementState {
     object Free : PremiumEntitlementState
 
+    object PurchaseInitiated : PremiumEntitlementState
+
     data class TrialActive(
         val expiryTimeMillis: Long,
         val daysRemaining: Int
@@ -34,6 +36,14 @@ sealed interface PremiumEntitlementState {
     ) : PremiumEntitlementState
 
     object AccountHold : PremiumEntitlementState
+
+    data class VerificationFailed(
+        val reason: String
+    ) : PremiumEntitlementState
+
+    data class OfflineTrustExpired(
+        val lastVerifiedMillis: Long
+    ) : PremiumEntitlementState
 
     data class Unknown(
         val reason: String
