@@ -386,4 +386,152 @@ class HabitStrengthEngineUnitTest {
         assertEquals(100, result.scorePercent)
         assertEquals(HabitStrengthLevel.EXCELLENT, result.level)
     }
+
+    // --- H4-R1 Refinements Verification ---
+
+    @Test
+    fun refinement01_selectedCalendarDateDiffersFromActualCurrentDate_scoreUsesActualCurrentDate() {
+        val actualToday = "2026-11-03"
+        val selectedPastDate = "2026-10-20"
+
+        val habit = HabitItem(
+            id = 101L,
+            title = "Reading",
+            emoji = "📚",
+            isCompletedToday = true,
+            completedDates = setOf("2026-11-01", "2026-11-02", "2026-11-03"),
+            createdAt = dateToMillis("2026-11-01")
+        )
+
+        // The Habit Detail Sheet computes against actual current date (actualToday),
+        // completely ignoring selectedPastDate from the calendar.
+        val result = HabitStrengthEngine.calculateStrength(
+            habit = habit,
+            referenceDateIso = actualToday
+        )
+
+        assertEquals(3, result.totalOpportunities)
+        assertEquals(3, result.completedCount)
+        assertEquals(100, result.scorePercent)
+        assertEquals(HabitStrengthLevel.EXCELLENT, result.level)
+    }
+
+    @Test
+    fun refinement02_selectedFutureDateDoesNotCreateFutureMissedOpportunities() {
+        val actualToday = "2026-11-03"
+        val selectedFutureDate = "2026-11-20" // 17 days in the future
+
+        val habit = HabitItem(
+            id = 102L,
+            title = "Hydration",
+            emoji = "💧",
+            isCompletedToday = true,
+            completedDates = setOf("2026-11-01", "2026-11-02", "2026-11-03"),
+            createdAt = dateToMillis("2026-11-01")
+        )
+
+        // Using actual current local date prevents counting future days as misses
+        val result = HabitStrengthEngine.calculateStrength(
+            habit = habit,
+            referenceDateIso = actualToday
+        )
+
+        assertEquals(3, result.totalOpportunities)
+        assertEquals(0, result.missedCount)
+        assertEquals(100, result.scorePercent)
+    }
+
+    @Test
+    fun refinement03_actualCurrentDayIncomplete_excludedFromScore() {
+        val actualToday = "2026-11-03"
+
+        val habit = HabitItem(
+            id = 103L,
+            title = "Yoga",
+            emoji = "🧘",
+            isCompletedToday = false,
+            completedDates = setOf("2026-11-01", "2026-11-02"), // today incomplete
+            createdAt = dateToMillis("2026-11-01")
+        )
+
+        val result = HabitStrengthEngine.calculateStrength(
+            habit = habit,
+            referenceDateIso = actualToday
+        )
+
+        // Evaluated up to yesterday (2 opportunities: Day 1, Day 2)
+        assertEquals(2, result.totalOpportunities)
+        assertEquals(2, result.completedCount)
+        assertEquals(0, result.missedCount)
+        assertEquals(100, result.scorePercent)
+    }
+
+    @Test
+    fun refinement04_actualCurrentDayCompleted_includedInScore() {
+        val actualToday = "2026-11-03"
+
+        val habit = HabitItem(
+            id = 104L,
+            title = "Yoga",
+            emoji = "🧘",
+            isCompletedToday = true,
+            completedDates = setOf("2026-11-01", "2026-11-02", "2026-11-03"), // today completed
+            createdAt = dateToMillis("2026-11-01")
+        )
+
+        val result = HabitStrengthEngine.calculateStrength(
+            habit = habit,
+            referenceDateIso = actualToday
+        )
+
+        // Evaluated up to today (3 opportunities: Day 1, Day 2, Day 3)
+        assertEquals(3, result.totalOpportunities)
+        assertEquals(3, result.completedCount)
+        assertEquals(0, result.missedCount)
+        assertEquals(100, result.scorePercent)
+    }
+
+    @Test
+    fun refinement05_coachingTextContainsNoAutomaticityOrSubconsciousClaims() {
+        val prohibitedTerms = listOf("automatic", "subconscious", "scientific", "habit formation")
+
+        for (level in HabitStrengthLevel.values()) {
+            val narrative = level.defaultNarrative.lowercase()
+            for (term in prohibitedTerms) {
+                assertFalse(
+                    "Level narrative for ${level.name} must not contain '$term': ${level.defaultNarrative}",
+                    narrative.contains(term)
+                )
+            }
+        }
+
+        // Test contextual narratives
+        val singleCompleted = HabitStrengthEngine.calculateStrength(
+            createdAtMillis = dateToMillis("2026-11-01"),
+            completedDates = setOf("2026-11-01"),
+            referenceDateIso = "2026-11-01"
+        )
+        for (term in prohibitedTerms) {
+            assertFalse(singleCompleted.narrativeText.lowercase().contains(term))
+        }
+
+        val singleMissed = HabitStrengthEngine.calculateStrength(
+            createdAtMillis = dateToMillis("2026-11-01"),
+            completedDates = emptySet(),
+            referenceDateIso = "2026-11-02"
+        )
+        for (term in prohibitedTerms) {
+            assertFalse(singleMissed.narrativeText.lowercase().contains(term))
+        }
+    }
+
+    @Test
+    fun refinement06_constantsCalculationExactness() {
+        assertEquals(13.0, HabitStrengthEngine.HALF_LIFE_DAYS, 0.0)
+        // lambda = 0.5^(1/13) ≈ 0.9480775...
+        assertEquals(0.9480775, HabitStrengthEngine.LAMBDA, 0.000001)
+        // alpha = 1 - lambda ≈ 0.051922...
+        assertEquals(0.0519225, HabitStrengthEngine.ALPHA, 0.000001)
+        assertEquals(1.0, HabitStrengthEngine.LAMBDA + HabitStrengthEngine.ALPHA, 0.0000001)
+    }
 }

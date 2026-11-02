@@ -34,6 +34,7 @@ import com.example.ui.components.HabitCard
 import com.example.ui.components.HabitEditModal
 import com.example.ui.viewmodel.HabitsUiState
 import com.example.ui.viewmodel.LifeViewModel
+import com.example.utils.DateUtils
 
 @Composable
 fun HabitsScreen(
@@ -158,12 +159,13 @@ fun HabitsScreen(
 
     val selectedDetailHabit = uiState.habits.find { it.id == selectedDetailHabitId }
     if (selectedDetailHabit != null) {
+        val todayIso = DateUtils.todayString()
         HabitDetailSheet(
             habit = selectedDetailHabit,
-            referenceDateIso = uiState.selectedDateIso,
+            referenceDateIso = todayIso,
             onDismiss = { selectedDetailHabitId = null },
             onToggle = {
-                viewModel.toggleHabit(selectedDetailHabit.id, uiState.selectedDateIso)
+                viewModel.toggleHabit(selectedDetailHabit.id, todayIso)
             },
             onEdit = {
                 editingHabit = selectedDetailHabit

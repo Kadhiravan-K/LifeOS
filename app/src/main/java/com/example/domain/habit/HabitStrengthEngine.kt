@@ -21,25 +21,25 @@ enum class HabitStrengthLevel(
         label = "Building",
         minScore = 0f,
         maxScoreExclusive = 30f,
-        defaultNarrative = "Early stage. Consistency is vulnerable to interruptions. Focus on small daily wins to build habit automaticity."
+        defaultNarrative = "Early stage. Consistency is vulnerable to interruptions. Focus on small daily completions to build steady momentum."
     ),
     GROWING(
         label = "Growing",
         minScore = 30f,
         maxScoreExclusive = 60f,
-        defaultNarrative = "Momentum is forming. Steady repetition is cementing this habit into your subconscious routine."
+        defaultNarrative = "Momentum is building. Steady repetition is establishing consistent daily practice."
     ),
     STRONG(
         label = "Strong",
         minScore = 60f,
         maxScoreExclusive = 85f,
-        defaultNarrative = "Deeply established routine. Withstands occasional missed opportunities without collapsing accumulated momentum."
+        defaultNarrative = "Strong consistency. Withstands occasional missed opportunities without collapsing accumulated momentum."
     ),
     EXCELLENT(
         label = "Excellent",
         minScore = 85f,
         maxScoreExclusive = 100.001f,
-        defaultNarrative = "Automatic lifestyle behavior. Extreme long-term consistency built over months of daily repetition."
+        defaultNarrative = "Peak consistency. Outstanding long-term commitment built through sustained daily repetition."
     );
 
     companion object {
@@ -205,11 +205,11 @@ object HabitStrengthEngine {
         // 7. Contextual narrative selection
         val narrativeText = when {
             opportunityCount == 1 && completedCount == 1 ->
-                "Off to a perfect start! Completed 1 of 1 opportunity. Keep logging daily to establish reliable strength."
+                "Off to a great start! Completed 1 of 1 opportunity. Keep logging daily to build consistent momentum."
             opportunityCount == 1 && missedCount == 1 ->
                 "First opportunity was missed. Complete your habit today to begin establishing consistency."
             isLimitedEvidence && completedCount == opportunityCount ->
-                "Perfect initial streak! Keep logging daily to build long-term resilience."
+                "Consistent initial streak! Keep logging daily to build long-term resilience."
             else ->
                 level.defaultNarrative
         }

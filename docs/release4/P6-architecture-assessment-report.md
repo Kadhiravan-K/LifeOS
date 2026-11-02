@@ -478,7 +478,7 @@ The **Habit Strength Score** was designed and implemented as an extension of the
 
 | Dimension | Specification | Implementation Detail |
 |---|---|---|
-| **Mathematical Model** | Exponential Moving Average (EMA) | 13-day half-life: `\lambda = 0.5^{1/13} \approx 0.94824`, `\alpha = 1 - \lambda` |
+| **Mathematical Model** | Exponential Moving Average (EMA) | 13-day half-life: `\lambda = 0.5^{1/13} \approx 0.94807`, `\alpha = 1 - \lambda \approx 0.05193` |
 | **Initialization Correction** | Bias-corrected EMA | Corrected divisor `1 - \lambda^N` prevents cold-start penalty |
 | **Score Range** | 0% to 100% | Discrete percentage representation with dynamic tier mapping |
 | **Strength Levels** | 4 Tier Classification | Building (<30%), Growing (30%–<60%), Strong (60%–<85%), Excellent (85%–100%) |
@@ -505,7 +505,7 @@ The **Habit Strength Score** was designed and implemented as an extension of the
 - Standardized M3 `ModalBottomSheet` with `skipPartiallyExpanded = true`.
 - **Header**: Habit emoji avatar (52.dp, rounded 16.dp), title, description, reminder badge, and dismiss affordance.
 - **Hero Card**: Strength percentage, strength level pill, dual-ring circular progress gauge, contextual narrative text, and evidence count badge.
-- **Streak Row**: 2-column card layout displaying current streak (`🔥 X days`) and personal best (`🏆 X days`).
+- **Streak Row**: 2-column card layout displaying current streak (`🔥 X days`) and longest streak (`🏆 X days`).
 - **Consistency Overview**: Dual-segment adherence bar (emerald completed vs rose missed), arithmetic completion rate, and 3-column stats breakdown.
 - **Today Action Banner**: Contextual check-in card showing completed state ("Undo") or incomplete state ("Mark Done") invoking live toggle without closing the sheet.
 - **Footer Actions**: Standardized "Edit Habit" and "Delete" actions.
