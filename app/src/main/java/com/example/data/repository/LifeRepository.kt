@@ -116,17 +116,16 @@ class LifeRepository(
     private val preferences: UserPreferences,
     private val entitlementRepo: PremiumEntitlementRepository? = null,
     val subscriptionRepository: SubscriptionRepository = SubscriptionRepository(database, preferences),
-    val trackerRepository: TrackerRepository = TrackerRepository(database, preferences)
+    val trackerRepository: TrackerRepository = TrackerRepository(database, preferences),
+    val taskRepository: TaskRepository = TaskRepository(database, preferences)
 ) {
     private val profileDao = database.profileDao()
-    private val taskDao = database.taskDao()
     private val habitDao = database.habitDao()
     private val challengeDao = database.challengeDao()
     private val waterLogDao = database.waterLogDao()
     private val honeycombShortcutDao = database.honeycombShortcutDao()
     private val projectDao = database.projectDao()
     private val labelDao = database.labelDao()
-    private val taskReminderDao = database.taskReminderDao()
     private val trashDao = database.trashDao()
     private val planDao = database.planDao()
     private val gamificationDao = database.gamificationDao()
@@ -136,7 +135,11 @@ class LifeRepository(
     private val glossaryDao = database.glossaryDao()
 
     @androidx.annotation.VisibleForTesting
-    internal var testTransactionInterceptor: ((step: String) -> Unit)? = null
+    internal var testTransactionInterceptor: ((step: String) -> Unit)?
+        get() = taskRepository.testTransactionInterceptor
+        set(value) {
+            taskRepository.testTransactionInterceptor = value
+        }
 
     // --- Release 3 Phase 5 Profile Isolation & Management (#9) ---
     val activeProfileIdFlow: Flow<Long> = preferences.activeProfileId
@@ -179,7 +182,7 @@ class LifeRepository(
         val deleted = profileDao.deleteCustomProfile(id)
         if (deleted > 0) {
             profileSurveyDao.deleteSurveyForProfile(id)
-            taskDao.deleteAllTasksForProfile(id)
+            taskRepository.deleteAllTasksForProfile(id)
             habitDao.deleteAllHabitsForProfile(id)
             honeycombShortcutDao.deleteAllShortcutsForProfile(id)
             projectDao.deleteAllProjectsForProfile(id)
@@ -278,7 +281,7 @@ class LifeRepository(
     }
 
     suspend fun hasAnyExistingUserData(): Boolean {
-        return taskDao.getAllTasksList().isNotEmpty() ||
+        return taskRepository.hasTasks() ||
                 habitDao.getAllHabitsList().isNotEmpty() ||
                 projectDao.getAllProjectsList().isNotEmpty()
     }
@@ -483,7 +486,7 @@ class LifeRepository(
     val allProjectsFlow: Flow<List<ProjectItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
         combine(
             projectDao.getActiveProjectsForProfileFlow(profileId),
-            taskDao.getTasksForProfile(profileId)
+            taskRepository.getTasksForProfileFlow(profileId)
         ) { projects, tasks ->
             val counts = tasks.groupBy { it.projectId }
             projects.map { entity ->
@@ -517,236 +520,57 @@ class LifeRepository(
         }
     }
 
-    // --- Unified Tasks Flow (enriched with Project, Labels, and Reminders) ---
-    val allTasksFlow: Flow<List<TaskItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
-        combine(
-            taskDao.getTasksForProfile(profileId),
-            projectDao.getAllProjectsForProfileFlow(profileId),
-            labelDao.getAllLabelsForProfileFlow(profileId),
-            labelDao.getAllCrossRefsFlow(),
-            taskReminderDao.getAllActiveRemindersFlow()
-        ) { tasks, projects, labels, crossRefs, reminders ->
-            val projectMap = projects.associateBy { it.id }
-            val labelMap = labels.associateBy { it.id }
-            val labelsByTask = crossRefs.groupBy({ it.taskId }, { it.labelId })
-            val remindersByTask = reminders.groupBy { it.taskId }
+    // ==========================================
+    // --- TASK REPOSITORY METHODS ---
+    // (Delegated to dedicated TaskRepository - P7-A4)
+    // ==========================================
 
-            tasks.map { entity ->
-                val project = entity.projectId?.let { projectMap[it] }
-                val taskLabels = (labelsByTask[entity.id] ?: emptyList()).mapNotNull { labelMap[it]?.toDomainModel() }
-                val taskReminders = (remindersByTask[entity.id] ?: emptyList()).map { it.toDomainModel() }
-                entity.toDomainModel(project, taskLabels, taskReminders)
-            }
-        }
-    }
+    val allTasksFlow: Flow<List<TaskItem>>
+        get() = taskRepository.allTasksFlow
 
-    /**
-     * Returns scheduled active tasks for a given date, with accurate completion status for that date.
-     * Excludes archived tasks by default.
-     */
     fun getTasksForDateFlow(targetDateIso: String, includeArchived: Boolean = false): Flow<List<TaskItem>> {
-        return allTasksFlow.map { allTasks ->
-            allTasks
-                .filter { task -> (includeArchived || !task.isArchived) && RecurrenceEngine.isTaskScheduledOnDate(task, targetDateIso) }
-                .map { task ->
-                    val isCompleted = RecurrenceEngine.isCompletedOnDate(task, targetDateIso)
-                    task.copy(isCompletedForDate = isCompleted)
-                }
-        }
+        return taskRepository.getTasksForDateFlow(targetDateIso, includeArchived)
     }
 
     suspend fun insertTask(task: TaskItem): Long {
-        val effectiveProfileId = if (task.profileId > 0) task.profileId else getActiveProfileId()
-        val validatedProjectId = task.projectId?.let { pId ->
-            val project = projectDao.getProjectById(pId)
-            if (project != null && project.profileId == effectiveProfileId) pId else null
-        }
-        val validatedLabels = task.labels.filter { label ->
-            val dbLabel = labelDao.getLabelById(label.id)
-            dbLabel == null || dbLabel.profileId == effectiveProfileId
-        }
-        val safeTask = task.copy(
-            profileId = effectiveProfileId,
-            projectId = validatedProjectId,
-            labels = validatedLabels
-        )
-        return database.withTransaction {
-            val taskId = taskDao.insertTask(safeTask.toEntity())
-            testTransactionInterceptor?.invoke("AFTER_INSERT_TASK")
-            saveTaskLabelsInternal(taskId, safeTask.labels)
-            testTransactionInterceptor?.invoke("AFTER_SAVE_LABELS")
-            saveTaskRemindersInternal(taskId, safeTask.reminders)
-            testTransactionInterceptor?.invoke("AFTER_SAVE_REMINDERS")
-            taskId
-        }
+        return taskRepository.insertTask(task)
     }
 
     suspend fun updateTask(task: TaskItem) {
-        val effectiveProfileId = if (task.profileId > 0) task.profileId else getActiveProfileId()
-        val validatedProjectId = task.projectId?.let { pId ->
-            val project = projectDao.getProjectById(pId)
-            if (project != null && project.profileId == effectiveProfileId) pId else null
-        }
-        val validatedLabels = task.labels.filter { label ->
-            val dbLabel = labelDao.getLabelById(label.id)
-            dbLabel == null || dbLabel.profileId == effectiveProfileId
-        }
-        val safeTask = task.copy(
-            profileId = effectiveProfileId,
-            projectId = validatedProjectId,
-            labels = validatedLabels
-        )
-        database.withTransaction {
-            taskDao.updateTask(safeTask.toEntity())
-            testTransactionInterceptor?.invoke("AFTER_UPDATE_TASK")
-            saveTaskLabelsInternal(safeTask.id, safeTask.labels)
-            testTransactionInterceptor?.invoke("AFTER_UPDATE_LABELS")
-            saveTaskRemindersInternal(safeTask.id, safeTask.reminders)
-            testTransactionInterceptor?.invoke("AFTER_UPDATE_REMINDERS")
-        }
+        taskRepository.updateTask(task)
     }
 
     suspend fun deleteTask(taskId: Long) {
-        database.withTransaction {
-            labelDao.clearLabelsForTask(taskId)
-            taskReminderDao.deleteRemindersForTask(taskId)
-            honeycombShortcutDao.deleteShortcutByTarget("TASK", taskId.toString())
-            database.medicationDao().deleteMedicationByTaskId(taskId)
-            database.medicationDao().deleteDosesByTaskId(taskId)
-            testTransactionInterceptor?.invoke("BEFORE_DELETE_TASK_ROW")
-            taskDao.deleteTaskById(taskId)
-            testTransactionInterceptor?.invoke("AFTER_DELETE_TASK_ROW")
-        }
+        taskRepository.deleteTask(taskId)
     }
 
     suspend fun getTaskById(taskId: Long): TaskItem? {
-        val entity = taskDao.getTaskById(taskId) ?: return null
-        val project = entity.projectId?.let { projectDao.getProjectById(it) }
-        val labelEntities = labelDao.getLabelsForTaskList(taskId)
-        val reminderEntities = taskReminderDao.getRemindersForTaskList(taskId)
-        return entity.toDomainModel(project, labelEntities.map { it.toDomainModel() }, reminderEntities.map { it.toDomainModel() })
+        return taskRepository.getTaskById(taskId)
     }
 
     suspend fun saveTaskLabels(taskId: Long, labels: List<LabelItem>) {
-        database.withTransaction {
-            saveTaskLabelsInternal(taskId, labels)
-        }
-    }
-
-    private suspend fun saveTaskLabelsInternal(taskId: Long, labels: List<LabelItem>) {
-        labelDao.clearLabelsForTask(taskId)
-        val refs = labels.map { TaskLabelCrossRef(taskId = taskId, labelId = it.id) }
-        labelDao.insertTaskLabelCrossRefs(refs)
+        taskRepository.saveTaskLabels(taskId, labels)
     }
 
     suspend fun saveTaskReminders(taskId: Long, reminders: List<TaskReminderItem>) {
-        database.withTransaction {
-            saveTaskRemindersInternal(taskId, reminders)
-        }
+        taskRepository.saveTaskReminders(taskId, reminders)
     }
 
-    private suspend fun saveTaskRemindersInternal(taskId: Long, reminders: List<TaskReminderItem>) {
-        taskReminderDao.deleteRemindersForTask(taskId)
-        val entities = reminders.map { it.toEntity(taskId) }
-        taskReminderDao.insertReminders(entities)
-    }
-
-    /**
-     * Atomically retrieves or creates a TaskItem associated with a Quick Reminder / Honeycomb shortcut.
-     * Guarantees zero duplicate task creation, 0-minute duration (no planning interference),
-     * and daily recurrence check-in behavior.
-     */
     suspend fun getOrCreateTaskForShortcut(
         title: String,
         emoji: String = "🔥",
         category: String = "Routines",
         recurrence: RecurrenceType = RecurrenceType.DAILY
     ): TaskItem {
-        val cleanTitle = title.trim()
-        val activeProfileId = getActiveProfileId()
-        val allTasks = taskDao.getTasksForProfileList(activeProfileId)
-        val existing = allTasks.find {
-            !it.isArchived && (
-                it.title.equals(cleanTitle, ignoreCase = true) ||
-                it.title.contains(cleanTitle, ignoreCase = true) ||
-                cleanTitle.contains(it.title, ignoreCase = true)
-            )
-        }
-        if (existing != null) {
-            return getTaskById(existing.id) ?: existing.toDomainModel()
-        }
-
-        val todayIso = DateUtils.todayString()
-        val newTaskId = insertTask(
-            TaskItem(
-                profileId = activeProfileId,
-                title = cleanTitle,
-                emoji = emoji,
-                description = "Daily Quick Reminder Routine",
-                category = category,
-                priority = TaskPriority.HIGH,
-                dueDateIso = todayIso,
-                durationMinutes = 0,
-                durationAmount = 0,
-                schedulingMode = SchedulingMode.DURATION,
-                isAllDay = true,
-                recurrenceType = recurrence,
-                isQuickReminder = true,
-                createdAt = System.currentTimeMillis()
-            )
-        )
-        return getTaskById(newTaskId) ?: TaskItem(
-            id = newTaskId,
-            title = cleanTitle,
-            emoji = emoji,
-            category = category,
-            priority = TaskPriority.HIGH,
-            dueDateIso = todayIso,
-            durationMinutes = 0,
-            isAllDay = true,
-            recurrenceType = recurrence
-        )
+        return taskRepository.getOrCreateTaskForShortcut(title, emoji, category, recurrence)
     }
 
-    /**
-     * Finds existing duplicate tasks created for Discipline or Discipline Check.
-     */
     suspend fun getDuplicateDisciplineTasks(): List<TaskItem> {
-        val allEntities = taskDao.getAllTasksList()
-        val disciplineEntities = allEntities.filter {
-            !it.isArchived && (
-                it.title.equals("Discipline", ignoreCase = true) ||
-                it.title.equals("Discipline Check", ignoreCase = true) ||
-                it.title.startsWith("Discipline", ignoreCase = true)
-            )
-        }
-        return disciplineEntities.map { entity ->
-            getTaskById(entity.id) ?: entity.toDomainModel()
-        }
+        return taskRepository.getDuplicateDisciplineTasks()
     }
 
-    /**
-     * Safely deduplicates Discipline tasks, keeping the specified task or the earliest created one.
-     * Preserves user data and removes spurious duplicate task records.
-     */
     suspend fun cleanupDuplicateDisciplineTasks(keepTaskId: Long? = null): Int {
-        val duplicates = getDuplicateDisciplineTasks()
-        if (duplicates.size <= 1) return 0
-
-        val targetToKeep = if (keepTaskId != null) {
-            duplicates.find { it.id == keepTaskId } ?: duplicates.minByOrNull { it.id }!!
-        } else {
-            duplicates.maxByOrNull { it.completedDates.size } ?: duplicates.minByOrNull { it.id }!!
-        }
-
-        var deletedCount = 0
-        duplicates.forEach { task ->
-            if (task.id != targetToKeep.id) {
-                deleteTask(task.id)
-                deletedCount++
-            }
-        }
-        return deletedCount
+        return taskRepository.cleanupDuplicateDisciplineTasks(keepTaskId)
     }
 
     // --- Phase 3A Project Operations ---
@@ -817,7 +641,7 @@ class LifeRepository(
     // --- Seed Default Projects and Labels if empty ---
     suspend fun seedDefaultProjectsAndLabels() {
         val hasCompleted = preferences.hasCompletedOnboarding.first()
-        val hasExistingData = taskDao.getAllTasksList().isNotEmpty() || habitDao.getAllHabitsList().isNotEmpty()
+        val hasExistingData = taskRepository.hasTasks() || habitDao.getAllHabitsList().isNotEmpty()
         if (!hasCompleted && !hasExistingData) {
             // Fresh install starts with a blank canvas
             return
@@ -849,63 +673,22 @@ class LifeRepository(
      * Completing today does NOT complete future occurrences of recurring tasks.
      */
     suspend fun toggleTaskCompletion(taskId: Long, dateIso: String): Boolean? {
-        val entity = taskDao.getTaskById(taskId) ?: return null
-        val currentCompletedDates = JsonMappers.parseStringList(entity.completedDatesJson).toMutableSet()
-        val recurrenceType = RecurrenceType.fromString(entity.recurrenceType)
-
-        val newOneTimeCompleted: Boolean
-        val isNowCompleted: Boolean
-        if (recurrenceType == RecurrenceType.NONE) {
-            if (entity.isOneTimeCompleted) {
-                newOneTimeCompleted = false
-                isNowCompleted = false
-                currentCompletedDates.remove(dateIso)
-            } else {
-                newOneTimeCompleted = true
-                isNowCompleted = true
-                currentCompletedDates.add(dateIso)
-            }
-        } else if (recurrenceType == RecurrenceType.MONTHLY_WINDOW) {
-            newOneTimeCompleted = false
-            val targetYearMonth = if (dateIso.length >= 7) dateIso.substring(0, 7) else dateIso
-            val completedInMonth = currentCompletedDates.filter { it.startsWith(targetYearMonth) }
-            if (completedInMonth.isNotEmpty()) {
-                isNowCompleted = false
-                currentCompletedDates.removeAll(completedInMonth.toSet())
-            } else {
-                isNowCompleted = true
-                currentCompletedDates.add(dateIso)
-            }
-        } else {
-            newOneTimeCompleted = false
-            if (currentCompletedDates.contains(dateIso)) {
-                isNowCompleted = false
-                currentCompletedDates.remove(dateIso)
-            } else {
-                isNowCompleted = true
-                currentCompletedDates.add(dateIso)
-            }
-        }
-
-        val updatedEntity = entity.copy(
-            isOneTimeCompleted = newOneTimeCompleted,
-            completedDatesJson = JsonMappers.serializeStringList(currentCompletedDates)
-        )
-        taskDao.updateTask(updatedEntity)
+        val entityBefore = taskRepository.getTaskById(taskId)
+        val isCompleted = taskRepository.toggleTaskCompletion(taskId, dateIso) ?: return null
 
         // Gamification: Deterministic anti-farming XP reward or revocation with daily diminishing returns
         // Medication tasks are strictly excluded from gamification rewards
         val isMedicationTask = database.medicationDao().getMedicationByTaskId(taskId) != null
-        if (!isMedicationTask) {
+        if (!isMedicationTask && entityBefore != null) {
             val eventKey = GamificationEngine.createEventKey("TASK_COMPLETE", taskId.toString(), dateIso)
-            if (isNowCompleted) {
+            if (isCompleted) {
                 val dailyCount = gamificationDao.getDailyRewardedTaskCount(dateIso)
                 val (xp, coins) = GamificationEngine.calculateTaskXpWithDiminishingReturns(
                     dailyCount,
-                    TaskPriority.fromString(entity.priority)
+                    entityBefore.priority
                 )
                 if (xp > 0 || coins > 0) {
-                    awardXpAndCoins(eventKey, xp, coins, "Completed task: ${entity.title}")
+                    awardXpAndCoins(eventKey, xp, coins, "Completed task: ${entityBefore.title}")
                 }
                 val scheduledToday = getTasksForDateFlow(dateIso).first()
                 if (scheduledToday.isNotEmpty() && scheduledToday.all { it.isCompletedForDate }) {
@@ -917,80 +700,46 @@ class LifeRepository(
             evaluateAchievements()
         }
 
-        return isNowCompleted
+        return isCompleted
     }
 
     suspend fun toggleSubtask(taskId: Long, subtaskId: String) {
-        val entity = taskDao.getTaskById(taskId) ?: return
-        val subtasks = JsonMappers.parseSubtasks(entity.subtasksJson).map {
-            if (it.id == subtaskId) it.copy(isCompleted = !it.isCompleted) else it
-        }
-        val updated = entity.copy(subtasksJson = JsonMappers.serializeSubtasks(subtasks))
-        taskDao.updateTask(updated)
+        taskRepository.toggleSubtask(taskId, subtaskId)
     }
 
     /**
      * Reschedules an occurrence of a task from originalDateIso to newDateIso.
      */
     suspend fun rescheduleOccurrence(taskId: Long, originalDateIso: String, newDateIso: String) {
-        val entity = taskDao.getTaskById(taskId) ?: return
-        val recurrenceType = RecurrenceType.fromString(entity.recurrenceType)
-
-        if (recurrenceType == RecurrenceType.NONE) {
-            // For one-time tasks, simply update the dueDateIso
-            val updated = entity.copy(dueDateIso = newDateIso)
-            taskDao.updateTask(updated)
-        } else {
-            // For recurring tasks, map the original date to the new date
-            val map = JsonMappers.parseStringMap(entity.rescheduledDatesJson).toMutableMap()
-            map[originalDateIso] = newDateIso
-            val updated = entity.copy(rescheduledDatesJson = JsonMappers.serializeStringMap(map))
-            taskDao.updateTask(updated)
-        }
+        taskRepository.rescheduleOccurrence(taskId, originalDateIso, newDateIso)
     }
 
     /**
      * Skips an occurrence of a recurring task on a specific date.
      */
     suspend fun skipOccurrence(taskId: Long, dateIso: String) {
-        val entity = taskDao.getTaskById(taskId) ?: return
-        val skipped = JsonMappers.parseStringList(entity.skippedDatesJson).toMutableSet()
-        skipped.add(dateIso)
-        val updated = entity.copy(skippedDatesJson = JsonMappers.serializeStringList(skipped))
-        taskDao.updateTask(updated)
+        taskRepository.skipOccurrence(taskId, dateIso)
     }
 
     /**
      * Duplicates a task.
      */
     suspend fun duplicateTask(taskId: Long): Long {
-        val original = taskDao.getTaskById(taskId) ?: return -1L
-        val duplicate = original.copy(
-            id = 0,
-            title = "${original.title} (Copy)",
-            isOneTimeCompleted = false,
-            completedDatesJson = "[]",
-            skippedDatesJson = "[]",
-            rescheduledDatesJson = "{}",
-            createdAt = System.currentTimeMillis()
-        )
-        return taskDao.insertTask(duplicate)
+        return taskRepository.duplicateTask(taskId)
     }
 
     /**
      * Archives or unarchives a task.
      */
     suspend fun setTaskArchived(taskId: Long, isArchived: Boolean) {
-        val entity = taskDao.getTaskById(taskId) ?: return
-        taskDao.updateTask(entity.copy(isArchived = isArchived))
+        taskRepository.setTaskArchived(taskId, isArchived)
     }
 
     /**
      * Pauses or resumes a recurring task.
      */
     suspend fun setTaskPaused(taskId: Long, isPaused: Boolean) {
-        val entity = taskDao.getTaskById(taskId) ?: return
-        taskDao.updateTask(entity.copy(isPaused = isPaused))
+        taskRepository.setTaskPaused(taskId, isPaused)
     }
 
     /**
@@ -1006,18 +755,14 @@ class LifeRepository(
      * Bulk delete tasks.
      */
     suspend fun bulkDeleteTasks(taskIds: List<Long>) {
-        taskIds.forEach { taskId ->
-            taskDao.deleteTaskById(taskId)
-        }
+        taskRepository.bulkDeleteTasks(taskIds)
     }
 
     /**
      * Bulk archive tasks.
      */
     suspend fun bulkArchiveTasks(taskIds: List<Long>, isArchived: Boolean = true) {
-        taskIds.forEach { taskId ->
-            setTaskArchived(taskId, isArchived)
-        }
+        taskRepository.bulkArchiveTasks(taskIds, isArchived)
     }
 
     // --- Habits Flow ---
@@ -1376,7 +1121,7 @@ class LifeRepository(
         )
 
         defaultTasks.forEach { task ->
-            taskDao.insertTask(task.toEntity())
+            taskRepository.insertTask(task)
         }
 
         // 3. Initialize 75-Day Challenge
@@ -1386,105 +1131,6 @@ class LifeRepository(
     }
 
     // --- Entity Domain Mappings ---
-    private fun TaskEntity.toDomainModel(
-        project: ProjectEntity? = null,
-        labels: List<LabelItem> = emptyList(),
-        reminders: List<TaskReminderItem> = emptyList()
-    ): TaskItem {
-        val completedSet = JsonMappers.parseStringList(completedDatesJson).toSet()
-        val skippedSet = JsonMappers.parseStringList(skippedDatesJson).toSet()
-        val rescheduledMap = JsonMappers.parseStringMap(rescheduledDatesJson)
-        val subtasks = JsonMappers.parseSubtasks(subtasksJson)
-        val recurrenceDays = if (recurrenceDaysOfWeek.isBlank()) emptyList() else recurrenceDaysOfWeek.split(",")
-
-        return TaskItem(
-            id = id,
-            profileId = profileId,
-            title = title,
-            emoji = emoji,
-            description = description,
-            category = category,
-            priority = TaskPriority.fromString(priority),
-            dueDateIso = dueDateIso,
-            dueTime = dueTime,
-            durationMinutes = durationMinutes,
-            schedulingMode = SchedulingMode.fromString(schedulingMode),
-            durationAmount = durationAmount,
-            durationUnit = DurationUnit.fromString(durationUnit),
-            recurrenceType = RecurrenceType.fromString(recurrenceType),
-            recurrenceInterval = recurrenceInterval,
-            recurrenceUnit = recurrenceUnit,
-            recurrenceDaysOfWeek = recurrenceDays,
-            recurrenceEndCondition = recurrenceEndCondition,
-            recurrenceEndDateIso = recurrenceEndDateIso,
-            recurrenceCount = recurrenceCount,
-            recurrenceWindowStartDay = recurrenceWindowStartDay,
-            recurrenceWindowEndDay = recurrenceWindowEndDay,
-            isOneTimeCompleted = isOneTimeCompleted,
-            completedDates = completedSet,
-            skippedDates = skippedSet,
-            rescheduledDates = rescheduledMap,
-            subtasks = subtasks,
-            notes = notes,
-            isReminderEnabled = isReminderEnabled,
-            reminderMinutesBefore = reminderMinutesBefore,
-            isArchived = isArchived,
-            isPaused = isPaused,
-            isQuickReminder = isQuickReminder,
-            projectId = projectId,
-            projectName = project?.name,
-            projectColorId = project?.colorId,
-            deadlineIso = deadlineIso,
-            deadlineTime = deadlineTime,
-            isAllDay = isAllDay,
-            labels = labels,
-            reminders = reminders,
-            createdAt = createdAt
-        )
-    }
-
-    private fun TaskItem.toEntity(): TaskEntity {
-        return TaskEntity(
-            id = id,
-            profileId = profileId,
-            title = title,
-            emoji = emoji,
-            description = description,
-            category = category,
-            priority = priority.name,
-            dueDateIso = dueDateIso,
-            dueTime = dueTime,
-            durationMinutes = durationMinutes,
-            schedulingMode = schedulingMode.name,
-            durationAmount = durationAmount,
-            durationUnit = durationUnit.name,
-            deadlineIso = deadlineIso,
-            deadlineTime = deadlineTime,
-            isAllDay = isAllDay,
-            recurrenceType = recurrenceType.name,
-            recurrenceInterval = recurrenceInterval,
-            recurrenceUnit = recurrenceUnit,
-            recurrenceDaysOfWeek = recurrenceDaysOfWeek.joinToString(","),
-            recurrenceEndCondition = recurrenceEndCondition,
-            recurrenceEndDateIso = recurrenceEndDateIso,
-            recurrenceCount = recurrenceCount,
-            recurrenceWindowStartDay = recurrenceWindowStartDay,
-            recurrenceWindowEndDay = recurrenceWindowEndDay,
-            isOneTimeCompleted = isOneTimeCompleted,
-            completedDatesJson = JsonMappers.serializeStringList(completedDates),
-            skippedDatesJson = JsonMappers.serializeStringList(skippedDates),
-            rescheduledDatesJson = JsonMappers.serializeStringMap(rescheduledDates),
-            subtasksJson = JsonMappers.serializeSubtasks(subtasks),
-            notes = notes,
-            isReminderEnabled = isReminderEnabled,
-            reminderMinutesBefore = reminderMinutesBefore,
-            isArchived = isArchived,
-            isPaused = isPaused,
-            isQuickReminder = isQuickReminder,
-            projectId = projectId,
-            createdAt = createdAt
-        )
-    }
 
     private fun ProjectEntity.toDomainModel(taskCount: Int = 0, completedCount: Int = 0): ProjectItem {
         return ProjectItem(
@@ -1546,32 +1192,6 @@ class LifeRepository(
             orderIndex = orderIndex,
             createdAt = createdAt,
             updatedAt = System.currentTimeMillis()
-        )
-    }
-
-    private fun TaskReminderEntity.toDomainModel(): TaskReminderItem {
-        return TaskReminderItem(
-            id = id,
-            taskId = taskId,
-            minutesBefore = minutesBefore,
-            customTime = customTime,
-            type = type,
-            referenceType = referenceType,
-            isEnabled = isEnabled,
-            createdAt = createdAt
-        )
-    }
-
-    private fun TaskReminderItem.toEntity(overrideTaskId: Long = taskId): TaskReminderEntity {
-        return TaskReminderEntity(
-            id = id,
-            taskId = overrideTaskId,
-            minutesBefore = minutesBefore,
-            customTime = customTime,
-            type = type,
-            referenceType = referenceType,
-            isEnabled = isEnabled,
-            createdAt = createdAt
         )
     }
 
@@ -1892,34 +1512,7 @@ class LifeRepository(
     }
 
     suspend fun softDeleteTask(task: TaskItem) {
-        val effectiveProfileId = if (task.profileId > 0) task.profileId else getActiveProfileId()
-        val payload = JSONObject().apply {
-            put("id", task.id)
-            put("title", task.title)
-            put("emoji", task.emoji)
-            put("description", task.description)
-            put("category", task.category)
-            put("priority", task.priority.code)
-            put("dueDateIso", task.dueDateIso)
-            put("dueTime", task.dueTime)
-            put("projectId", task.projectId)
-            put("profileId", effectiveProfileId)
-        }.toString()
-        trashDao.insertTrashItem(
-            TrashItemEntity(
-                profileId = effectiveProfileId,
-                itemType = "TASK",
-                originalId = task.id,
-                title = task.title,
-                subtitle = "Scheduled for ${task.dueDateIso}",
-                originalPayloadJson = payload,
-                expiresAt = System.currentTimeMillis() + getTrashRetentionMillis()
-            )
-        )
-        labelDao.clearLabelsForTask(task.id)
-        taskReminderDao.deleteRemindersForTask(task.id)
-        honeycombShortcutDao.deleteShortcutByTarget("TASK", task.id.toString())
-        taskDao.deleteTaskById(task.id)
+        taskRepository.softDeleteTask(task, getTrashRetentionMillis())
     }
 
     suspend fun softDeleteHabit(habit: HabitItem) {
@@ -2000,7 +1593,7 @@ class LifeRepository(
             val effectiveProfileId = item.profileId
             when (item.itemType) {
                 "TASK" -> {
-                    taskDao.insertTask(
+                    taskRepository.insertTaskEntity(
                         TaskEntity(
                             id = json.optLong("id", 0L),
                             profileId = effectiveProfileId,
@@ -2211,10 +1804,7 @@ class LifeRepository(
         GamificationEngine.calculateStreaks(allDates, DateUtils.todayString())
     }
 
-    val taskStreaksFlow: Flow<StreakResult> = taskDao.getAllTasks().map { tasks ->
-        val allDates = tasks.flatMap { JsonMappers.parseStringList(it.completedDatesJson) }.toSet()
-        GamificationEngine.calculateStreaks(allDates, DateUtils.todayString())
-    }
+    val taskStreaksFlow: Flow<StreakResult> get() = taskRepository.taskStreaksFlow
 
     suspend fun awardXpAndCoins(eventKey: String, xp: Int, coins: Int, description: String): Boolean {
         val existing = gamificationDao.getXpEvent(eventKey)
@@ -2270,7 +1860,7 @@ class LifeRepository(
 
     suspend fun evaluateAchievements() {
         // 1. Task completions
-        val allTasks = taskDao.getAllTasksList()
+        val allTasks = taskRepository.getAllTasksList()
         val totalCompletedTasks = allTasks.count { it.isOneTimeCompleted } + allTasks.sumOf {
             JsonMappers.parseStringList(it.completedDatesJson).size
         }
@@ -2438,7 +2028,7 @@ class LifeRepository(
             }
 
             // 3. Tasks
-            val existingTasks = taskDao.getTasksForProfileList(activeProfileId)
+            val existingTasks = taskRepository.getTasksForProfileList(activeProfileId)
             template.tasks.forEachIndexed { index, taskDef ->
                 if (index in selectedTaskIndices) {
                     val isDuplicate = existingTasks.any { it.title.equals(taskDef.title, ignoreCase = true) }
@@ -2447,7 +2037,7 @@ class LifeRepository(
                             ?: if (template.projects.size == 1) template.projects.first().name.trim() else null
                         val taskProjectId = targetProjectName?.let { projectNameToId[it.lowercase()] }
 
-                        val newTaskId = taskDao.insertTask(
+                        val newTaskId = taskRepository.insertTaskEntity(
                             TaskEntity(
                                 profileId = activeProfileId,
                                 title = taskDef.title,
@@ -2528,7 +2118,7 @@ class LifeRepository(
 
                     when (scDef.type) {
                         ShortcutType.TASK -> {
-                            val allT = taskDao.getTasksForProfileList(activeProfileId)
+                            val allT = taskRepository.getTasksForProfileList(activeProfileId)
                             val matched = allT.find { it.id.toString() == scDef.targetId }
                                 ?: allT.find { it.title.equals(scDef.targetId, ignoreCase = true) }
                                 ?: allT.find { it.title.equals(scDef.title, ignoreCase = true) }
@@ -3023,14 +2613,7 @@ class LifeRepository(
     }
 
     suspend fun markTaskCompletedForDate(taskId: Long, dateIso: String) {
-        val entity = taskDao.getTaskById(taskId) ?: return
-        val currentCompleted = JsonMappers.parseStringList(entity.completedDatesJson).toMutableSet()
-        currentCompleted.add(dateIso)
-        val updated = entity.copy(
-            isOneTimeCompleted = entity.recurrenceType == "NONE",
-            completedDatesJson = JsonMappers.serializeStringList(currentCompleted)
-        )
-        taskDao.updateTask(updated)
+        taskRepository.markTaskCompletedForDate(taskId, dateIso)
     }
 
     // --- Mappers ---

@@ -405,7 +405,70 @@ To ensure strict zero-regression backward compatibility:
 - **Assembly**: `.\gradlew.bat assembleDebug` — **BUILD SUCCESSFUL in 1m 22s** (Clean APK generated).
 
 ### 10.5 Next Recommended Decomposition (P7-A4)
-- `MedicationRepository` and `MedicationViewModel` (medication inventory, dosage tracking, intake logs, and medication notification scheduling) to continue decomposing `LifeRepository` and `LifeViewModel`.
+- `TaskRepository` decomposition to decouple the central task domain from `LifeRepository.kt`.
+
+## 11. Phase P7-A4 Execution Summary: TaskRepository Extraction
+
+### 11.1 Objective & Architectural Bounds
+- **Goal**: Decompose the task management domain from the monolithic `LifeRepository.kt` into a standalone, cohesive `TaskRepository.kt` using the Strangler Facade pattern.
+- **Scope**: Task creation, retrieval, updates, hard deletion, soft deletion (trash), labels and reminders persistence, recurrence engine integration (daily, weekly, monthly, completion, rescheduling, skipping), subtask toggling, quick reminder deduplication, streak mapping, and profile scoping.
+- **Constraints**:
+  - Exactly ONE feature domain extracted: Tasks.
+  - Zero Room schema modifications or database migrations.
+  - Zero changes to persisted data models or Room table definitions.
+  - 100% backward compatibility maintained via `LifeRepository` facade delegation.
+  - Test rollback verification preserved via delegating `testTransactionInterceptor`.
+
+### 11.2 Extracted Architecture Components
+
+#### A. Dedicated Repository Layer ([`TaskRepository.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/data/repository/TaskRepository.kt))
+- **Injected Dependencies**:
+  - `database: AppDatabase`
+  - `preferences: UserPreferences`
+  - `activeProfileIdFlow: Flow<Long>`
+  - `ioDispatcher: CoroutineDispatcher = Dispatchers.IO`
+- **Internal DAO Dependencies Encapsulated**:
+  - `taskDao: TaskDao`
+  - `taskReminderDao: TaskReminderDao`
+  - `labelDao: LabelDao`
+  - `projectDao: ProjectDao`
+  - `trashDao: TrashDao`
+  - `honeycombShortcutDao: HoneycombShortcutDao`
+- **Direct DAO Reduction in `LifeRepository`**:
+  - `taskDao` completely eliminated from `LifeRepository` (delegated to `taskRepository`).
+  - `taskReminderDao` completely eliminated from `LifeRepository` (delegated to `taskRepository`).
+  - Active DAO count in `LifeRepository` reduced from 14 to 12.
+- **Exposed Reactive Streams**:
+  - `allTasksFlow: Flow<List<TaskItem>>`
+  - `getTasksForDateFlow(dateIso: String): Flow<List<TaskItem>>`
+  - `taskStreaksFlow: Flow<StreakResult>`
+  - `getTasksForProfileFlow(profileId: Long): Flow<List<TaskEntity>>`
+  - `getAllTaskEntitiesFlow(): Flow<List<TaskEntity>>`
+- **Domain Operations**:
+  - Standalone CRUD: `getTaskById`, `insertTask`, `insertTaskEntity`, `updateTask`, `deleteTask`, `softDeleteTask`, `deleteAllTasksForProfile`, `hasTasks`, `getAllTasksList`, `getTasksForProfileList`.
+  - Recurrence & Subtasks: `toggleTaskCompletion` (with `onCompletionChanged` callback for decoupled gamification), `toggleSubtask`, `markTaskCompletedForDate`, `rescheduleOccurrence`, `skipOccurrence`, `duplicateTask`, `setTaskArchived`, `setTaskPaused`, `bulkCompleteTasks`, `bulkDeleteTasks`, `bulkArchiveTasks`.
+  - Labels & Reminders: `saveTaskLabels`, `saveTaskReminders`.
+  - Shortcut Dedup & Routine Helpers: `getOrCreateTaskForShortcut`, `getDuplicateDisciplineTasks`, `cleanupDuplicateDisciplineTasks`.
+  - Test Hook: `testTransactionInterceptor` exposed for transactional atomicity testing.
+
+#### B. Compatibility Facade Layer ([`LifeRepository.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/data/repository/LifeRepository.kt))
+- Instantiates `val taskRepository: TaskRepository = TaskRepository(database, preferences)` in constructor with default parameter.
+- Forwarding delegates for all task methods: `allTasksFlow`, `getTasksForDateFlow`, `taskStreaksFlow`, `getTaskById`, `insertTask`, `updateTask`, `deleteTask`, `softDeleteTask`, `toggleTaskCompletion`, `toggleSubtask`, `rescheduleOccurrence`, `skipOccurrence`, `duplicateTask`, `setTaskArchived`, `setTaskPaused`, `bulkCompleteTasks`, `bulkDeleteTasks`, `bulkArchiveTasks`, `getOrCreateTaskForShortcut`, `getDuplicateDisciplineTasks`, `cleanupDuplicateDisciplineTasks`, `markTaskCompletedForDate`.
+- Decoupled Gamification: `LifeRepository.toggleTaskCompletion` invokes `taskRepository.toggleTaskCompletion` with an `onCompletionChanged` lambda that awards XP/coins and evaluates achievements.
+- Transaction rollback testing parity: `testTransactionInterceptor` property on `LifeRepository` delegates directly to `taskRepository.testTransactionInterceptor`.
+
+### 11.3 Quality Gates & Verification Evidence
+- **Automated Unit Tests**:
+  - [`TaskRepositoryUnitTest.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/test/java/com/example/data/repository/TaskRepositoryUnitTest.kt): 12 tests covering CRUD, recurrence, labels/reminders, subtasks, soft deletion, profile scoping, transaction rollback, and facade parity (**12/12 PASSED**).
+  - [`LifeRepositoryTransactionUnitTest.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/test/java/com/example/data/repository/LifeRepositoryTransactionUnitTest.kt): Verified facade delegation of `testTransactionInterceptor` and atomic rollback (**PASSED**).
+  - Preceding P7 suites: `SubscriptionRepositoryUnitTest`, `SubscriptionViewModelUnitTest`, `TrackerRepositoryUnitTest`, `TrackerViewModelUnitTest` (**ALL PASSED**).
+  - Combined P7 test execution: **48/48 tests PASSED in 30s**.
+- **Static Analysis**: `.\gradlew.bat lintDebug` — **BUILD SUCCESSFUL in 2m 39s** (0 errors).
+- **Assembly**: `.\gradlew.bat assembleDebug` — **BUILD SUCCESSFUL in 51s** (Clean APK generated).
+
+### 11.4 Next Recommended Decomposition (P7-A5)
+- `TaskViewModel` extraction or `MedicationRepository` / `MedicationViewModel` decomposition.
+
 
 
 
