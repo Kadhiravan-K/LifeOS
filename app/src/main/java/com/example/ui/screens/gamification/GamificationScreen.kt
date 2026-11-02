@@ -79,11 +79,13 @@ fun GamificationScreen(
     val habitStreaks by viewModel.habitStreaks.collectAsStateWithLifecycle()
     val taskStreaks by viewModel.taskStreaks.collectAsStateWithLifecycle()
     val isPremiumActive by viewModel.isPremiumActive.collectAsStateWithLifecycle()
+    val subscriptionProduct by viewModel.subscriptionProduct.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var selectedTab by remember { mutableIntStateOf(0) } // 0 = Achievements, 1 = Rewards Shop
     var achievementFilter by remember { mutableStateOf("ALL") } // "ALL", "UNLOCKED", "LOCKED"
     var showAddRewardDialog by remember { mutableStateOf(false) }
+    var showSubscriptionDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         floatingActionButton = {
@@ -91,7 +93,7 @@ fun GamificationScreen(
                 FloatingActionButton(
                     onClick = {
                         if (!isPremiumActive) {
-                            Toast.makeText(context, "LifeOS Premium required for Rewards Shop", Toast.LENGTH_SHORT).show()
+                            showSubscriptionDialog = true
                         } else {
                             showAddRewardDialog = true
                         }
@@ -179,20 +181,11 @@ fun GamificationScreen(
                             horizontalArrangement = Arrangement.End
                         ) {
                             Button(
-                                onClick = {
-                                    if (com.example.BuildConfig.DEBUG) {
-                                        viewModel.toggleSimulatedPremium(true)
-                                    } else {
-                                        val activity = context as? android.app.Activity
-                                        if (activity != null) {
-                                            viewModel.launchSubscriptionPurchase(activity)
-                                        }
-                                    }
-                                },
+                                onClick = { showSubscriptionDialog = true },
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                             ) {
-                                Text(if (com.example.BuildConfig.DEBUG) "Unlock (Dev Mode)" else "Subscribe (7-Day Trial)", fontSize = 12.sp)
+                                Text(if (com.example.BuildConfig.DEBUG) "Unlock / Subscribe" else "Subscribe (7-Day Trial)", fontSize = 12.sp)
                             }
                         }
                     }
@@ -469,6 +462,30 @@ fun GamificationScreen(
                 viewModel.insertReward(title, desc, cost, emoji)
                 showAddRewardDialog = false
             }
+        )
+    }
+
+    if (showSubscriptionDialog) {
+        val activity = context as? android.app.Activity
+        com.example.ui.components.SubscriptionDisclosureDialog(
+            subscriptionProduct = subscriptionProduct,
+            onDismissRequest = { showSubscriptionDialog = false },
+            onConfirmPurchase = {
+                if (activity != null) {
+                    viewModel.launchSubscriptionPurchase(activity)
+                }
+                showSubscriptionDialog = false
+            },
+            onRestorePurchases = {
+                viewModel.restoreSubscriptionPurchases()
+                showSubscriptionDialog = false
+            },
+            onDevUnlock = if (com.example.BuildConfig.DEBUG) {
+                {
+                    viewModel.toggleSimulatedPremium(true)
+                    showSubscriptionDialog = false
+                }
+            } else null
         )
     }
 }

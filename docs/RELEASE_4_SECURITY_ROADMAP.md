@@ -939,6 +939,74 @@ For future server-side verification sign-off:
 - `.\gradlew.bat lintDebug`: **BUILD SUCCESSFUL** (0 errors).
 - `.\gradlew.bat assembleDebug`: **BUILD SUCCESSFUL** (Clean debug APK artifact).
 
+---
+
+## 17. Phase P5-L4: Privacy, Legal Disclosures and Google Play Store Readiness
+
+### 17.1 Preflight & Dependency Baseline
+- **Branch**: `feat/release4-security-audit-remediation`.
+- **Preceding Loops**: Verified P5-L1 (`2405ab54602b6d110ec678216c05c1b110d32294`), P5-L2 (`3650cea0ac67ffb951072b2fec2e9d9d0ee9659d`), and P5-L3 (`dd394e1ba3481772c0770673c0832a1b53d2855b`) committed and synchronized with remote.
+- **Baseline Tag**: Release 3 tag `v3.0.0` points to commit `2233a958a23194e5461bea4c76d4b69b99ad3147` (unchanged ancestor).
+- **Commercial Invariants**:
+  - Free + optional Premium subscription.
+  - Monthly billing cadence only (`P1M`).
+  - 7-day free trial (`7-day-free-trial`).
+  - Google Play Billing for Android.
+  - No annual subscription, lifetime purchase, or one-time purchase.
+  - Zero hardcoded subscription prices or currencies (all dynamic via Google Play Billing).
+
+### 17.2 Manifest & Transitive Dependency Privacy Audit
+- **Direct Manifest State**: `app/src/main/AndroidManifest.xml` declares only local permissions (`RECEIVE_BOOT_COMPLETED`, `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `POST_NOTIFICATIONS`, `VIBRATE`, `USE_FULL_SCREEN_INTENT`, `WAKE_LOCK`).
+- **Merged Manifest Reality**: Transitive dependencies (`com.android.billingclient:billing-ktx` and `androidx.work:work-runtime`) merge:
+  - `com.android.vending.BILLING` (Google Play Billing API communication)
+  - `android.permission.INTERNET` (Google Play Billing IPC & network calls to Google Play Services)
+  - `android.permission.ACCESS_NETWORK_STATE` (Network connectivity checks for WorkManager/Billing)
+- **Truthful Remediation**: Previous claims that "the app cannot open network sockets because it lacks `INTERNET` permission" were identified as an audit risk. Updated `PRIVACY.md` and `README.md` to state the exact technical truth: the application opens zero proprietary sockets and operates zero private cloud servers; network capability is strictly isolated to Google LLC's Google Play Billing library communicating directly with the Google Play Store app (`com.android.vending`).
+
+### 17.3 Transparent Subscription Disclosures & UI Implementation
+- **Component**: Created [`SubscriptionDisclosureDialog.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/components/SubscriptionDisclosureDialog.kt) adhering to Google Play Subscription Policy:
+  - Dynamic localized pricing and currency formatted from `SubscriptionProduct.formattedPrice`.
+  - Prominent 7-day free trial terms with clear warning that recurring billing begins automatically at the end of the trial unless cancelled at least 24 hours prior.
+  - Explicit cancellation terms informing users that uninstalling the app does NOT cancel subscriptions.
+  - Direct "Manage in Google Play" deeplink (`https://play.google.com/store/account/subscriptions?sku=lifeos_premium_monthly&package=com.example.lifeos`).
+  - Prominent "Restore Purchases" button for seamless cross-device / reinstallation recovery.
+  - Non-destructive downgrade guarantee displayed directly in the disclosure modal.
+- **Screen Integration**: Replaced legacy paywall/minimal dialogs in [`ThemeGalleryScreen.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/screens/themes/ThemeGalleryScreen.kt) and [`GamificationScreen.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/screens/gamification/GamificationScreen.kt).
+
+### 17.4 Google Play Data Safety Declaration Mapping
+Comprehensive audit confirms:
+- **Personal Data**: ZERO collected or shared.
+- **Location**: ZERO collected or shared.
+- **Financial Info**: Purchase history and payment details are collected and handled exclusively by Google LLC under Google's Privacy Policy. The LifeOS client does not process or retain credit card numbers or banking information.
+- **Health & Fitness**: Medication schedules and reminders are stored exclusively in the local Room SQLite database (v19, 40 entities) on the user's device and are NEVER transmitted to external servers.
+- **App Activity / Telemetry / Identifiers**: ZERO analytics, crash reporters, or advertising SDKs.
+- **Security Practices**: Data is not transmitted externally; user data stays encrypted locally if full-disk device encryption is active; users can delete all data at any time via App Settings ("Clear Data").
+
+### 17.5 Readiness Checklist & Action Items Categorization
+1. **Source-Verified (Completed in Codebase)**:
+   - Dynamic localized pricing from Google Play.
+   - Subscription lifecycle state machine (12 states).
+   - In-app cancellation deeplink to Google Play Subscriptions.
+   - Restore purchases flow on launch and user tap.
+   - Accurate local-first privacy policy and README documentation.
+   - Non-destructive downgrade (zero data deletion).
+2. **Requires Google Play Console Access (Owner Action)**:
+   - Create subscription product `lifeos_premium_monthly` with base plan `P1M`.
+   - Configure regional pricing and tax tables across target countries.
+   - Configure 7-day introductory free trial offer (`7-day-free-trial`).
+   - Submit Data Safety Form matching Section 17.4.
+   - Fill out Google Play Developer declarations and target audience questionnaire.
+3. **Requires Owner Information**:
+   - Official legal entity / developer name and support email address for `PRIVACY.md`.
+   - Host `PRIVACY.md` at a publicly accessible URL (e.g. GitHub Pages) for the Play Console Privacy Policy field.
+4. **Requires Legal Review**:
+   - Formal Terms of Service (EULA) and commercial consumer protection compliance in target jurisdictions (EU 14-day statutory right of withdrawal notices, etc.).
+
+### 17.6 Verification & Quality Gates
+- **Automated Tests**: Added [`SubscriptionDisclosureUnitTest.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/test/java/com/example/billing/SubscriptionDisclosureUnitTest.kt) covering URL formation, dynamic pricing, trial eligibility toggles, and cancellation state handling (4/4 tests passed).
+- **Full Quality Suite**: All 495+ unit tests passed; `lintDebug` clean (0 errors); `assembleDebug` clean.
+
+
 
 
 

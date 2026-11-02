@@ -4,23 +4,23 @@
 [![Platform](https://img.shields.io/badge/Platform-Android-green.svg)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-purple.svg)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-blue.svg)](https://developer.android.com/jetpack/compose)
-[![Privacy](https://img.shields.io/badge/Privacy-100%25%20Offline-success.svg)](PRIVACY.md)
-[![Database](https://img.shields.io/badge/Room%20DB-v10%20SQLite-orange.svg)](app/src/main/java/com/example/data/local/AppDatabase.kt)
+[![Privacy](https://img.shields.io/badge/Privacy-Local--First-success.svg)](PRIVACY.md)
+[![Database](https://img.shields.io/badge/Room%20DB-v19%20SQLite-orange.svg)](app/src/main/java/com/example/data/local/AppDatabase.kt)
 
-> **LifeOS** is a privacy-first, fully offline native Android productivity and life operating system developed by **Kadhiravan**. Built with Jetpack Compose Material 3, Room SQLite, and Clean MVVM architecture.
+> **LifeOS** is a privacy-first, local-first native Android productivity and life operating system developed by **Kadhiravan**. Built with Jetpack Compose Material 3, Room SQLite (v19, 40 entities), and Clean MVVM architecture.
 
 ---
 
-## 🔒 The Offline-First Manifesto
+## 🔒 The Local-First Privacy Principles
 
 LifeOS is built with strict privacy and architectural guarantees:
 
-1. **Zero Network Permissions (`android.permission.INTERNET` is omitted from manifest)**
-2. **Zero Cloud Backends & Zero Firebase**
-3. **Zero Analytics, Telemetry, or Crash Tracking SDKs**
-4. **Zero Advertisements or Monetization Paywalls**
-5. **Zero Login or Mandatory Accounts**
-6. **100% On-Device Data Sovereignty** — Your data never leaves your device.
+1. **Zero Cloud Backends & Zero User Tracking**: No proprietary servers, user databases, or cloud sync backends.
+2. **Zero Analytics, Telemetry, or Advertising SDKs**: No trackers, device fingerprinting, or diagnostic beacons.
+3. **100% On-Device Data Sovereignty**: All tasks, habits, schedules, notes, trackers, and health data reside strictly on your device.
+4. **Transparent Google Play Subscriptions**: Core productivity tools are 100% free forever. An optional monthly Premium subscription (with 7-day free trial) unlocks cosmetic themes and bonus perks via Google Play Billing.
+5. **Zero Login or Mandatory Accounts**: No registration or email required.
+6. **User-Controlled Local Backups**: Full JSON export and restore via Android Storage Access Framework (SAF).
 
 ---
 
@@ -55,16 +55,25 @@ LifeOS is built with strict privacy and architectural guarantees:
 - **Horizontally Scrollable Habit Strip**: Compact, scrollable habit tracker providing quick one-tap check-ins.
 - **75 Hard Presets**: Official 75 Hard, 75 Soft, and 75 Medium with integrated hydration targets, two-a-day workouts, reading targets, and progress tracking.
 
-### 🎨 5 Immersive Themes
-1. **LifeOS Minimal**: Clean, distraction-free neutral theme.
-2. **Arcane Academy**: Deep mystical violet and runic hex engravings.
-3. **Cyber Nexus**: High-contrast neon teal, circuit traces, and angular motifs.
-4. **Adventure Realm**: Warm parchment gold, guild quest logs, and compass badges.
-5. **Cosmic Explorer**: Deep space navy, orbital rings, and starlight accents.
+### 🎨 14 Handcrafted Theme Environments
+1. **Genesis (Default Free)**: Clean, high-contrast obsidian & gold distraction-free neutral theme.
+2. **Cyberpunk Neon**: High-contrast neon teal and ultraviolet laser accents.
+3. **Tokyo Sakura**: Soft blossom pinks and calm paper lanterns.
+4. **Retro Terminal 1984**: Vintage amber CRT phosphor aesthetic.
+5. **Obsidian Minimalist**: Pure monochrome AMOLED black and white.
+6. **Nordic Frost**: Glacial blue, ice crystal reflections, and crisp lines.
+7. **Solar Flare**: Vibrant coronal gold, embers, and energetic amber.
+8. **Velvet Midnight**: Royal deep purple and dark midnight blues.
+9. **Emerald Forest**: Lush moss greens and organic nature tones.
+10. **Sunset Horizon**: Warm gradient dusk oranges and twilight purples.
+11. **Royal Amethyst**: Regal violet with gold filigree highlights.
+12. **Synthwave 80s**: Retro-futuristic magenta, cyan grids, and sunset neon.
+13. **Monokai Pro**: Classic code editor palette tuned for focus.
+14. **Deep Abyssal**: Ocean abyss navy with bioluminescent accents.
 
 ### 💾 Safe Offline Backup & Restore
-- **Deterministic JSON Export & Import**: Complete snapshot of tasks, habits, challenge progress, and honeycomb layouts.
-- **Version 6 Room SQLite Database**: Preserves full migration history with zero destructive fallbacks.
+- **Deterministic JSON Export & Import (v1 and v2)**: Complete snapshot of all 40 database entities, tasks, habits, challenge progress, and honeycomb layouts.
+- **Version 19 Room SQLite Database**: Enforces strict foreign-key integrity with automatic orphan quarantine and zero silent data loss.
 
 ---
 

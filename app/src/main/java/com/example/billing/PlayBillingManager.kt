@@ -131,8 +131,7 @@ class PlayBillingManager(
                             priceMicros = pricingPhase?.priceAmountMicros ?: 0L,
                             billingPeriod = pricingPhase?.billingPeriod ?: "P1M",
                             freeTrialPeriod = trialPhase?.billingPeriod,
-                            freeTrialDays = trialDays,
-                            hasFreeTrial = trialDays > 0
+                            freeTrialDays = trialDays
                         )
                     }
                 }

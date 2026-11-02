@@ -97,6 +97,7 @@ fun ThemeGalleryScreen(
     val previewThemeId by viewModel.previewThemeId.collectAsStateWithLifecycle()
     val isPremiumActive by viewModel.isPremiumActive.collectAsStateWithLifecycle()
     val persistedThemeId by viewModel.activeThemeIdFlow.collectAsStateWithLifecycle()
+    val subscriptionProduct by viewModel.subscriptionProduct.collectAsStateWithLifecycle()
 
     var showUnlockModalForTheme by remember { mutableStateOf<ThemeDefinition?>(null) }
     var transitioningTheme by remember { mutableStateOf<ThemeDefinition?>(null) }
@@ -396,71 +397,31 @@ fun ThemeGalleryScreen(
 
     // Modal when user tries to apply a locked premium theme without active entitlement
     showUnlockModalForTheme?.let { lockedTheme ->
-        AlertDialog(
+        val context = androidx.compose.ui.platform.LocalContext.current
+        com.example.ui.components.SubscriptionDisclosureDialog(
+            subscriptionProduct = subscriptionProduct,
             onDismissRequest = { showUnlockModalForTheme = null },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "👑 ${lockedTheme.name}")
+            onConfirmPurchase = {
+                val activity = context as? android.app.Activity
+                if (activity != null) {
+                    viewModel.launchSubscriptionPurchase(activity)
                 }
+                showUnlockModalForTheme = null
             },
-            text = {
-                val context = androidx.compose.ui.platform.LocalContext.current
-                Column {
-                    Text(
-                        text = "This theme is a Premium cosmetic enhancement. All core task, habit, and schedule features remain 100% free.",
-                        fontSize = 13.sp
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    if (com.example.BuildConfig.DEBUG) {
-                        Text(
-                            text = "You can preview it for free anytime! To test full unlock in development mode, activate the Developer Entitlement Simulator toggle.",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        Text(
-                            text = "You can preview it for free anytime, or subscribe to LifeOS Premium (monthly with a 7-day free trial) to unlock all themes.",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+            onRestorePurchases = {
+                viewModel.restoreSubscriptionPurchases()
+                showUnlockModalForTheme = null
             },
-            confirmButton = {
-                val context = androidx.compose.ui.platform.LocalContext.current
-                if (com.example.BuildConfig.DEBUG) {
-                    Button(
-                        onClick = {
-                            viewModel.toggleSimulatedPremium(true)
-                            viewModel.selectTheme(lockedTheme.id)
-                            showUnlockModalForTheme = null
-                        }
-                    ) {
-                        Text("Enable & Apply (Dev Mode)")
-                    }
-                } else {
-                    Button(
-                        onClick = {
-                            val activity = context as? android.app.Activity
-                            if (activity != null) {
-                                viewModel.launchSubscriptionPurchase(activity)
-                            }
-                            showUnlockModalForTheme = null
-                        }
-                    ) {
-                        Text("Subscribe (7-Day Trial)")
-                    }
+            onDevUnlock = if (com.example.BuildConfig.DEBUG) {
+                {
+                    viewModel.toggleSimulatedPremium(true)
+                    viewModel.selectTheme(lockedTheme.id)
+                    showUnlockModalForTheme = null
                 }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.startThemePreview(lockedTheme.id)
-                        showUnlockModalForTheme = null
-                    }
-                ) {
-                    Text("Preview Theme")
-                }
+            } else null,
+            previewAction = {
+                viewModel.startThemePreview(lockedTheme.id)
+                showUnlockModalForTheme = null
             }
         )
     }

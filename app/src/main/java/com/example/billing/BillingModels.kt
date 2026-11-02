@@ -16,9 +16,9 @@ data class SubscriptionProduct(
     val priceMicros: Long,
     val billingPeriod: String, // e.g., "P1M"
     val freeTrialPeriod: String? = null, // e.g., "P7D"
-    val freeTrialDays: Int = 0,
-    val hasFreeTrial: Boolean = freeTrialDays > 0
+    val freeTrialDays: Int = 0
 ) {
+    val hasFreeTrial: Boolean get() = freeTrialDays > 0
     val priceFormatted: String get() = formattedPrice
     val trialPeriodDays: Int get() = freeTrialDays
 }
