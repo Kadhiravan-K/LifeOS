@@ -220,7 +220,8 @@ private data class TaskFilterParams(
 class LifeViewModel(
     application: Application,
     private val repository: LifeRepository,
-    private val preferences: UserPreferences
+    private val preferences: UserPreferences,
+    val subscriptionViewModel: SubscriptionViewModel = SubscriptionViewModel(repository.subscriptionRepository)
 ) : AndroidViewModel(application) {
 
     private val _currentDateIso = MutableStateFlow(DateUtils.todayString())
@@ -565,24 +566,10 @@ class LifeViewModel(
         initialValue = emptyList()
     )
 
-    // --- Subscription Flows ---
-    val allSubscriptions: StateFlow<List<SubscriptionItem>> = repository.allSubscriptionsFlow.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
-
-    val activeSubscriptions: StateFlow<List<SubscriptionItem>> = repository.activeSubscriptionsFlow.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
-
-    val allBills: StateFlow<List<BillingOccurrenceItem>> = repository.allBillsFlow.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
+    // --- Subscription Flows (delegated to SubscriptionViewModel facade) ---
+    val allSubscriptions: StateFlow<List<SubscriptionItem>> get() = subscriptionViewModel.allSubscriptions
+    val activeSubscriptions: StateFlow<List<SubscriptionItem>> get() = subscriptionViewModel.activeSubscriptions
+    val allBills: StateFlow<List<BillingOccurrenceItem>> get() = subscriptionViewModel.allBills
 
     private val entitlementRepo: PremiumEntitlementRepository = LocalPremiumEntitlementRepository(application)
     val isPremiumActive: StateFlow<Boolean> = entitlementRepo.isPremiumActive.stateIn(
@@ -3125,43 +3112,31 @@ class LifeViewModel(
     }
 
     // ==========================================
-    // --- SUBSCRIPTION VIEWMODEL ACTIONS ---
+    // --- SUBSCRIPTION VIEWMODEL ACTIONS (Delegated Facade) ---
     // ==========================================
 
     fun saveSubscription(subscription: SubscriptionItem, onComplete: ((Long) -> Unit)? = null) {
-        viewModelScope.launch {
-            val id = if (subscription.id == 0L) {
-                repository.insertSubscription(subscription)
-            } else {
-                repository.updateSubscription(subscription)
-                subscription.id
-            }
-            onComplete?.invoke(id)
-        }
+        subscriptionViewModel.saveSubscription(subscription, onComplete)
     }
 
     fun setSubscriptionStatus(subscriptionId: Long, status: SubscriptionStatus) {
-        viewModelScope.launch {
-            repository.setSubscriptionStatus(subscriptionId, status)
-        }
+        subscriptionViewModel.setSubscriptionStatus(subscriptionId, status)
     }
 
     fun deleteSubscription(subscriptionId: Long) {
-        viewModelScope.launch {
-            repository.deleteSubscription(subscriptionId)
-        }
+        subscriptionViewModel.deleteSubscription(subscriptionId)
     }
 
     fun getBillsForSubscription(subscriptionId: Long): Flow<List<BillingOccurrenceItem>> {
-        return repository.getBillsForSubscriptionFlow(subscriptionId)
+        return subscriptionViewModel.getBillsForSubscription(subscriptionId)
     }
 
     fun getPaymentsForBill(billId: Long): Flow<List<SubscriptionPaymentItem>> {
-        return repository.getPaymentsForBillFlow(billId)
+        return subscriptionViewModel.getPaymentsForBill(billId)
     }
 
     fun getPaymentsForSubscription(subscriptionId: Long): Flow<List<SubscriptionPaymentItem>> {
-        return repository.getPaymentsForSubscriptionFlow(subscriptionId)
+        return subscriptionViewModel.getPaymentsForSubscription(subscriptionId)
     }
 
     fun recordBillPayment(
@@ -3173,30 +3148,23 @@ class LifeViewModel(
         transactionRef: String = "",
         notes: String = ""
     ) {
-        viewModelScope.launch {
-            val payment = SubscriptionPaymentItem(
-                billId = billId,
-                subscriptionId = subscriptionId,
-                amountPaid = amountPaid,
-                paymentDateIso = paymentDateIso,
-                paymentMethod = paymentMethod,
-                transactionRef = transactionRef,
-                notes = notes
-            )
-            repository.recordBillPayment(payment, todayIso)
-        }
+        subscriptionViewModel.recordBillPayment(
+            billId = billId,
+            subscriptionId = subscriptionId,
+            amountPaid = amountPaid,
+            paymentDateIso = paymentDateIso,
+            paymentMethod = paymentMethod,
+            transactionRef = transactionRef,
+            notes = notes
+        )
     }
 
     fun updateBillStatus(bill: BillingOccurrenceItem, status: BillStatus) {
-        viewModelScope.launch {
-            repository.updateBill(bill.copy(status = status))
-        }
+        subscriptionViewModel.updateBillStatus(bill, status)
     }
 
     fun updateBillAmount(bill: BillingOccurrenceItem, newExpectedAmount: Double) {
-        viewModelScope.launch {
-            repository.updateBill(bill.copy(expectedAmount = newExpectedAmount))
-        }
+        subscriptionViewModel.updateBillAmount(bill, newExpectedAmount)
     }
 
     fun updateSubscriptionPrice(
@@ -3205,13 +3173,11 @@ class LifeViewModel(
         effectiveDateIso: String,
         reason: String
     ) {
-        viewModelScope.launch {
-            repository.updateSubscriptionPrice(subscriptionId, newPrice, effectiveDateIso, reason)
-        }
+        subscriptionViewModel.updateSubscriptionPrice(subscriptionId, newPrice, effectiveDateIso, reason)
     }
 
     fun getPriceHistory(subscriptionId: Long): Flow<List<PriceHistoryItem>> {
-        return repository.getPriceHistoryFlow(subscriptionId)
+        return subscriptionViewModel.getPriceHistory(subscriptionId)
     }
 
     // --- Release 3 Phase 8: Downloadable Feature Modules & Glossary (#2, #10) ---
@@ -3700,12 +3666,17 @@ class LifeViewModel(
 class LifeViewModelFactory(
     private val application: Application,
     private val repository: LifeRepository,
-    private val preferences: UserPreferences
+    private val preferences: UserPreferences,
+    private val subscriptionViewModel: SubscriptionViewModel? = null
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(LifeViewModel::class.java)) {
-            return LifeViewModel(application, repository, preferences) as T
+            val subVm = subscriptionViewModel ?: SubscriptionViewModel(repository.subscriptionRepository)
+            return LifeViewModel(application, repository, preferences, subVm) as T
+        }
+        if (modelClass.isAssignableFrom(SubscriptionViewModel::class.java)) {
+            return (subscriptionViewModel ?: SubscriptionViewModel(repository.subscriptionRepository)) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

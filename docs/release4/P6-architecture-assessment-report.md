@@ -280,3 +280,52 @@ All verification gates were executed against HEAD commit `1d5ff51dc96fcec971ffa7
 ### 8.5 Remaining Coupling & Follow-Up Work
 - Next recommended extractions: `TrackerRepository` (inventory trackers) and `MedicationRepository` (doses, schedules, medicine alarms).
 
+---
+
+## 9. Post-Assessment Execution: Phase P7-A2 LifeViewModel Decomposition
+
+### 9.1 Objective & Strangler Pattern Strategy
+Following the P6 architectural recommendation (`ARCH-02`) and building on the domain boundary established in P7-A1 (`SubscriptionRepository`), Phase P7-A2 extracts the presentation and state management responsibilities for personal recurring expense subscriptions from `LifeViewModel.kt` into a standalone, feature-scoped `SubscriptionViewModel.kt`.
+
+To preserve 100% backward compatibility:
+- `LifeViewModel` retains matching public Flow properties (`allSubscriptions`, `activeSubscriptions`, `allBills`) and action methods (`saveSubscription`, `deleteSubscription`, etc.) as an delegating facade.
+- `LifeViewModel` delegates all subscription calls directly to an internal `subscriptionViewModel` instance, preventing duplicate state.
+- `SubscriptionDetailScreen.kt` was refactored to take `subscriptionViewModel: SubscriptionViewModel` as its primary dependency, with an overload for existing navigation paths taking `LifeViewModel`.
+- Zero Hilt, Koin, or Gradle multi-module complexity was introduced; construction is supported via `SubscriptionViewModelFactory` and standard Android `ViewModelProvider`.
+
+### 9.2 Extracted ViewModel Architecture ([`SubscriptionViewModel.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/viewmodel/SubscriptionViewModel.kt))
+- **Injected Dependency**: `SubscriptionRepository`.
+- **Exposed Reactive States**:
+  - `val allSubscriptions: StateFlow<List<SubscriptionItem>>` (profile-scoped recurring subscription list).
+  - `val activeSubscriptions: StateFlow<List<SubscriptionItem>>` (active subscription items).
+  - `val allBills: StateFlow<List<BillingOccurrenceItem>>` (scheduled billing occurrences).
+  - `val isLoading: StateFlow<Boolean>` (mutating operation loading indicator).
+  - `val errorMessage: StateFlow<String?>` (error message handling with `clearError()`).
+- **Feature Operations**:
+  - `saveSubscription(subscription, onComplete)`: Handles insert or update with callback.
+  - `setSubscriptionStatus(subscriptionId, status)`: Transitions status (ACTIVE, PAUSED, CANCELLED, TRIAL).
+  - `deleteSubscription(subscriptionId, onComplete)`: Cascades subscription and bill deletion.
+  - `getBillsForSubscription(subscriptionId)`: Flow of bills for a given subscription.
+  - `getPaymentsForBill(billId)` / `getPaymentsForSubscription(subscriptionId)`: Payment audit logs.
+  - `recordBillPayment(...)`: Atomic payment record with bill status transition.
+  - `updateBillStatus(bill, status)` / `updateBillAmount(bill, newExpectedAmount)`: Occurrence updates.
+  - `updateSubscriptionPrice(subscriptionId, newPrice, effectiveDateIso, reason)`: Price change with audit trail.
+  - `getPriceHistory(subscriptionId)`: Flow of price history adjustments.
+
+### 9.3 UI Migration & Decoupling
+- **Screen**: [`SubscriptionDetailScreen.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/screens/essentials/SubscriptionDetailScreen.kt)
+  - Refactored primary composable signature: `SubscriptionDetailScreen(subscriptionId: Long, subscriptionViewModel: SubscriptionViewModel, projects: List<ProjectItem> = emptyList(), onNavigateBack: () -> Unit, onEditSubscription: (SubscriptionItem) -> Unit)`.
+  - Added backward-compatible overload accepting `viewModel: LifeViewModel` delegating to the primary composable.
+- **Parent Screen**: [`TrackersSubscriptionsScreen.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/screens/essentials/TrackersSubscriptionsScreen.kt)
+  - Updated to pass `subscriptionViewModel = viewModel.subscriptionViewModel` and `projects = projects` directly.
+
+### 9.4 Verification & Quality Gates
+- **Targeted Unit Tests**: Added [`SubscriptionViewModelUnitTest.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/test/java/com/example/ui/viewmodel/SubscriptionViewModelUnitTest.kt) covering initial flow states, subscription creation, status updates, cascade deletions, atomic bill payments, price history tracking, and factory instantiation (**10/10 tests passed in 1m 27s**).
+- **Repository Regression Tests**: Executed [`SubscriptionRepositoryUnitTest.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/test/java/com/example/data/repository/SubscriptionRepositoryUnitTest.kt) (**5/5 tests passed in 40s**).
+- **Static Analysis (Lint)**: Executed `.\gradlew.bat lintDebug` — **BUILD SUCCESSFUL in 4m 53s** (0 errors).
+- **Build Assembly**: Executed `.\gradlew.bat assembleDebug` — **BUILD SUCCESSFUL in 54s** (Clean APK generated).
+
+### 9.5 Next Recommended Decomposition (P7-A3)
+- `TrackerViewModel` (smart trackers, cycle records, reading logs, inventory adjustments) to decouple the remainder of `TrackersSubscriptionsScreen.kt`.
+
+

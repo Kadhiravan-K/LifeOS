@@ -57,6 +57,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.domain.model.ProjectItem
 import com.example.domain.subscription.BillingOccurrenceItem
 import com.example.domain.subscription.BillStatus
 import com.example.domain.subscription.PriceHistoryItem
@@ -65,29 +66,30 @@ import com.example.domain.subscription.SubscriptionPaymentItem
 import com.example.domain.subscription.SubscriptionScheduleEngine
 import com.example.domain.subscription.SubscriptionStatus
 import com.example.ui.viewmodel.LifeViewModel
+import com.example.ui.viewmodel.SubscriptionViewModel
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubscriptionDetailScreen(
     subscriptionId: Long,
-    viewModel: LifeViewModel,
+    subscriptionViewModel: SubscriptionViewModel,
+    projects: List<ProjectItem> = emptyList(),
     onNavigateBack: () -> Unit,
     onEditSubscription: (SubscriptionItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val subscriptions by viewModel.allSubscriptions.collectAsStateWithLifecycle()
+    val subscriptions by subscriptionViewModel.allSubscriptions.collectAsStateWithLifecycle()
     val subscription = subscriptions.find { it.id == subscriptionId }
-    val projects by viewModel.allProjects.collectAsStateWithLifecycle()
     val project = projects.find { it.id == subscription?.projectId }
 
-    val billsFlow = remember(subscriptionId) { viewModel.getBillsForSubscription(subscriptionId) }
+    val billsFlow = remember(subscriptionId) { subscriptionViewModel.getBillsForSubscription(subscriptionId) }
     val bills by billsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
-    val paymentsFlow = remember(subscriptionId) { viewModel.getPaymentsForSubscription(subscriptionId) }
+    val paymentsFlow = remember(subscriptionId) { subscriptionViewModel.getPaymentsForSubscription(subscriptionId) }
     val payments by paymentsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
-    val priceHistoryFlow = remember(subscriptionId) { viewModel.getPriceHistory(subscriptionId) }
+    val priceHistoryFlow = remember(subscriptionId) { subscriptionViewModel.getPriceHistory(subscriptionId) }
     val priceHistory by priceHistoryFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
     var selectedTabIndex by remember { mutableIntStateOf(0) } // 0: Bills & Payments, 1: Price History & Analytics
@@ -561,7 +563,7 @@ fun SubscriptionDetailScreen(
                 Button(
                     onClick = {
                         val amount = paymentAmountText.toDoubleOrNull() ?: balanceDue
-                        viewModel.recordBillPayment(
+                        subscriptionViewModel.recordBillPayment(
                             billId = bill.id,
                             subscriptionId = subscription.id,
                             amountPaid = amount,
@@ -623,7 +625,7 @@ fun SubscriptionDetailScreen(
                     onClick = {
                         val newAmount = newAmountText.toDoubleOrNull()
                         if (newAmount != null && newAmount > 0) {
-                            viewModel.updateSubscriptionPrice(
+                            subscriptionViewModel.updateSubscriptionPrice(
                                 subscriptionId = subscription.id,
                                 newPrice = newAmount,
                                 effectiveDateIso = effectiveDateText.trim(),
@@ -656,7 +658,7 @@ fun SubscriptionDetailScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.deleteSubscription(subscription.id)
+                        subscriptionViewModel.deleteSubscription(subscription.id)
                         showDeleteConfirmDialog = false
                         onNavigateBack()
                     },
@@ -672,4 +674,26 @@ fun SubscriptionDetailScreen(
             }
         )
     }
+}
+
+/**
+ * Backward-compatible overload for existing navigation paths passing [LifeViewModel].
+ */
+@Composable
+fun SubscriptionDetailScreen(
+    subscriptionId: Long,
+    viewModel: LifeViewModel,
+    onNavigateBack: () -> Unit,
+    onEditSubscription: (SubscriptionItem) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val projects by viewModel.allProjects.collectAsStateWithLifecycle()
+    SubscriptionDetailScreen(
+        subscriptionId = subscriptionId,
+        subscriptionViewModel = viewModel.subscriptionViewModel,
+        projects = projects,
+        onNavigateBack = onNavigateBack,
+        onEditSubscription = onEditSubscription,
+        modifier = modifier
+    )
 }

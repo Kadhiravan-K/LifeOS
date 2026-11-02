@@ -33,11 +33,11 @@ class SubscriptionRepository(
     private val database: AppDatabase,
     private val preferences: UserPreferences,
     private val subscriptionDao: SubscriptionDao = database.subscriptionDao(),
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
-) {
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     val activeProfileIdFlow: Flow<Long> = preferences.activeProfileId
+) {
 
-    suspend fun getActiveProfileId(): Long = preferences.activeProfileId.first()
+    suspend fun getActiveProfileId(): Long = activeProfileIdFlow.first()
 
     val allSubscriptionsFlow: Flow<List<SubscriptionItem>> = activeProfileIdFlow.flatMapLatest { profileId ->
         subscriptionDao.getAllSubscriptionsForProfileFlow(profileId).map { list ->

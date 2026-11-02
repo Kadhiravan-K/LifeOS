@@ -146,7 +146,8 @@ fun TrackersSubscriptionsScreen(
         BackHandler { viewingSubscriptionId = null }
         SubscriptionDetailScreen(
             subscriptionId = viewingSubscriptionId!!,
-            viewModel = viewModel,
+            subscriptionViewModel = viewModel.subscriptionViewModel,
+            projects = projects,
             onNavigateBack = { viewingSubscriptionId = null },
             onEditSubscription = { s ->
                 subscriptionToEdit = s
