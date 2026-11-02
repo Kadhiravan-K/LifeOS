@@ -469,6 +469,78 @@ To ensure strict zero-regression backward compatibility:
 ### 11.4 Next Recommended Decomposition (P7-A5)
 - `TaskViewModel` extraction or `MedicationRepository` / `MedicationViewModel` decomposition.
 
+---
+
+## 12. Feature Implementation: Habit Strength Score and Habit Detail Bottom Sheet (H4)
+
+### 12.1 Overview & Product Specification
+The **Habit Strength Score** was designed and implemented as an extension of the existing LifeOS Habits module without altering the database schema or touching the existing GitHub-style consistency calendar (`CalendarHeatmapView`).
+
+| Dimension | Specification | Implementation Detail |
+|---|---|---|
+| **Mathematical Model** | Exponential Moving Average (EMA) | 13-day half-life: `\lambda = 0.5^{1/13} \approx 0.94824`, `\alpha = 1 - \lambda` |
+| **Initialization Correction** | Bias-corrected EMA | Corrected divisor `1 - \lambda^N` prevents cold-start penalty |
+| **Score Range** | 0% to 100% | Discrete percentage representation with dynamic tier mapping |
+| **Strength Levels** | 4 Tier Classification | Building (<30%), Growing (30%–<60%), Strong (60%–<85%), Excellent (85%–100%) |
+| **Evaluation Window** | Dynamic daily sequence | Evaluates from start date (`min(createdAt, earliestCompletion)`) to end date (`today` if completed, else `yesterday` to protect unfinished days) |
+| **Calendar Heatmap** | Strictly Preserved | `CalendarHeatmapView` in `CommonComponents.kt` lines 1096–1154 untouched |
+| **Persistence Impact** | Zero Schema Changes | Computed on-the-fly from existing `completedDatesJson: String` in `HabitEntity` |
+| **UI Presentation** | Material 3 Modal Bottom Sheet | Conforms to Google Stitch interactive HTML prototype (`habit_detail_sheet_stitch.html`) |
+
+### 12.2 Architectural Components
+
+#### A. Pure Domain Engine ([`HabitStrengthEngine.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/domain/habit/HabitStrengthEngine.kt))
+- Pure Kotlin singleton object free of Android framework dependencies.
+- Dual entry points: `calculateStrength(habit: HabitItem, referenceDateIso)` and primitive-based `calculateStrength(createdAtMillis: Long, completedDates: Set<String>, referenceDateIso)`.
+- Defensive date handling: regex ISO-8601 validation, date parsing, future completion filtering, creation date realignment, and duplicate pruning.
+- Returns comprehensive `HabitStrengthResult` containing:
+  - `score: Float`, `scorePercent: Int`, `level: HabitStrengthLevel`
+  - `completedCount: Int`, `missedCount: Int`, `totalOpportunities: Int`
+  - `completionRate: Float` (independent arithmetic adherence rate)
+  - `isLimitedEvidence: Boolean` (flagged if fewer than 13 opportunities evaluated)
+  - `hasEligibleOpportunities: Boolean` (false when created today with no completion)
+  - `narrativeText: String` (contextual coaching text)
+
+#### B. Bottom Sheet Presentation ([`HabitDetailSheet.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/screens/habits/HabitDetailSheet.kt))
+- Standardized M3 `ModalBottomSheet` with `skipPartiallyExpanded = true`.
+- **Header**: Habit emoji avatar (52.dp, rounded 16.dp), title, description, reminder badge, and dismiss affordance.
+- **Hero Card**: Strength percentage, strength level pill, dual-ring circular progress gauge, contextual narrative text, and evidence count badge.
+- **Streak Row**: 2-column card layout displaying current streak (`🔥 X days`) and personal best (`🏆 X days`).
+- **Consistency Overview**: Dual-segment adherence bar (emerald completed vs rose missed), arithmetic completion rate, and 3-column stats breakdown.
+- **Today Action Banner**: Contextual check-in card showing completed state ("Undo") or incomplete state ("Mark Done") invoking live toggle without closing the sheet.
+- **Footer Actions**: Standardized "Edit Habit" and "Delete" actions.
+
+#### C. Component & Screen Wiring
+- [`CommonComponents.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/components/CommonComponents.kt): Updated `HabitCard` signature with non-breaking `onClick: () -> Unit = {}` attached to the card modifier. Inner interactive controls (toggle button, edit icon, delete icon) consume click events without bubbling.
+- [`HabitsScreen.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/main/java/com/example/ui/screens/habits/HabitsScreen.kt): Integrated `selectedDetailHabitId` state. Tapping any habit card body displays the `HabitDetailSheet`, with reactive data updates whenever the habit is toggled, edited, or deleted.
+
+### 12.3 Quality Gates & Verification Evidence
+- **Automated Unit Tests**:
+  - [`HabitStrengthEngineUnitTest.kt`](file:///c:/Users/thewi/Projects/Software/Open%20soursed/LifeOS/app/src/test/java/com/example/domain/habit/HabitStrengthEngineUnitTest.kt): 17 unit tests verifying all 16 product scenarios:
+    1. Single first successful opportunity -> 100% after bias-correction.
+    2. Single first missed opportunity -> 0%.
+    3. Two opportunities with order sensitivity (recent success 51.3% vs older success 48.7%).
+    4. 13 consecutive successes -> 100%.
+    5. Graceful decay of accumulated strength under missed opportunities.
+    6. 13 consecutive misses exact halving of uncorrected accumulated EMA (`\lambda^{13} = 0.5`).
+    7. Alternating success/miss stability (45%–55% oscillating equilibrium).
+    8. Long-term convergence (90 consecutive successes -> 100%).
+    9. Zero eligible opportunities uninitialized state handling.
+    10. Today's incomplete opportunity excluded from evaluation.
+    11. Today's completed opportunity included in evaluation.
+    12. Future completion timestamps defensively excluded.
+    13. Historical completions prior to creation date safely evaluated.
+    14. Malformed and duplicate date strings sanitized.
+    15. Strength tier boundary thresholds (<30% Building, 30%–<60% Growing, 60%–<85% Strong, 85%–100% Excellent).
+    16. Arithmetic completion rate vs EMA strength independence.
+    17. `HabitItem` domain model overload calculation accuracy.
+  - **Unit Test Execution Result**: **17/17 PASSED**.
+- **Regression Verification**:
+  - `TaskRepositoryUnitTest`: **12/12 PASSED**.
+- **Static Analysis**: `.\gradlew.bat lintDebug` — **BUILD SUCCESSFUL** (0 errors).
+- **Compilation & Packaging**: `.\gradlew.bat assembleDebug` — **BUILD SUCCESSFUL** (Clean APK generated).
+
+
 
 
 

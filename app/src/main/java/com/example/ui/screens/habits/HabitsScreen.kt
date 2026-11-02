@@ -43,6 +43,7 @@ fun HabitsScreen(
 ) {
     var showHabitModal by remember { mutableStateOf(false) }
     var editingHabit by remember { mutableStateOf<HabitItem?>(null) }
+    var selectedDetailHabitId by remember { mutableStateOf<Long?>(null) }
 
     Scaffold(
         floatingActionButton = {
@@ -120,6 +121,9 @@ fun HabitsScreen(
                             },
                             onDelete = {
                                 viewModel.deleteHabit(habit.id)
+                            },
+                            onClick = {
+                                selectedDetailHabitId = habit.id
                             }
                         )
                     }
@@ -148,6 +152,27 @@ fun HabitsScreen(
                 )
                 showHabitModal = false
                 editingHabit = null
+            }
+        )
+    }
+
+    val selectedDetailHabit = uiState.habits.find { it.id == selectedDetailHabitId }
+    if (selectedDetailHabit != null) {
+        HabitDetailSheet(
+            habit = selectedDetailHabit,
+            referenceDateIso = uiState.selectedDateIso,
+            onDismiss = { selectedDetailHabitId = null },
+            onToggle = {
+                viewModel.toggleHabit(selectedDetailHabit.id, uiState.selectedDateIso)
+            },
+            onEdit = {
+                editingHabit = selectedDetailHabit
+                selectedDetailHabitId = null
+                showHabitModal = true
+            },
+            onDelete = {
+                viewModel.deleteHabit(selectedDetailHabit.id)
+                selectedDetailHabitId = null
             }
         )
     }

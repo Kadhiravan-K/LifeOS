@@ -837,7 +837,8 @@ fun HabitCard(
     onToggle: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -853,6 +854,7 @@ fun HabitCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag("habit_card_${habit.id}")
+            .clickable { onClick() }
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
