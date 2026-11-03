@@ -127,6 +127,17 @@ class UserPreferences(private val context: Context) {
         // Batch 05C Honeycomb App-Entry Selector (#9)
         val KEY_SHOW_PROFILE_SELECTOR_ON_LAUNCH = booleanPreferencesKey("show_profile_selector_on_launch")
 
+        // Release 4 Collection 1: Five-Position Bottom Navigation Customization
+        val KEY_BOTTOM_NAV_SLOT_2 = stringPreferencesKey("bottom_nav_slot_2")
+        val KEY_BOTTOM_NAV_SLOT_4 = stringPreferencesKey("bottom_nav_slot_4")
+
+        // Release 4 Collection 1: Per-Theme Quick Add Animation Controls
+        val KEY_ANIM_ARCANE_ENABLED = booleanPreferencesKey("anim_arcane_enabled")
+        val KEY_ANIM_CYBER_ENABLED = booleanPreferencesKey("anim_cyber_enabled")
+        val KEY_ANIM_ADVENTURE_ENABLED = booleanPreferencesKey("anim_adventure_enabled")
+        val KEY_ANIM_COSMIC_ENABLED = booleanPreferencesKey("anim_cosmic_enabled")
+        val KEY_ANIM_GLASS_ENABLED = booleanPreferencesKey("anim_glass_enabled")
+
         // Release 3 Phase 9: Model Context Protocol (MCP) Bridge (#3)
         val KEY_MCP_ENABLED = booleanPreferencesKey("mcp_bridge_enabled")
         val KEY_MCP_AUTH_TOKEN = stringPreferencesKey("mcp_auth_token")
@@ -782,6 +793,55 @@ class UserPreferences(private val context: Context) {
     suspend fun setActiveProfileId(profileId: Long) {
         context.dataStore.edit { prefs ->
             prefs[KEY_ACTIVE_PROFILE_ID] = profileId
+        }
+    }
+
+    // Release 4 Collection 1: Bottom Navigation Slots
+    val bottomNavSlot2Flow: kotlinx.coroutines.flow.Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_BOTTOM_NAV_SLOT_2] ?: "TASKS"
+    }
+
+    val bottomNavSlot4Flow: kotlinx.coroutines.flow.Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_BOTTOM_NAV_SLOT_4] ?: "CALENDAR"
+    }
+
+    suspend fun setBottomNavSlots(slot2: String, slot4: String) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_BOTTOM_NAV_SLOT_2] = slot2
+            prefs[KEY_BOTTOM_NAV_SLOT_4] = slot4
+        }
+    }
+
+    // Release 4 Collection 1: Theme Animation Controls
+    val animArcaneEnabledFlow: kotlinx.coroutines.flow.Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_ANIM_ARCANE_ENABLED] ?: true
+    }
+
+    val animCyberEnabledFlow: kotlinx.coroutines.flow.Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_ANIM_CYBER_ENABLED] ?: true
+    }
+
+    val animAdventureEnabledFlow: kotlinx.coroutines.flow.Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_ANIM_ADVENTURE_ENABLED] ?: true
+    }
+
+    val animCosmicEnabledFlow: kotlinx.coroutines.flow.Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_ANIM_COSMIC_ENABLED] ?: true
+    }
+
+    val animGlassEnabledFlow: kotlinx.coroutines.flow.Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_ANIM_GLASS_ENABLED] ?: true
+    }
+
+    suspend fun setThemedAnimationEnabled(themeIdString: String, enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            when (themeIdString.lowercase()) {
+                "arcane_academy", "arcane" -> prefs[KEY_ANIM_ARCANE_ENABLED] = enabled
+                "cyber_nexus", "cyber" -> prefs[KEY_ANIM_CYBER_ENABLED] = enabled
+                "adventure_realm", "adventure" -> prefs[KEY_ANIM_ADVENTURE_ENABLED] = enabled
+                "cosmic_explorer", "cosmic" -> prefs[KEY_ANIM_COSMIC_ENABLED] = enabled
+                "glass", "glassmorphism" -> prefs[KEY_ANIM_GLASS_ENABLED] = enabled
+            }
         }
     }
 

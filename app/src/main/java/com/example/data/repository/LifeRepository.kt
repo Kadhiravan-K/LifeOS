@@ -131,6 +131,7 @@ class LifeRepository(
     private val gamificationDao = database.gamificationDao()
     private val medicationDao = database.medicationDao()
     private val profileSurveyDao = database.profileSurveyDao()
+    private val profileSecurityDao = database.profileSecurityDao()
     private val projectWorkspaceDao = database.projectWorkspaceDao()
     private val glossaryDao = database.glossaryDao()
 
@@ -278,6 +279,29 @@ class LifeRepository(
 
     suspend fun updateProfile(profile: ProfileEntity) {
         profileDao.updateProfile(profile)
+    }
+
+    // --- Release 4 Collection 1: Per-Profile Security ---
+    fun getProfileSecurityFlow(profileId: Long): Flow<com.example.data.local.entities.ProfileSecurityEntity?> =
+        profileSecurityDao.getSecurityForProfileFlow(profileId)
+
+    suspend fun getProfileSecurity(profileId: Long): com.example.data.local.entities.ProfileSecurityEntity? =
+        profileSecurityDao.getSecurityForProfile(profileId)
+
+    suspend fun saveProfileSecurity(security: com.example.data.local.entities.ProfileSecurityEntity) {
+        profileSecurityDao.insertOrUpdateSecurity(security)
+    }
+
+    suspend fun updateFailedAttempts(profileId: Long, attempts: Int, lockoutUntil: Long) {
+        profileSecurityDao.updateFailedAttempts(profileId, attempts, lockoutUntil)
+    }
+
+    suspend fun resetLockout(profileId: Long) {
+        profileSecurityDao.resetLockout(profileId)
+    }
+
+    suspend fun deleteProfileSecurity(profileId: Long) {
+        profileSecurityDao.deleteSecurityForProfile(profileId)
     }
 
     suspend fun hasAnyExistingUserData(): Boolean {

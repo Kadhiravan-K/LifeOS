@@ -298,6 +298,7 @@ class LifeViewModel(
         refreshExactAlarmStatus(getApplication<Application>())
         refreshReminderHealth(getApplication<Application>())
         WidgetRefreshCoordinator.init(getApplication())
+        checkInitialLockOnLaunch()
         viewModelScope.launch {
             while (isActive) {
                 delay(30_000L)

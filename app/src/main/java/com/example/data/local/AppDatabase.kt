@@ -1209,9 +1209,32 @@ val MIGRATION_18_19 = object : Migration(18, 19) {
     }
 }
 
+val MIGRATION_19_20 = object : Migration(19, 20) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `profile_security` (
+                `profileId` INTEGER NOT NULL,
+                `isLockEnabled` INTEGER NOT NULL DEFAULT 0,
+                `authMethod` TEXT NOT NULL DEFAULT 'NONE',
+                `credentialHash` TEXT NOT NULL DEFAULT '',
+                `salt` TEXT NOT NULL DEFAULT '',
+                `biometricEnabled` INTEGER NOT NULL DEFAULT 0,
+                `autoLockTimeoutSeconds` INTEGER NOT NULL DEFAULT 300,
+                `failedAttempts` INTEGER NOT NULL DEFAULT 0,
+                `lockoutUntilEpochMs` INTEGER NOT NULL DEFAULT 0,
+                `updatedAt` INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(`profileId`),
+                FOREIGN KEY(`profileId`) REFERENCES `profiles`(`id`) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_profile_security_profileId` ON `profile_security` (`profileId`)")
+    }
+}
+
 @Database(
     entities = [
         ProfileEntity::class,
+        com.example.data.local.entities.ProfileSecurityEntity::class,
         com.example.data.local.entities.ProfileSurveyEntity::class,
         TaskEntity::class,
         HabitEntity::class,
@@ -1252,11 +1275,12 @@ val MIGRATION_18_19 = object : Migration(18, 19) {
         com.example.data.local.entities.McpServerEntity::class,
         com.example.data.local.entities.McpAuditLogEntity::class
     ],
-    version = 19,
+    version = 20,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun profileDao(): ProfileDao
+    abstract fun profileSecurityDao(): com.example.data.local.dao.ProfileSecurityDao
     abstract fun profileSurveyDao(): com.example.data.local.dao.ProfileSurveyDao
     abstract fun taskDao(): TaskDao
     abstract fun habitDao(): HabitDao
@@ -1322,7 +1346,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_15_16,
                         MIGRATION_16_17,
                         MIGRATION_17_18,
-                        MIGRATION_18_19
+                        MIGRATION_18_19,
+                        MIGRATION_19_20
                     )
                     .build()
                 INSTANCE = instance

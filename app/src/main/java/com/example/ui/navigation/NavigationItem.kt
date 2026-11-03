@@ -5,12 +5,14 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.LocalFireDepartment
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -80,9 +82,33 @@ enum class NavigationItem(
         label = "Medicine",
         selectedIcon = Icons.Filled.CheckCircle,
         unselectedIcon = Icons.Outlined.CheckCircle
+    ),
+    THEMES(
+        route = "themes",
+        label = "Themes",
+        selectedIcon = Icons.Filled.Palette,
+        unselectedIcon = Icons.Outlined.Palette
     );
 
     companion object {
         val bottomNavItems: List<NavigationItem> = listOf(HOME, TASKS, CALENDAR, SETTINGS)
+
+        // Centrally maintained list of valid customizable destinations for slots 2 & 4
+        val customizableDestinations: List<NavigationItem> = listOf(
+            TASKS,
+            CALENDAR,
+            HABITS,
+            PLANNING,
+            CHALLENGE,
+            GAMIFICATION,
+            ANALYTICS,
+            MEDICATION
+        )
+
+        fun fromSlotKey(key: String?, defaultItem: NavigationItem): NavigationItem {
+            if (key.isNullOrBlank()) return defaultItem
+            val found = entries.find { it.name.equals(key, ignoreCase = true) || it.route.equals(key, ignoreCase = true) }
+            return if (found != null && found in customizableDestinations) found else defaultItem
+        }
     }
 }
