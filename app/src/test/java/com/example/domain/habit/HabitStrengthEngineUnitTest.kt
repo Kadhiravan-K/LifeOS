@@ -1,6 +1,7 @@
 package com.example.domain.habit
 
 import com.example.domain.model.HabitItem
+import com.example.ui.screens.habits.HabitDetailSheetPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -403,11 +404,15 @@ class HabitStrengthEngineUnitTest {
             createdAt = dateToMillis("2026-11-01")
         )
 
-        // The Habit Detail Sheet computes against actual current date (actualToday),
-        // completely ignoring selectedPastDate from the calendar.
+        // Production policy used by HabitsScreen resolves reference date to actualToday,
+        // explicitly ignoring the selected past calendar date.
+        val resolvedRefDate = HabitDetailSheetPolicy.resolveReferenceDate(
+            selectedCalendarDateIso = selectedPastDate,
+            nowMillis = dateToMillis(actualToday)
+        )
         val result = HabitStrengthEngine.calculateStrength(
             habit = habit,
-            referenceDateIso = actualToday
+            referenceDateIso = resolvedRefDate
         )
 
         assertEquals(3, result.totalOpportunities)
@@ -430,10 +435,15 @@ class HabitStrengthEngineUnitTest {
             createdAt = dateToMillis("2026-11-01")
         )
 
-        // Using actual current local date prevents counting future days as misses
+        // Production policy used by HabitsScreen resolves reference date to actualToday,
+        // preventing future dates from counting as missed opportunities.
+        val resolvedRefDate = HabitDetailSheetPolicy.resolveReferenceDate(
+            selectedCalendarDateIso = selectedFutureDate,
+            nowMillis = dateToMillis(actualToday)
+        )
         val result = HabitStrengthEngine.calculateStrength(
             habit = habit,
-            referenceDateIso = actualToday
+            referenceDateIso = resolvedRefDate
         )
 
         assertEquals(3, result.totalOpportunities)
