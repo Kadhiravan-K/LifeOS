@@ -526,6 +526,251 @@ class LifeViewModel(
         initialValue = null
     )
 
+    // --- Release 4 Collection 1: 5-Position Bottom Navigation Customization ---
+    val bottomNavSlot2Flow: StateFlow<String> = preferences.bottomNavSlot2Flow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "TASKS"
+    )
+
+    val bottomNavSlot4Flow: StateFlow<String> = preferences.bottomNavSlot4Flow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "CALENDAR"
+    )
+
+    fun setBottomNavSlots(slot2: String, slot4: String) {
+        viewModelScope.launch {
+            preferences.setBottomNavSlots(slot2, slot4)
+        }
+    }
+
+    // --- Release 4 Collection 1: Theme-Specific Animation Controls ---
+    val animArcaneEnabled: StateFlow<Boolean> = preferences.animArcaneEnabledFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    val animCyberEnabled: StateFlow<Boolean> = preferences.animCyberEnabledFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    val animAdventureEnabled: StateFlow<Boolean> = preferences.animAdventureEnabledFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    val animCosmicEnabled: StateFlow<Boolean> = preferences.animCosmicEnabledFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    val animGlassEnabled: StateFlow<Boolean> = preferences.animGlassEnabledFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    fun setThemeAnimationEnabled(themeIdString: String, enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setThemedAnimationEnabled(themeIdString, enabled)
+        }
+    }
+
+    // --- Release 4 Collection 1: Per-Profile Application Lock & Security ---
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val activeProfileSecurityFlow: StateFlow<com.example.data.local.entities.ProfileSecurityEntity?> =
+        activeProfileIdFlow.flatMapLatest { profileId ->
+            repository.getProfileSecurityFlow(profileId)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
+    private val _isAppLocked = MutableStateFlow(false)
+    val isAppLocked: StateFlow<Boolean> = _isAppLocked.asStateFlow()
+
+    private val _pendingProfileSwitchId = MutableStateFlow<Long?>(null)
+    val pendingProfileSwitchId: StateFlow<Long?> = _pendingProfileSwitchId.asStateFlow()
+
+    private var lastBackgroundEpochMs: Long = 0L
+
+    fun onAppBackgrounded() {
+        lastBackgroundEpochMs = System.currentTimeMillis()
+    }
+
+    fun onAppForegrounded() {
+        val security = activeProfileSecurityFlow.value
+        if (security != null && security.isLockEnabled) {
+            val timeout = security.autoLockTimeoutSeconds
+            if (timeout >= 0 && (System.currentTimeMillis() - lastBackgroundEpochMs) >= timeout * 1000L) {
+                _isAppLocked.value = true
+            }
+        }
+    }
+
+    fun checkInitialLockOnLaunch() {
+        viewModelScope.launch {
+            val profileId = activeProfileIdFlow.value
+            val security = repository.getProfileSecurity(profileId)
+            if (security != null && security.isLockEnabled) {
+                _isAppLocked.value = true
+            }
+        }
+    }
+
+    suspend fun unlockProfile(credential: String): Boolean {
+        val targetId = _pendingProfileSwitchId.value ?: activeProfileIdFlow.value
+        val security = repository.getProfileSecurity(targetId) ?: return false
+        val now = System.currentTimeMillis()
+
+        if (security.lockoutUntilEpochMs > now) {
+            return false
+        }
+
+        val isValid = com.example.security.ProfileSecurityManager.verifyCredential(
+            raw = credential,
+            storedHash = security.credentialHash,
+            saltHex = security.salt
+        )
+
+        if (isValid) {
+            repository.resetLockout(targetId)
+            val pending = _pendingProfileSwitchId.value
+            if (pending != null) {
+                repository.setActiveProfileId(pending)
+                _pendingProfileSwitchId.value = null
+                com.example.widgets.WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
+            }
+            _isAppLocked.value = false
+            return true
+        } else {
+            val newAttempts = security.failedAttempts + 1
+            val lockoutUntil = if (newAttempts >= com.example.data.local.entities.ProfileSecurityEntity.MAX_FAILED_ATTEMPTS) {
+                now + com.example.data.local.entities.ProfileSecurityEntity.LOCKOUT_DURATION_MS
+            } else 0L
+            repository.updateFailedAttempts(targetId, newAttempts, lockoutUntil)
+            return false
+        }
+    }
+
+    suspend fun unlockWithBiometric(): Boolean {
+        val targetId = _pendingProfileSwitchId.value ?: activeProfileIdFlow.value
+        val security = repository.getProfileSecurity(targetId) ?: return false
+        if (!security.biometricEnabled) return false
+
+        val now = System.currentTimeMillis()
+        if (security.lockoutUntilEpochMs > now) return false
+
+        repository.resetLockout(targetId)
+        val pending = _pendingProfileSwitchId.value
+        if (pending != null) {
+            repository.setActiveProfileId(pending)
+            _pendingProfileSwitchId.value = null
+            com.example.widgets.WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
+        }
+        _isAppLocked.value = false
+        return true
+    }
+
+    fun cancelPendingProfileSwitch() {
+        _pendingProfileSwitchId.value = null
+        val currentProfileId = activeProfileIdFlow.value
+        viewModelScope.launch {
+            val currentSec = repository.getProfileSecurity(currentProfileId)
+            if (currentSec == null || !currentSec.isLockEnabled) {
+                _isAppLocked.value = false
+            }
+        }
+    }
+
+    suspend fun enableProfileLock(
+        profileId: Long,
+        authMethod: String,
+        rawCredential: String,
+        biometricEnabled: Boolean,
+        autoLockTimeoutSeconds: Int = 300
+    ): Boolean {
+        if (rawCredential.isBlank()) return false
+        val salt = com.example.security.ProfileSecurityManager.generateSalt()
+        val hash = com.example.security.ProfileSecurityManager.hashCredential(rawCredential, salt)
+        val entity = com.example.data.local.entities.ProfileSecurityEntity(
+            profileId = profileId,
+            isLockEnabled = true,
+            authMethod = authMethod,
+            credentialHash = hash,
+            salt = salt,
+            biometricEnabled = biometricEnabled,
+            autoLockTimeoutSeconds = autoLockTimeoutSeconds,
+            failedAttempts = 0,
+            lockoutUntilEpochMs = 0L,
+            updatedAt = System.currentTimeMillis()
+        )
+        repository.saveProfileSecurity(entity)
+        return true
+    }
+
+    suspend fun changeProfileCredential(
+        profileId: Long,
+        oldCredentialRaw: String,
+        newCredentialRaw: String
+    ): Boolean {
+        val current = repository.getProfileSecurity(profileId) ?: return false
+        val verified = com.example.security.ProfileSecurityManager.verifyCredential(
+            raw = oldCredentialRaw,
+            storedHash = current.credentialHash,
+            saltHex = current.salt
+        )
+        if (!verified) return false
+
+        val newSalt = com.example.security.ProfileSecurityManager.generateSalt()
+        val newHash = com.example.security.ProfileSecurityManager.hashCredential(newCredentialRaw, newSalt)
+        val updated = current.copy(
+            credentialHash = newHash,
+            salt = newSalt,
+            failedAttempts = 0,
+            lockoutUntilEpochMs = 0L,
+            updatedAt = System.currentTimeMillis()
+        )
+        repository.saveProfileSecurity(updated)
+        return true
+    }
+
+    suspend fun disableProfileLock(profileId: Long, credentialRaw: String): Boolean {
+        val current = repository.getProfileSecurity(profileId) ?: return false
+        val verified = com.example.security.ProfileSecurityManager.verifyCredential(
+            raw = credentialRaw,
+            storedHash = current.credentialHash,
+            saltHex = current.salt
+        )
+        if (!verified) return false
+
+        repository.deleteProfileSecurity(profileId)
+        return true
+    }
+
+    suspend fun resetProfileLock(profileId: Long) {
+        repository.deleteProfileSecurity(profileId)
+        _isAppLocked.value = false
+        _pendingProfileSwitchId.value = null
+    }
+
+    suspend fun updateAutoLockTimeout(profileId: Long, timeoutSeconds: Int) {
+        val current = repository.getProfileSecurity(profileId) ?: return
+        repository.saveProfileSecurity(current.copy(autoLockTimeoutSeconds = timeoutSeconds, updatedAt = System.currentTimeMillis()))
+    }
+
+    suspend fun updateBiometricEnabled(profileId: Long, enabled: Boolean) {
+        val current = repository.getProfileSecurity(profileId) ?: return
+        repository.saveProfileSecurity(current.copy(biometricEnabled = enabled, updatedAt = System.currentTimeMillis()))
+    }
+
     // Legal Consent Flows (Requirement #22)
     val isLegalConsentComplete: StateFlow<Boolean?> = preferences.isLegalConsentComplete
         .map<Boolean, Boolean?> { it }
@@ -2211,6 +2456,13 @@ class LifeViewModel(
 
     fun switchProfile(profileId: Long) {
         viewModelScope.launch {
+            if (profileId == activeProfileIdFlow.value) return@launch
+            val security = repository.getProfileSecurity(profileId)
+            if (security != null && security.isLockEnabled) {
+                _pendingProfileSwitchId.value = profileId
+                _isAppLocked.value = true
+                return@launch
+            }
             repository.setActiveProfileId(profileId)
             com.example.widgets.WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }

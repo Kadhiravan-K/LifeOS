@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -14,20 +13,42 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.AppDatabase
 import com.example.data.preferences.UserPreferences
 import com.example.data.repository.LifeRepository
 import com.example.notifications.NotificationHelper
+import com.example.security.ProfileSecurityManager
 import com.example.ui.navigation.MainScreen
+import com.example.ui.screens.security.ProfileUnlockScreen
 import com.example.ui.theme.LifeOSTheme
 import com.example.ui.viewmodel.LifeViewModel
 import com.example.ui.viewmodel.LifeViewModelFactory
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
+
+    private lateinit var viewModel: LifeViewModel
+
+    override fun onStart() {
+        super.onStart()
+        if (::viewModel.isInitialized) {
+            viewModel.onAppForegrounded()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (::viewModel.isInitialized) {
+            viewModel.onAppBackgrounded()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,7 +61,7 @@ class MainActivity : ComponentActivity() {
         val repository = LifeRepository(database, preferences, entitlementRepo)
 
         val viewModelFactory = LifeViewModelFactory(application, repository, preferences)
-        val viewModel = ViewModelProvider(this, viewModelFactory)[LifeViewModel::class.java]
+        viewModel = ViewModelProvider(this, viewModelFactory)[LifeViewModel::class.java]
 
         // Create local notification channels and schedule background maintenance
         NotificationHelper.createNotificationChannels(this)
@@ -102,14 +123,60 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     } else {
-                        // Release 3 Phase 5 Batch 05C: Entry Routing (#9, #19)
                         val isAppEntryDismissed by viewModel.isAppEntrySelectorDismissed.collectAsStateWithLifecycle()
                         val showOnStartup by viewModel.showProfileSelectorOnLaunchFlow.collectAsStateWithLifecycle()
                         val allProfiles by viewModel.allProfilesFlow.collectAsStateWithLifecycle()
                         val activeProfileId by viewModel.activeProfileIdFlow.collectAsStateWithLifecycle()
                         val onboardingError by viewModel.onboardingErrorMessage.collectAsStateWithLifecycle()
 
-                        if (hasCompletedOnboarding == false) {
+                        // Release 4 Collection 1: Per-Profile Application Lock
+                        val isAppLocked by viewModel.isAppLocked.collectAsStateWithLifecycle()
+                        val pendingProfileSwitchId by viewModel.pendingProfileSwitchId.collectAsStateWithLifecycle()
+                        val targetProfileId = pendingProfileSwitchId ?: activeProfileId
+                        val targetProfile = allProfiles.find { it.id == targetProfileId }
+                            ?: com.example.data.local.entities.ProfileEntity.createDefaultPersonal()
+                        val activeSecurity by viewModel.activeProfileSecurityFlow.collectAsStateWithLifecycle()
+                        val coroutineScope = rememberCoroutineScope()
+
+                        if (isAppLocked) {
+                            ProfileUnlockScreen(
+                                profileName = targetProfile.name,
+                                profileEmoji = targetProfile.emoji,
+                                authMethod = activeSecurity?.authMethod ?: "PIN",
+                                biometricEnabled = activeSecurity?.biometricEnabled == true,
+                                lockoutUntilEpochMs = activeSecurity?.lockoutUntilEpochMs ?: 0L,
+                                onUnlockAttempt = { credential ->
+                                    var result = false
+                                    runBlocking {
+                                        result = viewModel.unlockProfile(credential)
+                                    }
+                                    result
+                                },
+                                onBiometricClick = {
+                                    ProfileSecurityManager.showBiometricPrompt(
+                                        activity = this@MainActivity,
+                                        title = "Unlock ${targetProfile.name}",
+                                        subtitle = "Authenticate to enter workspace",
+                                        negativeButtonText = "Use Credential",
+                                        onSuccess = {
+                                            coroutineScope.launch {
+                                                viewModel.unlockWithBiometric()
+                                            }
+                                        },
+                                        onError = { /* handled gracefully */ },
+                                        onCancel = { /* handled gracefully */ }
+                                    )
+                                },
+                                onCancelSwitch = if (pendingProfileSwitchId != null) {
+                                    { viewModel.cancelPendingProfileSwitch() }
+                                } else null,
+                                onResetLock = {
+                                    coroutineScope.launch {
+                                        viewModel.resetProfileLock(targetProfileId)
+                                    }
+                                }
+                            )
+                        } else if (hasCompletedOnboarding == false) {
                             com.example.ui.screens.onboarding.OnboardingSurveyScreen(
                                 profileId = activeProfileId,
                                 isEditMode = false,
@@ -143,10 +210,10 @@ class MainActivity : ComponentActivity() {
                             )
                         } else {
                             val shouldQuickAdd = intent?.getBooleanExtra("extra_quick_add", false) == true
-                            val targetProfileId = intent?.getLongExtra("extra_profile_id", -1L) ?: -1L
-                            if (targetProfileId > 0 && targetProfileId != activeProfileId) {
-                                LaunchedEffect(targetProfileId) {
-                                    viewModel.switchProfile(targetProfileId)
+                            val targetProfId = intent?.getLongExtra("extra_profile_id", -1L) ?: -1L
+                            if (targetProfId > 0 && targetProfId != activeProfileId) {
+                                LaunchedEffect(targetProfId) {
+                                    viewModel.switchProfile(targetProfId)
                                 }
                             }
 

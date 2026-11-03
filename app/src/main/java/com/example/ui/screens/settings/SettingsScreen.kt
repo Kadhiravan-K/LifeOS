@@ -58,6 +58,8 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudUpload
@@ -160,7 +162,10 @@ enum class SettingsSubpage {
     USER_MANUAL,
     GLOSSARY,
     MCP_BRIDGE,
-    REMINDER_HEALTH
+    REMINDER_HEALTH,
+    PROFILE_LOCK,
+    BOTTOM_NAV_CUSTOMIZATION,
+    NAVIGATION_ANIMATIONS
 }
 
 data class SettingsSearchItem(
@@ -203,7 +208,10 @@ fun getSettingsSearchRegistry(
     SettingsSearchItem("Privacy Policy", "Offline-first privacy architecture, zero telemetry, local storage", "Legal & Privacy", SettingsSubpage.LEGAL_PRIVACY, listOf("privacy", "policy", "offline", "data", "security", "telemetry")),
     SettingsSearchItem("Knowledge & Glossary Library", "Downloadable offline knowledge packs, productivity mental models & systems thinking", "Knowledge & Reference", SettingsSubpage.GLOSSARY, listOf("glossary", "library", "knowledge", "mental models", "terms", "dictionary", "definitions", "packs")),
     SettingsSearchItem("AI Model Context Protocol Bridge", "100% offline local MCP bridge, token security & interactive JSON-RPC playground", "Developer & AI", SettingsSubpage.MCP_BRIDGE, listOf("mcp", "ai", "model context protocol", "token", "claude", "cursor", "llm", "bridge", "assistant")),
-    SettingsSearchItem("User Manual & UI Components Library", "Explore 36 reusable frontend UI components and documentation", "User Manual", SettingsSubpage.USER_MANUAL, listOf("manual", "help", "guide", "components", "frontend", "ui library", "documentation"))
+    SettingsSearchItem("User Manual & UI Components Library", "Explore 36 reusable frontend UI components and documentation", "User Manual", SettingsSubpage.USER_MANUAL, listOf("manual", "help", "guide", "components", "frontend", "ui library", "documentation")),
+    SettingsSearchItem("Profile Lock & Security", "Configure PIN, password, pattern, and biometric security for active profile", "Legal & Privacy", SettingsSubpage.PROFILE_LOCK, listOf("lock", "pin", "password", "pattern", "biometric", "fingerprint", "face", "security", "app lock")),
+    SettingsSearchItem("Bottom Navigation Customization", "Customize shortcuts in positions 2 and 4 of five-position bottom bar", "Appearance & Themes", SettingsSubpage.BOTTOM_NAV_CUSTOMIZATION, listOf("bottom nav", "navigation", "slots", "shortcuts", "bar", "customize")),
+    SettingsSearchItem("Navigation Animations", "Toggle themed floating Quick Add button animations for Arcane, Cyber, Adventure, Cosmic, and Glass", "Appearance & Themes", SettingsSubpage.NAVIGATION_ANIMATIONS, listOf("animation", "quick add", "arcane", "cyber", "adventure", "cosmic", "glass", "button", "effects"))
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -226,19 +234,48 @@ fun SettingsScreen(
     onNavigateToPlanning: () -> Unit = {},
     onNavigateToGamification: () -> Unit = {},
     onNavigateToMedication: () -> Unit = {},
+    resetTrigger: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var currentSubpage by remember { mutableStateOf(SettingsSubpage.HUB) }
     var searchQuery by remember { mutableStateOf("") }
 
+    // Resets to HUB on tab re-selection
+    LaunchedEffect(resetTrigger) {
+        if (resetTrigger > 0) {
+            currentSubpage = SettingsSubpage.HUB
+        }
+    }
+
     // Intercept Back button when inside any subpage
     if (currentSubpage != SettingsSubpage.HUB) {
         BackHandler { currentSubpage = SettingsSubpage.HUB }
     }
 
-    // Direct routing to Organization full screens
+    // Direct routing to full screens
     when (currentSubpage) {
+        SettingsSubpage.PROFILE_LOCK -> {
+            ProfileLockSettingsScreen(
+                viewModel = viewModel,
+                onNavigateBack = { currentSubpage = SettingsSubpage.HUB }
+            )
+            return
+        }
+        SettingsSubpage.BOTTOM_NAV_CUSTOMIZATION -> {
+            BottomNavCustomizationScreen(
+                viewModel = viewModel,
+                onNavigateBack = { currentSubpage = SettingsSubpage.APPEARANCE }
+            )
+            return
+        }
+        SettingsSubpage.NAVIGATION_ANIMATIONS -> {
+            NavigationAnimationsScreen(
+                viewModel = viewModel,
+                onNavigateBack = { currentSubpage = SettingsSubpage.APPEARANCE }
+            )
+            return
+        }
         SettingsSubpage.PROJECTS_LABELS -> {
             ProjectsLabelsManagerScreen(
                 viewModel = viewModel,
@@ -719,6 +756,54 @@ fun SettingsScreen(
                                 Text("Theme Gallery")
                             }
                         }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Bottom Navigation Customization
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                    modifier = Modifier.fillMaxWidth().testTag("card_bottom_nav_customization")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { currentSubpage = SettingsSubpage.BOTTOM_NAV_CUSTOMIZATION }
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Bottom Navigation", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text("Customize shortcuts in positions 2 and 4", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Navigation Animations Control
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                    modifier = Modifier.fillMaxWidth().testTag("card_nav_animations")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { currentSubpage = SettingsSubpage.NAVIGATION_ANIMATIONS }
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Navigation Animations", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text("Toggle Quick-Add button animations per theme", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 
@@ -1884,6 +1969,30 @@ fun SettingsScreen(
                 title = "Legal & Privacy",
                 onBack = { currentSubpage = SettingsSubpage.HUB }
             ) {
+                // Profile Lock & Security Card
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                    modifier = Modifier.fillMaxWidth().testTag("card_profile_lock_settings")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { currentSubpage = SettingsSubpage.PROFILE_LOCK }
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Profile Lock & Security", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text("Configure application lock and PIN/password/pattern/biometric protection", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
                 // Privacy Pledge Card
                 Card(
                     shape = RoundedCornerShape(16.dp),
@@ -2354,6 +2463,16 @@ private fun SettingsHubView(
                 title = "Legal & Privacy",
                 subtitle = "Terms & Conditions, Privacy Policy, 100% offline-first pledge",
                 onClick = { onNavigateToSubpage(SettingsSubpage.LEGAL_PRIVACY) }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            SettingsNavigationCard(
+                icon = Icons.Default.Lock,
+                title = "Profile Lock & Security",
+                subtitle = "Per-profile PIN, password, pattern & biometric protection",
+                onClick = { onNavigateToSubpage(SettingsSubpage.PROFILE_LOCK) },
+                highlighted = true
             )
 
             Spacer(modifier = Modifier.height(10.dp))
