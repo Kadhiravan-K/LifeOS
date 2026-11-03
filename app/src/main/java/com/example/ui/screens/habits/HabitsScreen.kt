@@ -159,13 +159,14 @@ fun HabitsScreen(
 
     val selectedDetailHabit = uiState.habits.find { it.id == selectedDetailHabitId }
     if (selectedDetailHabit != null) {
-        val todayIso = DateUtils.todayString()
+        val detailReferenceDate = HabitDetailSheetPolicy.resolveReferenceDate(uiState.selectedDateIso)
+        val detailToggleDate = HabitDetailSheetPolicy.resolveToggleDate(uiState.selectedDateIso)
         HabitDetailSheet(
             habit = selectedDetailHabit,
-            referenceDateIso = todayIso,
+            referenceDateIso = detailReferenceDate,
             onDismiss = { selectedDetailHabitId = null },
             onToggle = {
-                viewModel.toggleHabit(selectedDetailHabit.id, todayIso)
+                viewModel.toggleHabit(selectedDetailHabit.id, detailToggleDate)
             },
             onEdit = {
                 editingHabit = selectedDetailHabit

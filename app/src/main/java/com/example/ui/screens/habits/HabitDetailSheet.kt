@@ -357,7 +357,8 @@ fun HabitDetailSheet(
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.5.sp
                             ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("habit_detail_longest_streak_title")
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Row(verticalAlignment = Alignment.Bottom) {
@@ -383,11 +384,12 @@ fun HabitDetailSheet(
                             Text(text = "🏆", fontSize = 12.sp)
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Historical streak",
+                                text = "Within the last 60 days",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Medium
                                 ),
-                                color = Color(0xFF8B5CF6)
+                                color = Color(0xFF8B5CF6),
+                                modifier = Modifier.testTag("habit_detail_longest_streak_supporting")
                             )
                         }
                     }
