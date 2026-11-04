@@ -9,11 +9,11 @@ enum class RadarDimension(
     val emoji: String,
     val description: String
 ) {
-    TASKS("tasks", "Focus", "🎯", "Daily task completion & focus"),
-    HABITS("habits", "Consistency", "🌱", "Habit adherence & routine building"),
-    WELLNESS("wellness", "Wellness", "💧", "Hydration & physical vitality"),
-    PLANNING("planning", "Vision", "🧭", "Milestone & strategic goal progress"),
-    DISCIPLINE("discipline", "Discipline", "🔥", "Streak momentum & daily grit");
+    TASKS("tasks", "Tasks", "🎯", "Daily task completion and execution"),
+    HABITS("habits", "Habits", "🌱", "Habit adherence and routine building"),
+    WELLNESS("wellness", "Hydration", "💧", "Daily hydration and physical vitality"),
+    PLANNING("planning", "Planning", "🧭", "Milestone and strategic goal progress"),
+    DISCIPLINE("discipline", "Discipline", "🔥", "Streak momentum and daily grit");
 
     companion object {
         fun fromId(id: String): RadarDimension {

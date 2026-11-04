@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -39,6 +40,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -179,16 +181,17 @@ fun ProductivityRadarChart(
             val density = LocalDensity.current
             Box(
                 modifier = Modifier
-                    .size(240.dp)
+                    .fillMaxWidth()
+                    .height(280.dp)
                     .testTag("radar_canvas_container"),
                 contentAlignment = Alignment.Center
             ) {
                 Canvas(
-                    modifier = Modifier.size(240.dp)
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     val n = data.dimensions.size.coerceAtLeast(3)
                     val center = Offset(size.width / 2f, size.height / 2f)
-                    val maxR = size.minDimension / 2f * 0.72f
+                    val maxR = size.minDimension / 2f * 0.64f
 
                     // 1. Web Grid: Concentric Pentagon Rings (20%, 40%, 60%, 80%, 100%)
                     listOf(0.2f, 0.4f, 0.6f, 0.8f, 1.0f).forEach { scale ->
@@ -228,7 +231,7 @@ fun ProductivityRadarChart(
                     for (i in 0 until n) {
                         val dimScore = data.dimensions[i]
                         val fraction = if (hasLivePolygon) {
-                            (dimScore.scorePercent.toFloat() / 100f).coerceIn(0.05f, 1f)
+                            (dimScore.scorePercent.toFloat() / 100f).coerceIn(0f, 1f)
                         } else {
                             0f
                         }
@@ -260,7 +263,7 @@ fun ProductivityRadarChart(
                     // 4. Vertex Pins & Outer Labels
                     val textPaint = android.graphics.Paint().apply {
                         color = android.graphics.Color.WHITE
-                        textSize = 28f
+                        textSize = with(density) { 12.sp.toPx() }
                         textAlign = android.graphics.Paint.Align.CENTER
                         isAntiAlias = true
                         typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -286,14 +289,21 @@ fun ProductivityRadarChart(
                             )
                         }
 
-                        // Draw dimension emoji label around perimeter
                         val angle = (2 * Math.PI * i / n - Math.PI / 2).toFloat()
+                        val labelText = data.dimensions[i].dimension.displayName
                         val labelR = maxR + 24.dp.toPx()
                         val lx = center.x + labelR * cos(angle)
-                        val ly = center.y + labelR * sin(angle) + 8f
+                        val ly = center.y + labelR * sin(angle) + textPaint.textSize * 0.35f
+
+                        textPaint.color = textPaintColor.toArgb()
+                        textPaint.textAlign = when {
+                            cos(angle) > 0.2f -> android.graphics.Paint.Align.RIGHT
+                            cos(angle) < -0.2f -> android.graphics.Paint.Align.LEFT
+                            else -> android.graphics.Paint.Align.CENTER
+                        }
 
                         drawContext.canvas.nativeCanvas.drawText(
-                            data.dimensions[i].dimension.emoji,
+                            labelText,
                             lx,
                             ly,
                             textPaint

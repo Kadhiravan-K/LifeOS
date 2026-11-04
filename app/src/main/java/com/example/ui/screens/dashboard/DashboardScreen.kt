@@ -74,6 +74,8 @@ import com.example.ui.components.CustomizeDashboardDialog
 import com.example.ui.components.HoneycombContextMenuDialog
 import com.example.ui.components.HoneycombTaskGrid
 import com.example.ui.components.PriorityBadge
+import com.example.ui.components.ProductivityHeatmap
+import com.example.ui.components.ProductivityRadarChart
 import com.example.ui.components.QuickHydrationDialog
 import com.example.ui.components.TaskCompletionCircle
 import com.example.ui.components.WaterTrackerCard
@@ -82,6 +84,20 @@ import com.example.ui.viewmodel.DashboardUiState
 import com.example.ui.viewmodel.LifeViewModel
 import com.example.utils.DateUtils
 import kotlin.math.roundToInt
+
+enum class DashboardSection {
+    HEADER,
+    NOW_IN_PROGRESS,
+    QR,
+    DAILY_HYDRATION,
+    DAILY_HABIT,
+    CHALLENGE,
+    DAILY_TASK,
+    SCHEDULE,
+    PRODUCTIVITY_ANALYSIS,
+    MULTI_HORIZON_PLANNING,
+    HUNTER_RANK
+}
 
 @Composable
 fun DashboardScreen(
@@ -105,6 +121,8 @@ fun DashboardScreen(
     val appearance by viewModel.honeycombAppearance.collectAsStateWithLifecycle()
     val gamificationProfile by viewModel.gamificationProfile.collectAsStateWithLifecycle()
     val allPlans by viewModel.allPlansFlow.collectAsStateWithLifecycle()
+    val allTasks by viewModel.allTasks.collectAsStateWithLifecycle()
+    val productivityRadarData by viewModel.productivityRadarData.collectAsStateWithLifecycle()
     val activeProfileId by viewModel.activeProfileIdFlow.collectAsStateWithLifecycle()
     val allProfiles by viewModel.allProfilesFlow.collectAsStateWithLifecycle()
     val activeTheme = com.example.ui.theme.engine.LocalLifeTheme.current
@@ -459,7 +477,6 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // --- Overdue Tasks Banner ---
         if (uiState.overdueTasks.isNotEmpty()) {
             Card(
                 shape = RoundedCornerShape(14.dp),
@@ -504,7 +521,6 @@ fun DashboardScreen(
             Spacer(modifier = Modifier.height(14.dp))
         }
 
-        // --- First Launch Onboarding Banner ---
         if (!uiState.hasCompletedOnboarding) {
             Card(
                 shape = RoundedCornerShape(18.dp),
@@ -572,7 +588,15 @@ fun DashboardScreen(
             Spacer(modifier = Modifier.height(14.dp))
         }
 
-        // --- 2. Today's Top 3 Priorities ---
+        WaterTrackerCard(
+            currentMl = uiState.waterCurrentMl,
+            goalMl = uiState.waterGoalMl,
+            onAdd = { delta -> viewModel.addWater(delta) },
+            onReset = { viewModel.resetWater() }
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
         Card(
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -585,78 +609,61 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "🎯", fontSize = 18.sp)
+                        Text(text = "⚡", fontSize = 18.sp)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = activeTheme.decoration.taskSectionTitle,
+                            text = "Daily Habits (${uiState.habitsCompletedTodayCount}/${uiState.totalHabitsCount})",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                     }
                     Text(
-                        text = "View All",
+                        text = "Habit Tracker",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clickable { onNavigateToTasks() }
+                        modifier = Modifier.clickable { onNavigateToHabits() }
                     )
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                if (uiState.topPriorities.isEmpty()) {
+                if (uiState.habits.isEmpty()) {
                     Text(
-                        text = "No pending priority tasks for today. Tap + to add!",
+                        text = "No habits configured yet. Install default habits or add your own!",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
-                    uiState.topPriorities.forEach { task ->
-                        val animEnabled by viewModel.completionAnimationEnabled.collectAsStateWithLifecycle()
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .padding(vertical = 6.dp)
-                        ) {
-                            TaskCompletionCircle(
-                                isCompleted = task.isCompletedForDate,
-                                onToggle = { viewModel.toggleTaskCompletion(task.id, uiState.todayDateIso) },
-                                activeColor = MaterialTheme.colorScheme.primary,
-                                isAnimationEnabled = animEnabled,
-                                size = 26.dp
-                            )
-
-                            Spacer(modifier = Modifier.width(10.dp))
-
-                            Column(
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(uiState.habits, key = { it.id }) { habit ->
+                            Box(
+                                contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { viewModel.toggleTaskCompletion(task.id, uiState.todayDateIso) }
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (habit.isCompletedToday)
+                                            MaterialTheme.colorScheme.primary
+                                        else
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                    .clickable { viewModel.toggleHabit(habit.id, uiState.todayDateIso) }
                             ) {
-                                Text(
-                                    text = task.title,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.Medium,
-                                        textDecoration = if (task.isCompletedForDate) TextDecoration.LineThrough else null
-                                    ),
-                                    color = if (task.isCompletedForDate)
-                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                    else
-                                        MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = if (!task.dueTime.isNullOrBlank()) "⏰ ${task.dueTime} (${task.durationMinutes}m) • ${task.category}" else task.category,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                if (habit.isCompletedToday) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Done",
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                } else {
+                                    Text(text = habit.emoji, fontSize = 20.sp)
+                                }
                             }
-
-                            Spacer(modifier = Modifier.width(6.dp))
-                            PriorityBadge(task.priority)
                         }
                     }
                 }
@@ -665,32 +672,6 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // --- Time Grouping Agenda (Morning, Afternoon, Evening) ---
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Today's Schedule Breakdown",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-
-                TimeGroupSection("🌅 Morning (5:00 AM – 12:00 PM)", uiState.morningTasks, uiState.todayDateIso, viewModel)
-                TimeGroupSection("☀️ Afternoon (12:00 PM – 5:00 PM)", uiState.afternoonTasks, uiState.todayDateIso, viewModel)
-                TimeGroupSection("🌙 Evening (5:00 PM – 9:30 PM)", uiState.eveningTasks, uiState.todayDateIso, viewModel)
-                if (uiState.noTimeTasks.isNotEmpty()) {
-                    TimeGroupSection("📌 Anytime Today", uiState.noTimeTasks, uiState.todayDateIso, viewModel)
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // --- 3. 75-Day Challenge Snapshot ---
         Card(
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -793,7 +774,6 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // --- 4. Daily Habits Snapshot ---
         Card(
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -806,61 +786,78 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "⚡", fontSize = 18.sp)
+                        Text(text = "🎯", fontSize = 18.sp)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Daily Habits (${uiState.habitsCompletedTodayCount}/${uiState.totalHabitsCount})",
+                            text = activeTheme.decoration.taskSectionTitle,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                     }
                     Text(
-                        text = "Habit Tracker",
+                        text = "View All",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clickable { onNavigateToHabits() }
+                        modifier = Modifier.clickable { onNavigateToTasks() }
                     )
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                if (uiState.habits.isEmpty()) {
+                if (uiState.topPriorities.isEmpty()) {
                     Text(
-                        text = "No habits configured yet. Install default habits or add your own!",
+                        text = "No pending priority tasks for today. Tap + to add!",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(uiState.habits, key = { it.id }) { habit ->
-                            Box(
-                                contentAlignment = Alignment.Center,
+                    uiState.topPriorities.forEach { task ->
+                        val animEnabled by viewModel.completionAnimationEnabled.collectAsStateWithLifecycle()
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .padding(vertical = 6.dp)
+                        ) {
+                            TaskCompletionCircle(
+                                isCompleted = task.isCompletedForDate,
+                                onToggle = { viewModel.toggleTaskCompletion(task.id, uiState.todayDateIso) },
+                                activeColor = MaterialTheme.colorScheme.primary,
+                                isAnimationEnabled = animEnabled,
+                                size = 26.dp
+                            )
+
+                            Spacer(modifier = Modifier.width(10.dp))
+
+                            Column(
                                 modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (habit.isCompletedToday)
-                                            MaterialTheme.colorScheme.primary
-                                        else
-                                            MaterialTheme.colorScheme.surfaceVariant
-                                    )
-                                    .clickable { viewModel.toggleHabit(habit.id, uiState.todayDateIso) }
+                                    .weight(1f)
+                                    .clickable { viewModel.toggleTaskCompletion(task.id, uiState.todayDateIso) }
                             ) {
-                                if (habit.isCompletedToday) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = "Done",
-                                        tint = MaterialTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                } else {
-                                    Text(text = habit.emoji, fontSize = 20.sp)
-                                }
+                                Text(
+                                    text = task.title,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.Medium,
+                                        textDecoration = if (task.isCompletedForDate) TextDecoration.LineThrough else null
+                                    ),
+                                    color = if (task.isCompletedForDate)
+                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                    else
+                                        MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = if (!task.dueTime.isNullOrBlank()) "⏰ ${task.dueTime} (${task.durationMinutes}m) • ${task.category}" else task.category,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
+
+                            Spacer(modifier = Modifier.width(6.dp))
+                            PriorityBadge(task.priority)
                         }
                     }
                 }
@@ -869,17 +866,138 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // --- 5. Water Intake Card ---
-        WaterTrackerCard(
-            currentMl = uiState.waterCurrentMl,
-            goalMl = uiState.waterGoalMl,
-            onAdd = { delta -> viewModel.addWater(delta) },
-            onReset = { viewModel.resetWater() }
-        )
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Today's Schedule Breakdown",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+
+                TimeGroupSection("🌅 Morning (5:00 AM – 12:00 PM)", uiState.morningTasks, uiState.todayDateIso, viewModel)
+                TimeGroupSection("☀️ Afternoon (12:00 PM – 5:00 PM)", uiState.afternoonTasks, uiState.todayDateIso, viewModel)
+                TimeGroupSection("🌙 Evening (5:00 PM – 9:30 PM)", uiState.eveningTasks, uiState.todayDateIso, viewModel)
+                if (uiState.noTimeTasks.isNotEmpty()) {
+                    TimeGroupSection("📌 Anytime Today", uiState.noTimeTasks, uiState.todayDateIso, viewModel)
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // --- 6. Hunter Ranks & Gamification Snapshot ---
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("dashboard_productivity_analysis_section")
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "📈 Productivity Analysis",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Consistency and productivity across your activity",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (onNavigateToAnalytics != null) {
+                    TextButton(
+                        onClick = onNavigateToAnalytics,
+                        modifier = Modifier.testTag("dashboard_analytics_card")
+                    ) {
+                        Text("Details")
+                        Icon(
+                            imageVector = Icons.Default.ArrowForward,
+                            contentDescription = "View detailed analytics",
+                            modifier = Modifier
+                                .padding(start = 4.dp)
+                                .size(18.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            ProductivityHeatmap(
+                tasks = allTasks,
+                habits = uiState.habits,
+                modifier = Modifier.testTag("dashboard_productivity_heatmap")
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            ProductivityRadarChart(
+                data = productivityRadarData,
+                onPeriodSelected = viewModel::setProductivityPeriod,
+                modifier = Modifier.testTag("dashboard_productivity_radar")
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onNavigateToPlanning?.invoke() }
+                .testTag("dashboard_planning_card")
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFEF3C7))
+                    ) {
+                        Text(text = "🎯", fontSize = 20.sp)
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "Multi-Horizon Planning",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${allPlans.size} Goals & Reviews across Horizons",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = "Planning",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
         Card(
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -946,110 +1064,6 @@ fun DashboardScreen(
                     color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // --- 7. Strategic Horizon Planning Snapshot ---
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onNavigateToPlanning?.invoke() }
-                .testTag("dashboard_planning_card")
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFFEF3C7))
-                    ) {
-                        Text(text = "🎯", fontSize = 20.sp)
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "Multi-Horizon Planning",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "${allPlans.size} Goals & Reviews across Horizons",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                Icon(
-                    imageVector = Icons.Default.ArrowForward,
-                    contentDescription = "Planning",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // --- 8. Analytics & Productivity Trends Card ---
-        if (onNavigateToAnalytics != null) {
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onNavigateToAnalytics.invoke() }
-                    .testTag("dashboard_analytics_card")
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFE0E7FF))
-                        ) {
-                            Text(text = "📊", fontSize = 20.sp)
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "Productivity Analytics",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Completion rates, heatmaps & time trends",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = "Analytics",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
             }
         }
 
@@ -1201,5 +1215,3 @@ private fun TimeGroupSection(
         }
     }
 }
-
-

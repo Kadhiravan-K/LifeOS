@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -69,11 +70,11 @@ enum class HeatmapPalette(val displayName: String, val levels: List<Color>) {
     EMERALD(
         "GitHub Emerald",
         listOf(
-            Color(0xFF27272A).copy(alpha = 0.4f), // Level 0 (empty)
-            Color(0xFF0E4429),                    // Level 1
-            Color(0xFF006D32),                    // Level 2
-            Color(0xFF26A641),                    // Level 3
-            Color(0xFF39D353)                     // Level 4 (peak)
+            Color(0xFF27272A).copy(alpha = 0.4f),
+            Color(0xFF0E4429),
+            Color(0xFF006D32),
+            Color(0xFF26A641),
+            Color(0xFF39D353)
         )
     ),
     OCEAN(
@@ -117,6 +118,117 @@ data class DayActivitySummary(
     val completedHabits: List<String>
 )
 
+data class HeatmapMonthHeader(
+    val label: String,
+    val weekIndex: Int,
+    val month: java.time.YearMonth
+)
+
+data class HeatmapDateCell(
+    val date: LocalDate,
+    val dayOfMonth: Int,
+    val count: Int,
+    val taskCount: Int,
+    val habitCount: Int
+)
+
+object HeatmapCalendarUtils {
+    fun monthLabelFor(date: LocalDate): String =
+        date.format(DateTimeFormatter.ofPattern("MMM", Locale.US))
+
+    fun buildMonthHeaders(startDate: LocalDate, endDate: LocalDate): List<HeatmapMonthHeader> {
+        val headers = mutableListOf<HeatmapMonthHeader>()
+        var cursor = startDate
+        var weekIndex = 0
+
+        while (!cursor.isAfter(endDate)) {
+            val month = java.time.YearMonth.from(cursor)
+            val lastHeader = headers.lastOrNull()
+            if (lastHeader == null || lastHeader.month != month) {
+                headers.add(HeatmapMonthHeader(label = monthLabelFor(cursor), weekIndex = weekIndex, month = month))
+            }
+            cursor = cursor.plusWeeks(1)
+            weekIndex += 1
+        }
+
+        return headers
+    }
+
+    fun buildDayCells(
+        startDate: LocalDate,
+        endDate: LocalDate,
+        tasks: List<TaskItem>,
+        habits: List<HabitItem>,
+        metric: HeatmapMetric
+    ): List<HeatmapDateCell> {
+        val dailyActivityMap = mutableMapOf<String, DayActivitySummary>()
+        var cursor = startDate
+        while (!cursor.isAfter(endDate)) {
+            val iso = cursor.format(DateTimeFormatter.ISO_DATE)
+
+            val matchingTasks = tasks.filter { t ->
+                !t.isArchived && ((t.completedDates.contains(iso)) || (t.isOneTimeCompleted && t.dueDateIso == iso))
+            }.map { it.title }
+
+            val matchingHabits = habits.filter { h -> h.completedDates.contains(iso) }
+                .map { "${it.emoji} ${it.title}" }
+
+            val total = matchingTasks.size + matchingHabits.size
+            dailyActivityMap[iso] = DayActivitySummary(
+                dateIso = iso,
+                taskCount = matchingTasks.size,
+                habitCount = matchingHabits.size,
+                totalCount = total,
+                completedTasks = matchingTasks,
+                completedHabits = matchingHabits
+            )
+            cursor = cursor.plusDays(1)
+        }
+
+        val days = mutableListOf<HeatmapDateCell>()
+        cursor = startDate
+        while (!cursor.isAfter(endDate)) {
+            val iso = cursor.format(DateTimeFormatter.ISO_DATE)
+            val summary = dailyActivityMap.getValue(iso)
+            val count = when (metric) {
+                HeatmapMetric.ALL -> summary.totalCount
+                HeatmapMetric.TASKS -> summary.taskCount
+                HeatmapMetric.HABITS -> summary.habitCount
+            }
+            days.add(
+                HeatmapDateCell(
+                    date = cursor,
+                    dayOfMonth = cursor.dayOfMonth,
+                    count = count,
+                    taskCount = summary.taskCount,
+                    habitCount = summary.habitCount
+                )
+            )
+            cursor = cursor.plusDays(1)
+        }
+        return days
+    }
+
+    fun buildDateWeeks(startDate: LocalDate, endDate: LocalDate): List<List<HeatmapDateCell>> {
+        val allDays = buildDayCells(startDate, endDate, emptyList(), emptyList(), HeatmapMetric.ALL)
+        val weeks = mutableListOf<List<HeatmapDateCell>>()
+        var cursor = 0
+        while (cursor < allDays.size) {
+            weeks.add(allDays.subList(cursor, minOf(cursor + 7, allDays.size)))
+            cursor += 7
+        }
+        return weeks
+    }
+
+    fun resolveCellColor(count: Int, palette: HeatmapPalette): Color = when {
+        count == 0 -> palette.levels[0]
+        count == 1 -> palette.levels[1]
+        count == 2 -> palette.levels[2]
+        count == 3 -> palette.levels[3]
+        else -> palette.levels[4]
+    }
+}
+
 /**
  * Polished GitHub-Style Productivity Consistency Heatmap Composable (#17, Issue #5).
  * Features:
@@ -143,7 +255,6 @@ fun ProductivityHeatmap(
 
     val today = remember { LocalDate.now() }
     val endSunday = remember(weekOffset) {
-        // Find current or shifted week's end (Sunday)
         val baseDate = today.plusWeeks(weekOffset.toLong())
         baseDate.plusDays((7 - baseDate.dayOfWeek.value).toLong() % 7)
     }
@@ -153,25 +264,19 @@ fun ProductivityHeatmap(
         endSunday.minusDays((totalDays - 1).toLong())
     }
 
-    // Precompute daily activity map
     val dailyActivityMap = remember(tasks, habits, startDate, endSunday) {
         val map = mutableMapOf<String, DayActivitySummary>()
         var curr = startDate
         while (!curr.isAfter(endSunday)) {
             val iso = curr.format(DateTimeFormatter.ISO_DATE)
-
-            // Tasks completed on this date
             val matchingTasks = tasks.filter { t ->
                 !t.isArchived && (
                     (t.completedDates.contains(iso)) ||
-                    (t.isOneTimeCompleted && t.dueDateIso == iso)
-                )
+                        (t.isOneTimeCompleted && t.dueDateIso == iso)
+                    )
             }.map { it.title }
-
-            // Habits completed on this date
-            val matchingHabits = habits.filter { h ->
-                h.completedDates.contains(iso)
-            }.map { "${it.emoji} ${it.title}" }
+            val matchingHabits = habits.filter { h -> h.completedDates.contains(iso) }
+                .map { "${it.emoji} ${it.title}" }
 
             val total = matchingTasks.size + matchingHabits.size
             map[iso] = DayActivitySummary(
@@ -187,6 +292,38 @@ fun ProductivityHeatmap(
         map
     }
 
+    val heatmapWeeks = remember(startDate, endSunday, dailyActivityMap, selectedMetric) {
+        val allDates = mutableListOf<LocalDate>()
+        var cursor = startDate
+        while (!cursor.isAfter(endSunday)) {
+            allDates.add(cursor)
+            cursor = cursor.plusDays(1)
+        }
+        allDates.chunked(7)
+            .map { weekDates ->
+                weekDates.map { date ->
+                    val iso = date.format(DateTimeFormatter.ISO_DATE)
+                    val summary = dailyActivityMap[iso]
+                    val count = when (selectedMetric) {
+                        HeatmapMetric.ALL -> summary?.totalCount ?: 0
+                        HeatmapMetric.TASKS -> summary?.taskCount ?: 0
+                        HeatmapMetric.HABITS -> summary?.habitCount ?: 0
+                    }
+                    HeatmapDateCell(
+                        date = date,
+                        dayOfMonth = date.dayOfMonth,
+                        count = count,
+                        taskCount = summary?.taskCount ?: 0,
+                        habitCount = summary?.habitCount ?: 0
+                    )
+                }
+            }
+    }
+
+    val monthHeaders = remember(startDate, endSunday) {
+        HeatmapCalendarUtils.buildMonthHeaders(startDate, endSunday)
+    }
+
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -196,7 +333,6 @@ fun ProductivityHeatmap(
             .testTag("productivity_heatmap_card")
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Header with Period Navigation
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -244,7 +380,6 @@ fun ProductivityHeatmap(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // User Customization Controls: Metric & Range Selection
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -274,18 +409,19 @@ fun ProductivityHeatmap(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Heatmap Grid: Horizontal scrolling columns of weeks (7 days per column)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Day of Week row headers (Mon, Wed, Fri)
                 Column(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier.padding(end = 4.dp)
                 ) {
+                    Box(modifier = Modifier.height(14.dp), contentAlignment = Alignment.Center) {
+                        Text("", fontSize = 9.sp)
+                    }
                     (1..7).forEach { dayNum ->
                         val dayLabel = when (dayNum) {
                             1 -> "Mon"
@@ -294,7 +430,7 @@ fun ProductivityHeatmap(
                             else -> ""
                         }
                         Box(
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(18.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -306,45 +442,54 @@ fun ProductivityHeatmap(
                     }
                 }
 
-                // Week columns
-                var datePointer = startDate
-                for (w in 0 until selectedRange.weeks) {
+                heatmapWeeks.forEachIndexed { weekIndex, week ->
+                    val monthLabel = monthHeaders.firstOrNull { it.weekIndex == weekIndex }?.label
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        for (d in 0 until 7) {
-                            val iso = datePointer.format(DateTimeFormatter.ISO_DATE)
-                            val summary = dailyActivityMap[iso]
-                            val count = when (selectedMetric) {
-                                HeatmapMetric.ALL -> summary?.totalCount ?: 0
-                                HeatmapMetric.TASKS -> summary?.taskCount ?: 0
-                                HeatmapMetric.HABITS -> summary?.habitCount ?: 0
+                        Box(
+                            modifier = Modifier
+                                .height(14.dp)
+                                .width(18.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (monthLabel != null) {
+                                Text(
+                                    text = monthLabel,
+                                    fontSize = 8.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
                             }
+                        }
 
-                            val cellColor = when {
-                                count == 0 -> selectedPalette.levels[0]
-                                count == 1 -> selectedPalette.levels[1]
-                                count == 2 -> selectedPalette.levels[2]
-                                count == 3 -> selectedPalette.levels[3]
-                                else -> selectedPalette.levels[4]
-                            }
-
-                            val isSelected = inspectedDay?.dateIso == iso
-
+                        week.forEach { cell ->
+                            val cellColor = HeatmapCalendarUtils.resolveCellColor(cell.count, selectedPalette)
+                            val isSelected = inspectedDay?.dateIso == cell.date.format(DateTimeFormatter.ISO_DATE)
                             Box(
                                 modifier = Modifier
-                                    .size(16.dp)
+                                    .size(18.dp)
                                     .clip(RoundedCornerShape(3.dp))
                                     .background(cellColor)
                                     .then(
-                                        if (isSelected) {
-                                            Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp))
-                                        } else Modifier
+                                        if (isSelected) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp)) else Modifier
                                     )
-                                    .clickable { inspectedDay = summary }
-                            )
-
-                            datePointer = datePointer.plusDays(1)
+                                    .clickable {
+                                        val iso = cell.date.format(DateTimeFormatter.ISO_DATE)
+                                        inspectedDay = dailyActivityMap.getValue(iso)
+                                    }
+                            ) {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = cell.dayOfMonth.toString(),
+                                        fontSize = 9.sp,
+                                        color = if (cell.count == 0) MaterialTheme.colorScheme.onSurfaceVariant else Color.White,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -352,13 +497,11 @@ fun ProductivityHeatmap(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Palette Selector & Intensity Legend
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Legend
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(3.dp)
@@ -375,7 +518,6 @@ fun ProductivityHeatmap(
                     Text("More", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
-                // Palette picker chips
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     HeatmapPalette.entries.forEach { pal ->
                         Box(
@@ -394,7 +536,6 @@ fun ProductivityHeatmap(
                 }
             }
 
-            // Interactive Day Tap Detail Sheet / Card
             AnimatedVisibility(visible = inspectedDay != null) {
                 inspectedDay?.let { summary ->
                     Spacer(modifier = Modifier.height(12.dp))
