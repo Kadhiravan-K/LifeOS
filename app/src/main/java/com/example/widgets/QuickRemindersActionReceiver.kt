@@ -113,22 +113,23 @@ class QuickRemindersActionReceiver : BroadcastReceiver() {
                     // Resolve task by numeric targetId wherever available.
                     // For legacy title-only shortcuts, permit matching only when exactly one task has a case-insensitive exact title match.
                     // Never use substring matching and do not silently create a new task.
-                    val validTaskId: Long? = if (fallbackTaskId > 0L) {
-                        val task = db.taskDao().getTaskById(fallbackTaskId)
-                        task?.id
+                    val candidateId = effectiveTargetId.toLongOrNull()
+                    val validTaskId: Long? = if (candidateId != null && candidateId > 0L) {
+                        db.taskDao().getTaskById(candidateId)?.id
                     } else {
-                        val candidateId = effectiveTargetId.toLongOrNull()
-                        if (candidateId != null && candidateId > 0L) {
-                            val task = db.taskDao().getTaskById(candidateId)
-                            task?.id
-                        } else {
-                            val candidateTitle = effectiveTargetId.ifBlank { effectiveTitle }
-                            if (candidateTitle.isNotBlank()) {
-                                val allTasks = db.taskDao().getAllTasksList()
-                                val matches = allTasks.filter { it.title.equals(candidateTitle, ignoreCase = true) }
-                                if (matches.size == 1) matches.first().id else null
-                            } else null
-                        }
+                        val candidateTitle = effectiveTargetId.ifBlank { effectiveTitle }
+                        if (candidateTitle.isNotBlank()) {
+                            val allTasks = db.taskDao().getAllTasksList()
+                            val matches = allTasks.filter { it.title.equals(candidateTitle, ignoreCase = true) }
+                            if (matches.size == 1) matches.first().id else null
+                        } else null
+                    }
+
+                    if (fallbackTaskId > 0L && validTaskId != fallbackTaskId) {
+                        android.util.Log.w(
+                            "QuickRemindersAction",
+                            "Ignoring stale task ID $fallbackTaskId for shortcut '$effectiveTitle'; current target is $effectiveTargetId."
+                        )
                     }
 
                     if (validTaskId != null && validTaskId > 0L) {

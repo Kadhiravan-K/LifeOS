@@ -578,7 +578,7 @@ private fun FeatureGuidesSection(
             icon = Icons.Default.MenuBook,
             title = "8. Knowledge & Glossary Library (#2)",
             description = "Downloadable data-only JSON knowledge packs with SHA-256 integrity verification. Preloaded with 8 foundational productivity mental models. Zero dynamic code/dex execution.",
-            actionText = "Open Knowledge & Glossary",
+            actionText = "Open Knowledge & Glossary Library",
             onActionClick = { onNavigateSubpage?.invoke(com.example.ui.screens.settings.SettingsSubpage.GLOSSARY) }
         )
 

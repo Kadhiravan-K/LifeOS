@@ -53,6 +53,10 @@
             android:name=".widgets.QuickRemindersActionReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".widgets.HabitMasterActionReceiver"
+            android:exported="false" />
+
         <!-- LifeOS Quick Reminders Home-Screen Widget -->
         <receiver
             android:name=".widgets.QuickRemindersWidgetProvider"
@@ -106,6 +110,30 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/lifeos_productivity_radar_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widgets.ProductivityAnalysisWidgetProvider"
+            android:exported="true"
+            android:label="LifeOS Productivity Analysis">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/lifeos_productivity_analysis_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widgets.HabitMasterWidgetProvider"
+            android:exported="true"
+            android:label="LifeOS Habit Master">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/lifeos_habit_master_widget_info" />
         </receiver>
 
         <service

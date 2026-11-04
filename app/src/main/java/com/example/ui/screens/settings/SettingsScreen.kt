@@ -38,6 +38,7 @@ import com.example.ui.theme.engine.AnimationSpeed
 import com.example.ui.theme.engine.ThemedLoadingIndicator
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -2393,117 +2394,112 @@ private fun SettingsHubView(
                 }
             }
         } else {
-            // HUB ENTRY CARDS
-            SettingsNavigationCard(
-                icon = Icons.Default.Settings,
-                title = "General",
-                subtitle = "Profile name, clock format (12h/24h), week start, duration defaults",
-                onClick = { onNavigateToSubpage(SettingsSubpage.GENERAL) }
+            Text(
+                text = "Important Settings",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
+            Spacer(modifier = Modifier.height(8.dp))
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                @OptIn(ExperimentalLayoutApi::class)
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    maxItemsInEachRow = if (maxWidth >= 600.dp) 3 else 2
+                ) {
+                    SettingsImportantCard(
+                        icon = Icons.Default.Settings,
+                        title = "General",
+                        subtitle = "Profile, time & calendar",
+                        modifier = Modifier.weight(1f),
+                        onClick = { onNavigateToSubpage(SettingsSubpage.GENERAL) }
+                    )
+                    SettingsImportantCard(
+                        icon = Icons.Default.Palette,
+                        title = "Appearance",
+                        subtitle = "$activeThemeName • $themeMode",
+                        modifier = Modifier.weight(1f),
+                        onClick = { onNavigateToSubpage(SettingsSubpage.APPEARANCE) }
+                    )
+                    SettingsImportantCard(
+                        icon = Icons.Default.Notifications,
+                        title = "Notifications",
+                        subtitle = "Alarms & smart alerts",
+                        modifier = Modifier.weight(1f),
+                        onClick = { onNavigateToSubpage(SettingsSubpage.NOTIFICATIONS) }
+                    )
+                    SettingsImportantCard(
+                        icon = Icons.Outlined.Folder,
+                        title = "Organization",
+                        subtitle = "Projects & essentials",
+                        modifier = Modifier.weight(1f),
+                        onClick = { onNavigateToSubpage(SettingsSubpage.ORGANIZATION) }
+                    )
+                    SettingsImportantCard(
+                        icon = Icons.Default.Speed,
+                        title = "Productivity",
+                        subtitle = "Schedule & planning",
+                        modifier = Modifier.weight(1f),
+                        onClick = { onNavigateToSubpage(SettingsSubpage.PRODUCTIVITY) }
+                    )
+                    SettingsImportantCard(
+                        icon = Icons.Default.Lock,
+                        title = "Profile Security",
+                        subtitle = "PIN & biometrics",
+                        modifier = Modifier.weight(1f),
+                        onClick = { onNavigateToSubpage(SettingsSubpage.PROFILE_LOCK) }
+                    )
+                }
+            }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            SettingsNavigationCard(
-                icon = Icons.Default.Palette,
-                title = "Appearance & Themes",
-                subtitle = "Active Theme: $activeThemeName • $themeMode mode • Honeycomb density",
-                onClick = { onNavigateToSubpage(SettingsSubpage.APPEARANCE) }
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                text = "Other Settings",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            SettingsNavigationCard(
-                icon = Icons.Default.Notifications,
-                title = "Notifications & Smart Alerts",
-                subtitle = "P1 Smart Alarms, medication alerts, channels, quiet hours schedule",
-                onClick = { onNavigateToSubpage(SettingsSubpage.NOTIFICATIONS) }
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            SettingsNavigationCard(
-                icon = Icons.Outlined.Folder,
-                title = "Organization & Essentials",
-                subtitle = "Projects & Labels Manager • Smart Trackers & Subscriptions (My Essentials)",
-                onClick = { onNavigateToSubpage(SettingsSubpage.ORGANIZATION) },
-                highlighted = true
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            SettingsNavigationCard(
-                icon = Icons.Default.Speed,
-                title = "Productivity & Schedule",
-                subtitle = "Daily wake & bedtime schedule, hydration goal, daily planning wizard",
-                onClick = { onNavigateToSubpage(SettingsSubpage.PRODUCTIVITY) }
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            SettingsNavigationCard(
-                icon = Icons.Default.EmojiEvents,
-                title = "Gamification & Progress",
-                subtitle = "Levels, XP points, sound & haptic rewards, gamification hub",
-                onClick = { onNavigateToSubpage(SettingsSubpage.GAMIFICATION) }
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            SettingsNavigationCard(
-                icon = Icons.Default.Storage,
-                title = "Data & Storage",
-                subtitle = "Encrypted backup & restore, trash bin recovery, template browser",
-                onClick = { onNavigateToSubpage(SettingsSubpage.DATA_STORAGE) }
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            SettingsNavigationCard(
-                icon = Icons.Default.Security,
-                title = "Legal & Privacy",
-                subtitle = "Terms & Conditions, Privacy Policy, 100% offline-first pledge",
-                onClick = { onNavigateToSubpage(SettingsSubpage.LEGAL_PRIVACY) }
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            SettingsNavigationCard(
-                icon = Icons.Default.Lock,
-                title = "Profile Lock & Security",
-                subtitle = "Per-profile PIN, password, pattern & biometric protection",
-                onClick = { onNavigateToSubpage(SettingsSubpage.PROFILE_LOCK) },
-                highlighted = true
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            SettingsNavigationCard(
-                icon = Icons.Default.LibraryBooks,
-                title = "Knowledge & Glossary Library",
-                subtitle = "Downloadable offline feature library, productivity mental models & systems thinking (#2)",
-                onClick = { onNavigateToSubpage(SettingsSubpage.GLOSSARY) },
-                highlighted = true
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            SettingsNavigationCard(
-                icon = Icons.Default.AutoAwesome,
-                title = "AI Model Context Protocol (MCP)",
-                subtitle = "100% offline local MCP bridge, token security & interactive test console (#3)",
-                onClick = { onNavigateToSubpage(SettingsSubpage.MCP_BRIDGE) },
-                highlighted = true
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            SettingsNavigationCard(
-                icon = Icons.Default.MenuBook,
-                title = "User Manual & UI Components",
-                subtitle = "Feature documentation and interactive Reusable Frontend UI Components library (36 components)",
-                onClick = { onNavigateToSubpage(SettingsSubpage.USER_MANUAL) },
-                highlighted = true
-            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SettingsNavigationCard(
+                    icon = Icons.Default.EmojiEvents,
+                    title = "Gamification & Progress",
+                    subtitle = "Levels, XP points, sound & haptic rewards, gamification hub",
+                    onClick = { onNavigateToSubpage(SettingsSubpage.GAMIFICATION) }
+                )
+                SettingsNavigationCard(
+                    icon = Icons.Default.Storage,
+                    title = "Data & Storage",
+                    subtitle = "Encrypted backup & restore, trash bin recovery, template browser",
+                    onClick = { onNavigateToSubpage(SettingsSubpage.DATA_STORAGE) }
+                )
+                SettingsNavigationCard(
+                    icon = Icons.Default.Security,
+                    title = "Legal & Privacy",
+                    subtitle = "Terms & Conditions, Privacy Policy, 100% offline-first pledge",
+                    onClick = { onNavigateToSubpage(SettingsSubpage.LEGAL_PRIVACY) }
+                )
+                SettingsNavigationCard(
+                    icon = Icons.Default.LibraryBooks,
+                    title = "Knowledge & Glossary Library",
+                    subtitle = "Offline feature library, productivity mental models & systems thinking",
+                    onClick = { onNavigateToSubpage(SettingsSubpage.GLOSSARY) }
+                )
+                SettingsNavigationCard(
+                    icon = Icons.Default.AutoAwesome,
+                    title = "AI Model Context Protocol (MCP)",
+                    subtitle = "Offline local MCP bridge, token security & interactive test console",
+                    onClick = { onNavigateToSubpage(SettingsSubpage.MCP_BRIDGE) }
+                )
+                SettingsNavigationCard(
+                    icon = Icons.Default.MenuBook,
+                    title = "User Manual & UI Components",
+                    subtitle = "Feature documentation and reusable UI component library",
+                    onClick = { onNavigateToSubpage(SettingsSubpage.USER_MANUAL) }
+                )
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -2717,6 +2713,57 @@ private fun SettingsNavigationCard(
                 contentDescription = "Open",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun SettingsImportantCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(126.dp)
+            .clickable(onClick = onClick)
+            .testTag("nav_card_${title.lowercase().replace(" ", "_")}")
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }

@@ -37,6 +37,7 @@ import com.example.domain.model.Subtask
 import com.example.domain.model.TaskItem
 import com.example.domain.model.TaskPriority
 import com.example.domain.model.TaskReminderItem
+import com.example.domain.calendar.CalendarMonthNavigation
 import com.example.domain.projectworkspace.ProjectWorkspaceItem
 import com.example.domain.projectworkspace.ProjectWorkspaceView
 import com.example.domain.projectworkspace.ProjectCustomStatus
@@ -1057,6 +1058,7 @@ class LifeViewModel(
 
     fun setHoneycombZoomScale(scale: Float) = viewModelScope.launch {
         preferences.setHoneycombZoomScale(scale)
+        com.example.widgets.QuickRemindersWidgetProvider.notifyDataChanged(getApplication())
     }
 
     val honeycombAppearance: StateFlow<HoneycombAppearanceConfig> = combine(
@@ -1855,29 +1857,18 @@ class LifeViewModel(
     }
 
     fun previousCalendarMonth() {
-        var m = _calendarMonth.value - 1
-        var y = _calendarYear.value
-        if (m < 0) {
-            m = 11
-            y -= 1
-        }
-        _calendarMonth.value = m
-        _calendarYear.value = y
-        val currentDay = DateUtils.getDayOfMonth(_calendarSelectedDate.value).coerceAtMost(DateUtils.getDaysInMonth(y, m))
-        _calendarSelectedDate.value = String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, currentDay)
+        updateCalendarMonthSelection(CalendarMonthNavigation.shiftSelectedDate(_calendarSelectedDate.value, -1))
     }
 
     fun nextCalendarMonth() {
-        var m = _calendarMonth.value + 1
-        var y = _calendarYear.value
-        if (m > 11) {
-            m = 0
-            y += 1
-        }
-        _calendarMonth.value = m
-        _calendarYear.value = y
-        val currentDay = DateUtils.getDayOfMonth(_calendarSelectedDate.value).coerceAtMost(DateUtils.getDaysInMonth(y, m))
-        _calendarSelectedDate.value = String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, currentDay)
+        updateCalendarMonthSelection(CalendarMonthNavigation.shiftSelectedDate(_calendarSelectedDate.value, 1))
+    }
+
+    private fun updateCalendarMonthSelection(selectedDateIso: String) {
+        val selectedDate = java.time.LocalDate.parse(selectedDateIso)
+        _calendarSelectedDate.value = selectedDateIso
+        _calendarMonth.value = selectedDate.monthValue - 1
+        _calendarYear.value = selectedDate.year
     }
 
     fun setCalendarViewMode(mode: String) {

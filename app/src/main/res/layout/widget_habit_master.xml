@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <TextView
+        android:id="@+id/habit_master_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="6dp"
+        android:text="🌱 Habit Master"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/habit_master_profile"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="4dp"
+        android:text="🌱 0 habits"
+        android:textColor="#A1A1AA"
+        android:textSize="10sp" />
+
+    <TextView
+        android:id="@+id/habit_master_empty"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text="No habits yet. Tap to open LifeOS."
+        android:textColor="#A1A1AA"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/habit_row_0"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="4dp">
+        <TextView
+            android:id="@+id/habit_title_0"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#E4E4E7"
+            android:textSize="12sp" />
+        <TextView
+            android:id="@+id/habit_check_0"
+            android:layout_width="32dp"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="#10B981"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/habit_row_1"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="4dp">
+        <TextView
+            android:id="@+id/habit_title_1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#E4E4E7"
+            android:textSize="12sp" />
+        <TextView
+            android:id="@+id/habit_check_1"
+            android:layout_width="32dp"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="#10B981"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/habit_row_2"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="4dp">
+        <TextView
+            android:id="@+id/habit_title_2"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#E4E4E7"
+            android:textSize="12sp" />
+        <TextView
+            android:id="@+id/habit_check_2"
+            android:layout_width="32dp"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="#10B981"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/habit_row_3"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="4dp">
+        <TextView
+            android:id="@+id/habit_title_3"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#E4E4E7"
+            android:textSize="12sp" />
+        <TextView
+            android:id="@+id/habit_check_3"
+            android:layout_width="32dp"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="#10B981"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/habit_row_4"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="4dp">
+        <TextView
+            android:id="@+id/habit_title_4"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#E4E4E7"
+            android:textSize="12sp" />
+        <TextView
+            android:id="@+id/habit_check_4"
+            android:layout_width="32dp"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="#10B981"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

@@ -49,12 +49,19 @@ LifeOS is built with strict privacy and architectural guarantees:
 
 ### 📅 Calendar & Planning
 - **Multi-View Calendar**: Seamlessly switch between Day, Week, and Month perspectives.
+- **Month Navigation**: Swipe horizontally across the expanded month grid to move between months while keeping the selected day where possible.
 - **Balanced Non-Trapping Scrolling**: Weighted layout hierarchy ensuring smooth scrolling across dense schedules.
 - **Multi-Horizon Planning**: Dedicated daily, weekly, monthly, quarterly, and yearly review and goal tracking.
 
 ### 💧 Habits & 75-Day Challenge
 - **Horizontally Scrollable Habit Strip**: Compact, scrollable habit tracker providing quick one-tap check-ins.
 - **75 Hard Presets**: Official 75 Hard, 75 Soft, and 75 Medium with integrated hydration targets, two-a-day workouts, reading targets, and progress tracking.
+
+### 🧩 Interactive Home-Screen Widgets
+- **Quick Reminders**: Individually actionable task and habit tiles, with zoom synchronized to the honeycomb zoom preference.
+- **Productivity Analysis**: At-a-glance indicators for today's task completion, habit check-ins, and hydration progress.
+- **Habit Master**: One-tap habit completion with per-widget profile-aware data.
+- **Productivity Radar**: Profile-scoped analytics and completion summaries.
 
 ### 🎨 14 Handcrafted Theme Environments
 1. **Genesis (Default Free)**: Clean, high-contrast obsidian & gold distraction-free neutral theme.
