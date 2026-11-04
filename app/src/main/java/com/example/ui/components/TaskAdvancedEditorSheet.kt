@@ -40,8 +40,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,7 +55,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -72,6 +69,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -87,15 +85,18 @@ import com.example.domain.model.SchedulingMode
 import com.example.domain.model.TaskItem
 import com.example.domain.model.TaskPriority
 import com.example.domain.model.TaskReminderItem
+import com.example.domain.model.TaskDateRange
+import com.example.domain.model.TaskDateRangePolicy
+import com.example.domain.model.TaskLinksStorage
+import com.example.domain.model.TaskLinkUrlValidator
+import com.example.domain.model.MedicinePrioritySelection
 import com.example.domain.model.TodoistColorPalette
 import com.example.domain.recurrence.RecurrenceEngine
 import com.example.domain.scheduling.SchedulingEngine
 import com.example.ui.screens.labels.EditLabelBottomSheet
 import com.example.ui.screens.projects.EditProjectBottomSheet
 import com.example.utils.DateUtils
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,8 +116,10 @@ fun TaskAdvancedEditorSheet(
     onSaveTask: (TaskItem) -> Unit,
     defaultDuration: Int = 30,
     onSaveTaskWithMedication: ((TaskItem, com.example.domain.medication.MedicationItem?) -> Unit)? = null,
+    onSaveTaskWithResult: ((TaskItem, com.example.domain.medication.MedicationItem?, (Result<com.example.ui.viewmodel.TaskSaveReceipt>) -> Unit) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     val today = DateUtils.todayString()
 
     // 1. Basic Info
@@ -131,15 +134,20 @@ fun TaskAdvancedEditorSheet(
     }
     var description by remember { mutableStateOf(task?.description ?: "") }
     var category by remember { mutableStateOf(task?.category ?: "Habits & Daily Routine") }
-    var priority by remember { mutableStateOf(task?.priority ?: TaskPriority.P3) }
-    var isPriorityManuallySet by remember { mutableStateOf(task?.priority != null && task.priority != TaskPriority.P3) }
-    var preservedPriorityBeforeMedicine by remember { mutableStateOf(priority) }
+    var medicinePriority by remember(task?.id) {
+        mutableStateOf(MedicinePrioritySelection(task?.priority ?: TaskPriority.P3, false))
+    }
+    val priority = medicinePriority.effectivePriority
     var selectedProjectId by remember { mutableStateOf<Long?>(task?.projectId) }
     var selectedLabelIds by remember { mutableStateOf<Set<Long>>(task?.labels?.map { it.id }?.toSet() ?: emptySet()) }
     var isQuickReminder by remember { mutableStateOf(task?.isQuickReminder ?: false) }
     var isMedicineEnabled by remember { mutableStateOf(false) }
-    var eventLink by remember { mutableStateOf("") }
-    var eventLinkLabel by remember { mutableStateOf("Registration Link") }
+    val initialNotesAndLinks = remember(task?.id) { TaskLinksStorage.decode(task?.notes.orEmpty()) }
+    var taskLinks by remember(task?.id) { mutableStateOf(initialNotesAndLinks.links) }
+    val hasInvalidTaskLinks = taskLinks.any { link ->
+        (link.label.isBlank() && link.url.isNotBlank()) ||
+            (link.label.isNotBlank() && !TaskLinkUrlValidator.isValid(link.url))
+    }
     var medicationDraft by remember { mutableStateOf<com.example.domain.medication.MedicationItem?>(null) }
 
     // 2. Schedule Date & Time
@@ -180,7 +188,6 @@ fun TaskAdvancedEditorSheet(
     var showEmojiDialog by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
-    var showDeadlineDatePicker by remember { mutableStateOf(false) }
     var showDeadlineTimePicker by remember { mutableStateOf(false) }
 
     var showRecurrenceMenu by remember { mutableStateOf(false) }
@@ -192,15 +199,8 @@ fun TaskAdvancedEditorSheet(
     var showMultiLabelSheet by remember { mutableStateOf(false) }
     var showCreateProjectSheet by remember { mutableStateOf(false) }
     var showCreateLabelSheet by remember { mutableStateOf(false) }
-
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = System.currentTimeMillis()
-    )
-    val deadlineDatePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = System.currentTimeMillis()
-    )
-
-
+    var isSaving by remember { mutableStateOf(false) }
+    var saveError by remember { mutableStateOf<String?>(null) }
 
     // Projected Duration calculation
     val projectedEnd by remember(dueDateIso, draftDueTime, isAllDay, durationAmount, durationUnit) {
@@ -293,7 +293,8 @@ fun TaskAdvancedEditorSheet(
                 Button(
                     onClick = {
                         val trimmed = title.trim()
-                        if (trimmed.isNotBlank()) {
+                        if (trimmed.isNotBlank() && durationAmount in 1..9999 && !hasInvalidTaskLinks && !isSaving) {
+                            saveError = null
                             val selectedLabels = labels.filter { selectedLabelIds.contains(it.id) }
                             val elapsedMinutes = SchedulingEngine.toElapsedMinutes(dueDateIso, durationAmount, durationUnit)
 
@@ -304,6 +305,10 @@ fun TaskAdvancedEditorSheet(
                                 title = trimmed,
                                 emoji = emoji.trim(),
                                 description = description.trim(),
+                                notes = TaskLinksStorage.encode(
+                                    initialNotesAndLinks.notes,
+                                    taskLinks.filter { it.label.isNotBlank() || it.url.isNotBlank() }
+                                ),
                                 category = category,
                                 priority = priority,
                                 dueDateIso = dueDateIso,
@@ -330,19 +335,52 @@ fun TaskAdvancedEditorSheet(
                                 isQuickReminder = isQuickReminder,
                                 reminders = remindersList
                             )
-                            if (onSaveTaskWithMedication != null) {
+                            if (onSaveTaskWithResult != null) {
+                                isSaving = true
+                                onSaveTaskWithResult(updatedTask, if (isMedicineEnabled) medicationDraft else null) { result ->
+                                    isSaving = false
+                                    result.fold(
+                                        onSuccess = { receipt ->
+                                            receipt.warning?.let {
+                                                Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+                                            }
+                                            onDismiss()
+                                        },
+                                        onFailure = { error ->
+                                            saveError = error.message ?: "Task could not be saved. Please try again."
+                                        }
+                                    )
+                                }
+                            } else if (onSaveTaskWithMedication != null) {
                                 onSaveTaskWithMedication(updatedTask, if (isMedicineEnabled) medicationDraft else null)
+                                onDismiss()
                             } else {
                                 onSaveTask(updatedTask)
+                                onDismiss()
                             }
-                            onDismiss()
                         }
                     },
-                    enabled = title.isNotBlank() && durationAmount >= 0,
+                    enabled = title.isNotBlank() && durationAmount in 1..9999 && !hasInvalidTaskLinks && !isSaving,
                     modifier = Modifier.testTag("adv_editor_save_btn")
                 ) {
-                    Text("Save")
+                    Text(if (isSaving) "Saving..." else "Save")
                 }
+            }
+            if (hasInvalidTaskLinks) {
+                Text(
+                    text = "Each link needs a label and a valid http:// or https:// URL.",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("adv_editor_link_error")
+                )
+            }
+            if (saveError != null) {
+                Text(
+                    text = saveError.orEmpty(),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("adv_editor_save_error")
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -444,8 +482,7 @@ fun TaskAdvancedEditorSheet(
                     val isSel = priority == p
                     Surface(
                         onClick = {
-                            priority = p
-                            isPriorityManuallySet = true
+                            medicinePriority = medicinePriority.selectPriority(p)
                         },
                         shape = RoundedCornerShape(10.dp),
                         color = if (isSel) p.composeColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
@@ -586,16 +623,7 @@ fun TaskAdvancedEditorSheet(
                 isMedicineEnabled = isMedicineEnabled,
                 onMedicineEnabledChange = { enabled ->
                     isMedicineEnabled = enabled
-                    if (enabled) {
-                        if (!isPriorityManuallySet) {
-                            preservedPriorityBeforeMedicine = priority
-                            priority = TaskPriority.P1
-                        }
-                    } else {
-                        if (!isPriorityManuallySet) {
-                            priority = preservedPriorityBeforeMedicine
-                        }
-                    }
+                    medicinePriority = medicinePriority.setMedicineReminderEnabled(enabled)
                 },
                 taskTitle = title,
                 initialMedication = null,
@@ -697,6 +725,7 @@ fun TaskAdvancedEditorSheet(
                         durationUnit = durationUnit,
                         onDurationAmountChanged = { durationAmount = it },
                         onDurationUnitChanged = { durationUnit = it },
+                        isError = durationAmount !in 1..9999,
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -747,7 +776,12 @@ fun TaskAdvancedEditorSheet(
                 Column(modifier = Modifier.padding(14.dp)) {
                     LifeDatePickerField(
                         selectedDateIso = draftDeadlineIso ?: "",
-                        onDateSelected = { draftDeadlineIso = it },
+                        onDateSelected = { selected ->
+                            draftDeadlineIso = TaskDateRangePolicy.updateEndDate(
+                                TaskDateRange(dueDateIso, draftDeadlineIso),
+                                selected
+                            )?.endDateIso
+                        },
                         label = "Deadline Date",
                         minDateIso = dueDateIso,
                         isNullable = true,
@@ -1159,29 +1193,10 @@ fun TaskAdvancedEditorSheet(
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text("🔗 Event Links & Attachment", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = eventLink,
-                        onValueChange = { eventLink = it },
-                        placeholder = { Text("https://example.com/event-registration...") },
-                        label = { Text("Event / Action Link") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                    TaskLinksEditor(
+                        links = taskLinks,
+                        onLinksChanged = { taskLinks = it }
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        listOf("Registration Link", "Meeting Link", "Location Map", "Docs", "Custom").forEach { lbl ->
-                            FilterChip(
-                                selected = eventLinkLabel == lbl,
-                                onClick = { eventLinkLabel = lbl },
-                                label = { Text(lbl, fontSize = 11.sp) }
-                            )
-                        }
-                    }
                 }
             }
 
@@ -1257,54 +1272,22 @@ fun TaskAdvancedEditorSheet(
         )
     }
 
-    // Material 3 Date Picker Dialog
+    // Material 3 month calendar scrolls vertically; start and optional deadline remain separate dates.
     if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { ms ->
-                        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                        dueDateIso = sdf.format(Date(ms))
-                    }
-                    showDatePicker = false
-                }) {
-                    Text("OK")
-                }
+        LifeDatePickerDialog(
+            initialDateIso = dueDateIso,
+            title = "Select Start Date",
+            onConfirm = { selectedDate ->
+                val updated = TaskDateRangePolicy.updateStartDate(
+                    TaskDateRange(dueDateIso, draftDeadlineIso),
+                    selectedDate
+                )
+                dueDateIso = updated.startDateIso
+                draftDeadlineIso = updated.endDateIso
+                showDatePicker = false
             },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-
-    // Deadline Date Picker Dialog
-    if (showDeadlineDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDeadlineDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    deadlineDatePickerState.selectedDateMillis?.let { ms ->
-                        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                        draftDeadlineIso = sdf.format(Date(ms))
-                    }
-                    showDeadlineDatePicker = false
-                }) {
-                    Text("OK")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeadlineDatePicker = false }) {
-                    Text("Cancel")
-                }
-            }
-        ) {
-            DatePicker(state = deadlineDatePickerState)
-        }
+            onDismiss = { showDatePicker = false }
+        )
     }
 
     // Time Picker Modal Dialog

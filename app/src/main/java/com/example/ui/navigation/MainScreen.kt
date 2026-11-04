@@ -355,11 +355,9 @@ fun MainScreen(
             onResetCustomOrder = { viewModel.resetCustomColorOrder() },
             onSaveTask = { task ->
                 viewModel.saveTaskItem(task)
-                showTaskQuickAddSheet = false
             },
-            onSaveTaskWithMedication = { task, med ->
-                viewModel.saveTaskItem(task, med)
-                showTaskQuickAddSheet = false
+            onSaveTaskWithResult = { task, med, onComplete ->
+                viewModel.saveTaskItem(task, med, onComplete)
             },
             onExpandToAdvanced = {
                 showTaskQuickAddSheet = false

@@ -142,6 +142,7 @@ enum class SchedulingMode {
 }
 
 enum class DurationUnit(val displayName: String, val singularName: String) {
+    SECONDS("seconds", "second"),
     MINUTES("minutes", "minute"),
     HOURS("hours", "hour"),
     DAYS("days", "day"),
@@ -153,6 +154,7 @@ enum class DurationUnit(val displayName: String, val singularName: String) {
     companion object {
         fun fromString(value: String?): DurationUnit {
             return when (value?.uppercase()) {
+                "SECONDS" -> SECONDS
                 "HOURS" -> HOURS
                 "DAYS" -> DAYS
                 "WEEKS" -> WEEKS
@@ -164,6 +166,11 @@ enum class DurationUnit(val displayName: String, val singularName: String) {
         }
     }
 }
+
+data class TaskLink(
+    val label: String,
+    val url: String
+)
 
 data class TaskReminderItem(
     val id: Long = 0,

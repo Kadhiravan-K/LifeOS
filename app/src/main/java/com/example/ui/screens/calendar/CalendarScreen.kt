@@ -494,8 +494,9 @@ fun CalendarScreen(
             },
             onSaveTask = { task ->
                 viewModel.saveTaskItem(task)
-                showTaskModal = false
-                editingTask = null
+            },
+            onSaveTaskWithResult = { task, medication, onComplete ->
+                viewModel.saveTaskItem(task, medication, onComplete)
             },
             onDismiss = {
                 showTaskModal = false

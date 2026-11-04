@@ -45,6 +45,8 @@ import com.example.domain.model.DurationUnit
  * Standard preset duration choices for rapid selection.
  */
 val DefaultDurationPresets = listOf(
+    Triple(15, DurationUnit.SECONDS, "15s"),
+    Triple(30, DurationUnit.SECONDS, "30s"),
     Triple(15, DurationUnit.MINUTES, "15m"),
     Triple(30, DurationUnit.MINUTES, "30m"),
     Triple(45, DurationUnit.MINUTES, "45m"),
@@ -84,6 +86,7 @@ fun DurationInput(
         mutableStateOf(if (durationAmount > 0) durationAmount.toString() else if (durationAmount == 0) "0" else "")
     }
     var showUnitMenu by remember { mutableStateOf(false) }
+    val exceedsMaximum = textDraft.toIntOrNull()?.let { it > 9999 } == true
 
     Column(modifier = modifier) {
         Row(
@@ -112,7 +115,7 @@ fun DurationInput(
                 // Stepper Decrement Button [-]
                 FilledTonalIconButton(
                     onClick = {
-                        val step = if (durationUnit == DurationUnit.MINUTES) 5 else 1
+                        val step = if (durationUnit == DurationUnit.MINUTES || durationUnit == DurationUnit.SECONDS) 5 else 1
                         val next = (durationAmount - step).coerceAtLeast(0)
                         onDurationAmountChanged(next)
                     },
@@ -122,7 +125,7 @@ fun DurationInput(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Remove,
-                        contentDescription = "Decrement 5m",
+                        contentDescription = if (durationUnit == DurationUnit.SECONDS) "Decrement 5s" else "Decrement 5m",
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -131,6 +134,11 @@ fun DurationInput(
                 OutlinedTextField(
                     value = textDraft,
                     onValueChange = { inputStr ->
+                        if (inputStr.trimStart().startsWith("-")) {
+                            textDraft = inputStr
+                            onDurationAmountChanged(0)
+                            return@OutlinedTextField
+                        }
                         val digits = inputStr.filter { it.isDigit() }
                         textDraft = digits
                         if (digits.isEmpty()) {
@@ -139,14 +147,22 @@ fun DurationInput(
                             val parsed = digits.toIntOrNull()
                             if (parsed != null && parsed in 0..9999) {
                                 onDurationAmountChanged(parsed)
+                            } else if (parsed != null && parsed > 9999) {
+                                onDurationAmountChanged(parsed)
                             }
                         }
                     },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
-                    isError = isError,
-                    supportingText = if (isError) {
-                        { Text(errorMessage, color = MaterialTheme.colorScheme.error, fontSize = 11.sp) }
+                    isError = isError || exceedsMaximum,
+                    supportingText = if (isError || exceedsMaximum) {
+                        {
+                            Text(
+                                if (exceedsMaximum) "Maximum duration is 9999" else errorMessage,
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 11.sp
+                            )
+                        }
                     } else null,
                     modifier = Modifier
                         .width(76.dp)
@@ -157,7 +173,7 @@ fun DurationInput(
                 // Stepper Increment Button [+]
                 FilledTonalIconButton(
                     onClick = {
-                        val step = if (durationUnit == DurationUnit.MINUTES) 5 else 1
+                        val step = if (durationUnit == DurationUnit.MINUTES || durationUnit == DurationUnit.SECONDS) 5 else 1
                         val next = (durationAmount + step).coerceIn(0, 9999)
                         onDurationAmountChanged(next)
                     },
@@ -167,7 +183,7 @@ fun DurationInput(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "Increment 5m",
+                        contentDescription = if (durationUnit == DurationUnit.SECONDS) "Increment 5s" else "Increment 5m",
                         modifier = Modifier.size(16.dp)
                     )
                 }

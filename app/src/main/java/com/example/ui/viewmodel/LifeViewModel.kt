@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 import com.example.data.preferences.UserPreferences
 import com.example.data.repository.LifeRepository
@@ -53,6 +54,7 @@ import com.example.domain.schedule.ScheduleConflictEngine
 import com.example.notifications.ChannelHealthStatus
 import com.example.notifications.ExactAlarmStatus
 import com.example.notifications.NotificationHelper
+import com.example.notifications.TaskAlarmScheduleStatus
 import com.example.notifications.ReminderScheduler
 import com.example.notifications.ScheduledReminderItem
 import com.example.utils.DateUtils
@@ -98,6 +100,7 @@ import com.example.domain.subscription.BillStatus
 import com.example.domain.subscription.SubscriptionScheduleEngine
 import com.example.data.backup.DataExportImportManager
 import com.example.data.local.AppDatabase
+
 import com.example.domain.legal.LegalDocuments
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -116,6 +119,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import com.example.domain.recurrence.RecurrenceEngine
 import com.example.widgets.WidgetRefreshCoordinator
+
+data class TaskSaveReceipt(
+    val taskId: Long,
+    val warning: String? = null
+)
 
 data class DashboardUiState(
     val isLoading: Boolean = true,
@@ -1587,6 +1595,25 @@ class LifeViewModel(
     fun toggleTaskCompletion(taskId: Long, dateIso: String = todayIso) {
         viewModelScope.launch {
             val newlyCompleted = repository.toggleTaskCompletion(taskId, dateIso)
+            if (newlyCompleted != null) {
+                repository.getTaskById(taskId)?.let { task ->
+                    if (newlyCompleted) {
+                        NotificationHelper.cancelAllTaskReminders(getApplication(), task, dateIso)
+                    } else {
+                        val qStart = DateUtils.timeToMinutes(quietHoursStartFlow.value).coerceAtLeast(1260)
+                        val qEnd = DateUtils.timeToMinutes(quietHoursEndFlow.value).coerceAtLeast(330)
+                        val results = NotificationHelper.scheduleAllTaskReminders(
+                            getApplication(),
+                            task,
+                            dateIso,
+                            qStart,
+                            qEnd
+                        )
+                        results.filter { it.status == TaskAlarmScheduleStatus.FAILED }
+                            .forEach { android.util.Log.e("LifeViewModel", it.message ?: "Task alarm scheduling failed.") }
+                    }
+                }
+            }
             if (newlyCompleted == true) {
                 val currentTodayTasks = todayTasks.value
                 val allDone = currentTodayTasks.isNotEmpty() && currentTodayTasks.all {
@@ -1662,10 +1689,10 @@ class LifeViewModel(
 
             // Schedule or cancel alarm
             val fullTask = task.copy(id = savedId)
-            if (isReminderEnabled) {
+            if (isReminderEnabled || fullTask.priority == TaskPriority.P1) {
                 val qStart = DateUtils.timeToMinutes(quietHoursStartFlow.value).coerceAtLeast(1260)
                 val qEnd = DateUtils.timeToMinutes(quietHoursEndFlow.value).coerceAtLeast(330)
-                NotificationHelper.scheduleTaskAlarm(
+                NotificationHelper.scheduleAllTaskReminders(
                     context = getApplication(),
                     task = fullTask,
                     dateIso = dueDateIso,
@@ -1673,7 +1700,7 @@ class LifeViewModel(
                     quietHoursEndMins = qEnd
                 )
             } else {
-                NotificationHelper.cancelTaskAlarm(getApplication(), savedId, dueDateIso)
+                NotificationHelper.cancelAllTaskReminders(getApplication(), fullTask, dueDateIso)
             }
             WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
@@ -1681,7 +1708,9 @@ class LifeViewModel(
 
     fun deleteTask(taskId: Long) {
         viewModelScope.launch {
-            NotificationHelper.cancelTaskAlarm(getApplication(), taskId)
+            repository.getTaskById(taskId)?.let { task ->
+                NotificationHelper.cancelAllTaskReminders(getApplication(), task, task.dueDateIso)
+            } ?: NotificationHelper.cancelTaskAlarm(getApplication(), taskId)
             repository.deleteTask(taskId)
             WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
@@ -2198,43 +2227,105 @@ class LifeViewModel(
         viewModelScope.launch { preferences.setNotificationPrivacyEnabled(enabled) }
     }
 
-    fun saveTaskItem(task: TaskItem, medication: MedicationItem? = null) {
+    fun saveTaskItem(
+        task: TaskItem,
+        medication: MedicationItem? = null,
+        onComplete: (Result<TaskSaveReceipt>) -> Unit = {}
+    ) {
         viewModelScope.launch {
-            val savedId = if (task.id == 0L) {
-                repository.insertTask(task)
-            } else {
-                repository.updateTask(task)
-                task.id
-            }
-            val fullTask = task.copy(id = savedId)
-            repository.ensureTaskQuickReminderShortcut(fullTask)
-
-            if (medication != null) {
-                repository.saveMedicationForTask(savedId, medication)
-                // Schedule today's doses
-                val doses = repository.getMedicationDosesForDateFlow(DateUtils.todayString()).first().filter { it.medicationId == medication.id || it.taskId == savedId }
-                val overrideQuiet = preferences.medicineOverrideQuietHours.first()
-                doses.filter { it.status == DoseStatus.SCHEDULED }.forEach { dose ->
-                    NotificationHelper.scheduleMedicineDoseAlarm(
-                        context = getApplication(),
-                        dose = dose,
-                        overrideQuietHours = overrideQuiet
-                    )
+            try {
+                val oldTask = task.id.takeIf { it > 0L }?.let { repository.getTaskById(it) }
+                val savedId = if (task.id == 0L) {
+                    repository.insertTask(task)
+                } else {
+                    repository.updateTask(task)
+                    task.id
                 }
-            } else if (fullTask.isReminderEnabled) {
-                val qStart = DateUtils.timeToMinutes(quietHoursStartFlow.value).coerceAtLeast(1260)
-                val qEnd = DateUtils.timeToMinutes(quietHoursEndFlow.value).coerceAtLeast(330)
-                NotificationHelper.scheduleTaskAlarm(
-                    context = getApplication(),
-                    task = fullTask,
-                    dateIso = fullTask.dueDateIso,
-                    quietHoursStartMins = qStart,
-                    quietHoursEndMins = qEnd
-                )
-            } else {
-                NotificationHelper.cancelTaskAlarm(getApplication(), savedId, fullTask.dueDateIso)
+                val fullTask = task.copy(id = savedId)
+                val warnings = mutableListOf<String>()
+
+                try {
+                    if (oldTask != null) {
+                        NotificationHelper.cancelAllTaskReminders(getApplication(), oldTask, oldTask.dueDateIso)
+                    }
+                } catch (error: Exception) {
+                    if (error is CancellationException) throw error
+                    android.util.Log.e("LifeViewModel", "Task saved but old alarm cancellation failed.", error)
+                    warnings += "The task was saved, but an older reminder could not be canceled."
+                }
+
+                try {
+                    repository.ensureTaskQuickReminderShortcut(fullTask)
+                } catch (error: Exception) {
+                    if (error is CancellationException) throw error
+                    android.util.Log.e("LifeViewModel", "Task saved but quick reminder shortcut update failed.", error)
+                    warnings += "The task was saved, but its quick reminder shortcut could not be updated."
+                }
+
+                if (medication != null) {
+                    try {
+                        repository.saveMedicationForTask(savedId, medication)
+                        val doses = repository.getMedicationDosesForDateFlow(DateUtils.todayString())
+                            .first()
+                            .filter { it.medicationId == medication.id || it.taskId == savedId }
+                        val overrideQuiet = preferences.medicineOverrideQuietHours.first()
+                        doses.filter { it.status == DoseStatus.SCHEDULED }.forEach { dose ->
+                            NotificationHelper.scheduleMedicineDoseAlarm(
+                                context = getApplication(),
+                                dose = dose,
+                                overrideQuietHours = overrideQuiet
+                            )
+                        }
+                    } catch (error: Exception) {
+                        if (error is CancellationException) throw error
+                        android.util.Log.e("LifeViewModel", "Task saved but medication reminder setup failed.", error)
+                        warnings += "The task was saved, but its medication reminder could not be set up."
+                    }
+                }
+
+                try {
+                    if (!fullTask.isOneTimeCompleted && fullTask.dueDateIso !in fullTask.completedDates) {
+                        val qStart = DateUtils.timeToMinutes(quietHoursStartFlow.value).coerceAtLeast(1260)
+                        val qEnd = DateUtils.timeToMinutes(quietHoursEndFlow.value).coerceAtLeast(330)
+                        val scheduleResults = NotificationHelper.scheduleAllTaskReminders(
+                            context = getApplication(),
+                            task = fullTask,
+                            dateIso = fullTask.dueDateIso,
+                            quietHoursStartMins = qStart,
+                            quietHoursEndMins = qEnd
+                        )
+                        scheduleResults
+                            .filter { it.status != TaskAlarmScheduleStatus.NOT_REQUIRED && it.status != TaskAlarmScheduleStatus.SCHEDULED_EXACTLY }
+                            .mapNotNull { it.message }
+                            .distinct()
+                            .forEach(warnings::add)
+                    } else {
+                        NotificationHelper.cancelAllTaskReminders(getApplication(), fullTask, fullTask.dueDateIso)
+                    }
+                } catch (error: Exception) {
+                    if (error is CancellationException) throw error
+                    android.util.Log.e("LifeViewModel", "Task saved but reminder scheduling failed.", error)
+                    warnings += "The task was saved, but its reminder could not be scheduled."
+                }
+
+                if (!NotificationHelper.hasNotificationPermission(getApplication()) &&
+                    (fullTask.isReminderEnabled || fullTask.priority == TaskPriority.P1 || medication != null)
+                ) {
+                    warnings += "Notifications are disabled for LifeOS; reminders may not appear."
+                }
+                try {
+                    WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
+                } catch (error: Exception) {
+                    android.util.Log.e("LifeViewModel", "Task saved but widget refresh failed.", error)
+                    warnings += "The task was saved, but widgets could not be refreshed."
+                }
+                onComplete(Result.success(TaskSaveReceipt(savedId, warnings.distinct().joinToString(" ").ifBlank { null })))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                android.util.Log.e("LifeViewModel", "Failed to save task.", error)
+                onComplete(Result.failure(error))
             }
-            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 

@@ -732,13 +732,9 @@ fun TasksScreen(
             onResetCustomOrder = { viewModel.resetCustomColorOrder() },
             onSaveTask = { task ->
                 viewModel.saveTaskItem(task)
-                showQuickAddSheet = false
-                taskToEdit = null
             },
-            onSaveTaskWithMedication = { task, med ->
-                viewModel.saveTaskItem(task, med)
-                showQuickAddSheet = false
-                taskToEdit = null
+            onSaveTaskWithResult = { task, medication, onComplete ->
+                viewModel.saveTaskItem(task, medication, onComplete)
             },
             onExpandToAdvanced = { draft ->
                 taskToEdit = draft
@@ -774,13 +770,9 @@ fun TasksScreen(
             onResetCustomOrder = { viewModel.resetCustomColorOrder() },
             onSaveTask = { task ->
                 viewModel.saveTaskItem(task)
-                showAdvancedEditorSheet = false
-                taskToEdit = null
             },
-            onSaveTaskWithMedication = { task, med ->
-                viewModel.saveTaskItem(task, med)
-                showAdvancedEditorSheet = false
-                taskToEdit = null
+            onSaveTaskWithResult = { task, medication, onComplete ->
+                viewModel.saveTaskItem(task, medication, onComplete)
             },
             onDismiss = {
                 showAdvancedEditorSheet = false

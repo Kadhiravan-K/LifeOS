@@ -7,7 +7,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.example.MainActivity
@@ -22,6 +24,22 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.time.LocalDate
+import java.time.ZoneId
+
+enum class TaskAlarmScheduleStatus {
+    NOT_REQUIRED,
+    SCHEDULED_EXACTLY,
+    SCHEDULED_INEXACTLY,
+    PAST_DUE,
+    INVALID_SCHEDULE,
+    FAILED
+}
+
+data class TaskAlarmScheduleResult(
+    val status: TaskAlarmScheduleStatus,
+    val message: String? = null
+)
 
 object NotificationHelper {
 
@@ -494,37 +512,51 @@ object NotificationHelper {
         dateIso: String,
         quietHoursStartMins: Int = 21 * 60,
         quietHoursEndMins: Int = 5 * 60 + 30
-    ) {
+    ): TaskAlarmScheduleResult {
         val isP1 = task.priority == com.example.domain.model.TaskPriority.P1
-        if ((!task.isReminderEnabled && !isP1) || task.dueTime.isNullOrBlank()) return
+        if (!task.isReminderEnabled && !isP1) {
+            return TaskAlarmScheduleResult(TaskAlarmScheduleStatus.NOT_REQUIRED)
+        }
+        if (task.dueTime.isNullOrBlank()) {
+            return TaskAlarmScheduleResult(
+                TaskAlarmScheduleStatus.INVALID_SCHEDULE,
+                "A start time is required to schedule this task alarm."
+            )
+        }
 
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+            ?: return TaskAlarmScheduleResult(TaskAlarmScheduleStatus.FAILED, "Alarm service is unavailable.")
         val taskStartMins = DateUtils.timeToMinutes(task.dueTime)
-        if (taskStartMins < 0) return
+        if (taskStartMins < 0) {
+            return TaskAlarmScheduleResult(TaskAlarmScheduleStatus.INVALID_SCHEDULE, "The task start time is invalid.")
+        }
 
         var triggerMinutes = taskStartMins - task.reminderMinutesBefore
         if (triggerMinutes < 0) triggerMinutes = 0
 
-        // Quiet Hours check
-        if (triggerMinutes >= quietHoursStartMins || triggerMinutes < quietHoursEndMins) {
+        val nextDayOffset = if (triggerMinutes >= quietHoursStartMins) 1 else 0
+        if (nextDayOffset == 1 || triggerMinutes < quietHoursEndMins) {
             triggerMinutes = quietHoursEndMins
         }
 
-        val triggerCal = Calendar.getInstance().apply {
-            try {
-                val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(dateIso) ?: Date()
-                time = parsed
-            } catch (e: Exception) {}
-            set(Calendar.HOUR_OF_DAY, triggerMinutes / 60)
-            set(Calendar.MINUTE, triggerMinutes % 60)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+        val triggerTime = try {
+            LocalDate.parse(dateIso)
+                .atStartOfDay(ZoneId.systemDefault())
+                .plusMinutes((triggerMinutes + nextDayOffset * 24 * 60).toLong())
+                .toInstant()
+                .toEpochMilli()
+        } catch (error: java.time.DateTimeException) {
+            Log.e("NotificationHelper", "Invalid task alarm date: $dateIso", error)
+            return TaskAlarmScheduleResult(TaskAlarmScheduleStatus.INVALID_SCHEDULE, "The task date is invalid.")
         }
 
-        if (triggerCal.timeInMillis <= System.currentTimeMillis()) return
+        if (triggerTime <= System.currentTimeMillis()) {
+            return TaskAlarmScheduleResult(TaskAlarmScheduleStatus.PAST_DUE, "The task time has already passed.")
+        }
 
         val intent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
             action = ReminderBroadcastReceiver.ACTION_TASK_REMINDER
+            data = taskAlarmUri(task.id, dateIso)
             putExtra(EXTRA_TASK_ID, task.id)
             putExtra(EXTRA_TASK_TITLE, task.title)
             putExtra(EXTRA_TASK_EMOJI, task.emoji)
@@ -533,7 +565,7 @@ object NotificationHelper {
             putExtra("extra_is_p1", isP1)
         }
 
-        val requestCode = (task.id.toInt() * 31) + dateIso.hashCode().and(0x7FFFFFFF) % 50000
+        val requestCode = (task.id xor (task.id ushr 32)).toInt()
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             requestCode,
@@ -541,43 +573,26 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
-                } else {
-                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
-                }
-            } else {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
-            }
-        } catch (se: SecurityException) {
-            try {
-                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
-            } catch (_: Exception) {}
-        } catch (e: Exception) {
-            try {
-                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
-            } catch (_: Exception) {}
-        }
+        return scheduleAlarm(alarmManager, triggerTime, pendingIntent)
     }
 
     fun cancelTaskAlarm(context: Context, taskId: Long, dateIso: String = DateUtils.todayString()) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         val intent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
             action = ReminderBroadcastReceiver.ACTION_TASK_REMINDER
+            data = taskAlarmUri(taskId, dateIso)
         }
-        val requestCode = (taskId.toInt() * 31) + dateIso.hashCode().and(0x7FFFFFFF) % 50000
-        val pendingIntent = PendingIntent.getBroadcast(
+        val requestCode = (taskId xor (taskId ushr 32)).toInt()
+        cancelAlarm(alarmManager, context, requestCode, intent)
+        val legacyRequestCode = (taskId.toInt() * 31) + dateIso.hashCode().and(0x7FFFFFFF) % 50000
+        cancelAlarm(
+            alarmManager,
             context,
-            requestCode,
-            intent,
-            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            legacyRequestCode,
+            Intent(context, ReminderBroadcastReceiver::class.java).apply {
+                action = ReminderBroadcastReceiver.ACTION_TASK_REMINDER
+            }
         )
-        if (pendingIntent != null) {
-            alarmManager.cancel(pendingIntent)
-            pendingIntent.cancel()
-        }
     }
 
     fun scheduleTaskReminderAlarm(
@@ -587,39 +602,57 @@ object NotificationHelper {
         dateIso: String,
         quietHoursStartMins: Int = 21 * 60,
         quietHoursEndMins: Int = 5 * 60 + 30
-    ) {
-        if (!reminder.isEnabled || task.dueTime.isNullOrBlank()) return
+    ): TaskAlarmScheduleResult {
+        if (!reminder.isEnabled) return TaskAlarmScheduleResult(TaskAlarmScheduleStatus.NOT_REQUIRED)
+        if (task.dueTime.isNullOrBlank()) {
+            return TaskAlarmScheduleResult(
+                TaskAlarmScheduleStatus.INVALID_SCHEDULE,
+                "A start time is required to schedule this task reminder."
+            )
+        }
 
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+            ?: return TaskAlarmScheduleResult(TaskAlarmScheduleStatus.FAILED, "Alarm service is unavailable.")
         val taskStartMins = DateUtils.timeToMinutes(task.dueTime)
-        if (taskStartMins < 0) return
+        if (taskStartMins < 0) {
+            return TaskAlarmScheduleResult(TaskAlarmScheduleStatus.INVALID_SCHEDULE, "The task start time is invalid.")
+        }
 
-        var triggerMinutes = when (reminder.type) {
-            "SPECIFIC_TIME" -> reminder.customTime?.let { DateUtils.timeToMinutes(it) } ?: taskStartMins
+        val requestedTriggerMinutes = when (reminder.type) {
+            "SPECIFIC_TIME" -> reminder.customTime?.let { DateUtils.timeToMinutes(it) } ?: -1
             else -> taskStartMins - reminder.minutesBefore
         }
-        if (triggerMinutes < 0) triggerMinutes = 0
+        if (reminder.type == "SPECIFIC_TIME" && requestedTriggerMinutes < 0) {
+            return TaskAlarmScheduleResult(TaskAlarmScheduleStatus.INVALID_SCHEDULE, "The reminder time is invalid.")
+        }
+        var triggerMinutes = requestedTriggerMinutes.coerceAtLeast(0)
+        if (triggerMinutes !in 0..1439) {
+            return TaskAlarmScheduleResult(TaskAlarmScheduleStatus.INVALID_SCHEDULE, "The reminder time is invalid.")
+        }
 
-        // Quiet Hours check
-        if (triggerMinutes >= quietHoursStartMins || triggerMinutes < quietHoursEndMins) {
+        val nextDayOffset = if (triggerMinutes >= quietHoursStartMins) 1 else 0
+        if (nextDayOffset == 1 || triggerMinutes < quietHoursEndMins) {
             triggerMinutes = quietHoursEndMins
         }
 
-        val triggerCal = Calendar.getInstance().apply {
-            try {
-                val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(dateIso) ?: Date()
-                time = parsed
-            } catch (e: Exception) {}
-            set(Calendar.HOUR_OF_DAY, triggerMinutes / 60)
-            set(Calendar.MINUTE, triggerMinutes % 60)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+        val triggerTime = try {
+            LocalDate.parse(dateIso)
+                .atStartOfDay(ZoneId.systemDefault())
+                .plusMinutes((triggerMinutes + nextDayOffset * 24 * 60).toLong())
+                .toInstant()
+                .toEpochMilli()
+        } catch (error: java.time.DateTimeException) {
+            Log.e("NotificationHelper", "Invalid task reminder date: $dateIso", error)
+            return TaskAlarmScheduleResult(TaskAlarmScheduleStatus.INVALID_SCHEDULE, "The task date is invalid.")
         }
 
-        if (triggerCal.timeInMillis <= System.currentTimeMillis()) return
+        if (triggerTime <= System.currentTimeMillis()) {
+            return TaskAlarmScheduleResult(TaskAlarmScheduleStatus.PAST_DUE, "The reminder time has already passed.")
+        }
 
         val intent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
             action = ReminderBroadcastReceiver.ACTION_TASK_REMINDER
+            data = taskReminderUri(task.id, reminder, dateIso)
             putExtra(EXTRA_TASK_ID, task.id)
             putExtra(EXTRA_TASK_TITLE, task.title)
             putExtra(EXTRA_TASK_EMOJI, task.emoji)
@@ -628,7 +661,7 @@ object NotificationHelper {
             putExtra("extra_reminder_id", reminder.id)
         }
 
-        val requestCode = ((task.id.toInt() * 31 + reminder.id.toInt()) * 31) + dateIso.hashCode().and(0x7FFFFFFF) % 100000
+        val requestCode = (task.id xor (task.id ushr 32)).toInt() * 31 + reminder.id.toInt()
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             requestCode,
@@ -636,40 +669,57 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
-                } else {
-                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
-                }
-            } else {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
-            }
-        } catch (se: SecurityException) {
-            try {
-                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
-            } catch (_: Exception) {}
-        } catch (e: Exception) {
-            try {
-                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerCal.timeInMillis, pendingIntent)
-            } catch (_: Exception) {}
-        }
+        return scheduleAlarm(alarmManager, triggerTime, pendingIntent)
     }
 
     fun scheduleAllTaskReminders(
         context: Context,
         task: TaskItem,
-        dateIso: String
-    ) {
+        dateIso: String,
+        quietHoursStartMins: Int = 21 * 60,
+        quietHoursEndMins: Int = 5 * 60 + 30
+    ): List<TaskAlarmScheduleResult> {
         val isP1 = task.priority == com.example.domain.model.TaskPriority.P1
-        if (task.reminders.isNotEmpty()) {
-            task.reminders.forEach { reminder ->
-                scheduleTaskReminderAlarm(context, task, reminder, dateIso)
+        val enabledReminders = task.reminders.filter { it.isEnabled }
+        if (enabledReminders.isNotEmpty()) {
+            val results = enabledReminders.map { reminder ->
+                scheduleTaskReminderAlarm(
+                    context,
+                    task,
+                    reminder,
+                    dateIso,
+                    quietHoursStartMins,
+                    quietHoursEndMins
+                )
+            }
+            val hasP1TaskTimeAlarm = enabledReminders.any { reminder ->
+                reminder.referenceType == "START_TIME" &&
+                    ((reminder.type == "SPECIFIC_TIME" && reminder.customTime == task.dueTime) ||
+                        (reminder.type != "SPECIFIC_TIME" && reminder.minutesBefore == 0))
+            }
+            return if (isP1 && !hasP1TaskTimeAlarm) {
+                results + scheduleTaskAlarm(
+                    context,
+                    task,
+                    dateIso,
+                    quietHoursStartMins,
+                    quietHoursEndMins
+                )
+            } else {
+                results
             }
         } else if (task.isReminderEnabled || isP1) {
-            scheduleTaskAlarm(context, task, dateIso)
+            return listOf(
+                scheduleTaskAlarm(
+                    context,
+                    task,
+                    dateIso,
+                    quietHoursStartMins,
+                    quietHoursEndMins
+                )
+            )
         }
+        return emptyList()
     }
 
     fun cancelAllTaskReminders(
@@ -679,20 +729,23 @@ object NotificationHelper {
     ) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         task.reminders.forEach { reminder ->
-            val requestCode = ((task.id.toInt() * 31 + reminder.id.toInt()) * 31) + dateIso.hashCode().and(0x7FFFFFFF) % 100000
+            val requestCode = (task.id xor (task.id ushr 32)).toInt() * 31 + reminder.id.toInt()
             val intent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
                 action = ReminderBroadcastReceiver.ACTION_TASK_REMINDER
+                data = taskReminderUri(task.id, reminder, dateIso)
             }
-            val pendingIntent = PendingIntent.getBroadcast(
+            cancelAlarm(alarmManager, context, requestCode, intent)
+            val legacyRequestCode =
+                ((task.id.toInt() * 31 + reminder.id.toInt()) * 31) +
+                    dateIso.hashCode().and(0x7FFFFFFF) % 100000
+            cancelAlarm(
+                alarmManager,
                 context,
-                requestCode,
-                intent,
-                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+                legacyRequestCode,
+                Intent(context, ReminderBroadcastReceiver::class.java).apply {
+                    action = ReminderBroadcastReceiver.ACTION_TASK_REMINDER
+                }
             )
-            if (pendingIntent != null) {
-                alarmManager.cancel(pendingIntent)
-                pendingIntent.cancel()
-            }
         }
         cancelTaskAlarm(context, task.id, dateIso)
     }
@@ -753,6 +806,76 @@ object NotificationHelper {
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(3001, notification)
+    }
+
+    private fun taskAlarmUri(taskId: Long, dateIso: String): Uri =
+        Uri.Builder()
+            .scheme("lifeos")
+            .authority("task-reminder")
+            .appendPath(taskId.toString())
+            .appendPath(dateIso)
+            .build()
+
+    private fun taskReminderUri(taskId: Long, reminder: TaskReminderItem, dateIso: String): Uri =
+        Uri.Builder()
+            .scheme("lifeos")
+            .authority("task-reminder")
+            .appendPath(taskId.toString())
+            .appendPath(dateIso)
+            .appendPath("${reminder.id}:${reminder.type}:${reminder.minutesBefore}:${reminder.customTime.orEmpty()}")
+            .build()
+
+    private fun cancelAlarm(
+        alarmManager: AlarmManager,
+        context: Context,
+        requestCode: Int,
+        intent: Intent
+    ) {
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        ) ?: return
+        alarmManager.cancel(pendingIntent)
+        pendingIntent.cancel()
+    }
+
+    private fun scheduleAlarm(
+        alarmManager: AlarmManager,
+        triggerTime: Long,
+        pendingIntent: PendingIntent
+    ): TaskAlarmScheduleResult {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+                TaskAlarmScheduleResult(
+                    TaskAlarmScheduleStatus.SCHEDULED_INEXACTLY,
+                    "Exact alarm access is unavailable; the reminder is scheduled inexactly."
+                )
+            } else {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+                TaskAlarmScheduleResult(TaskAlarmScheduleStatus.SCHEDULED_EXACTLY)
+            }
+        } catch (error: SecurityException) {
+            Log.e("NotificationHelper", "Exact task alarm was denied; attempting inexact scheduling.", error)
+            try {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+                TaskAlarmScheduleResult(
+                    TaskAlarmScheduleStatus.SCHEDULED_INEXACTLY,
+                    "Exact alarm access was denied; the reminder is scheduled inexactly."
+                )
+            } catch (fallbackError: SecurityException) {
+                Log.e("NotificationHelper", "Inexact task alarm scheduling was denied.", fallbackError)
+                TaskAlarmScheduleResult(TaskAlarmScheduleStatus.FAILED, "Alarm permission was denied.")
+            } catch (fallbackError: RuntimeException) {
+                Log.e("NotificationHelper", "Inexact task alarm scheduling failed.", fallbackError)
+                TaskAlarmScheduleResult(TaskAlarmScheduleStatus.FAILED, "The alarm could not be scheduled.")
+            }
+        } catch (error: RuntimeException) {
+            Log.e("NotificationHelper", "Exact task alarm scheduling failed.", error)
+            TaskAlarmScheduleResult(TaskAlarmScheduleStatus.FAILED, "The alarm could not be scheduled.")
+        }
     }
 
     const val TEST_REMINDER_NOTIFICATION_ID = 77777

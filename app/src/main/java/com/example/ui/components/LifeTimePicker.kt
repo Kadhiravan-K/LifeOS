@@ -115,6 +115,7 @@ fun LifeTimePickerDialog(
     var currentHour by remember(initialTime) { mutableIntStateOf(parsedHour) }
     var currentMinute by remember(initialTime) { mutableIntStateOf(parsedMinute) }
     var isInputMode by remember { mutableStateOf(false) }
+    var presetSelectionVersion by remember { mutableIntStateOf(0) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -159,6 +160,7 @@ fun LifeTimePickerDialog(
                                 onClick = {
                                     currentHour = presetH
                                     currentMinute = presetM
+                                    presetSelectionVersion += 1
                                 },
                                 label = { Text(label, fontSize = 11.sp) },
                                 modifier = Modifier.defaultMinSize(minHeight = 36.dp)
@@ -167,8 +169,8 @@ fun LifeTimePickerDialog(
                     }
                 }
 
-                // Render TimePicker (dial) or TimeInput (keyboard) keyed to current hour/minute
-                key(currentHour, currentMinute, is24Hour) {
+                // Keep picker state stable while the user drags between hour and minute selection.
+                key(isInputMode, is24Hour, initialTime, presetSelectionVersion) {
                     val timePickerState = rememberTimePickerState(
                         initialHour = currentHour,
                         initialMinute = currentMinute,

@@ -41,7 +41,8 @@ LifeOS is built with strict privacy and architectural guarantees:
 - **Rapid-Tap Debouncing**: Protected against duplicate triggering on rapid clicks (<150ms).
 
 ### 📋 Task Management & Advanced Scheduling
-- **Quick Add & Advanced Editor**: Priority levels, recurrence rules, tags, subtasks, notes, and duration estimates.
+- **Quick Add & Advanced Editor**: Priority levels, recurrence rules, tags, subtasks, notes, labeled links, and duration estimates down to seconds.
+- **Reliable Task Reminders**: P1 alarms, explicit reminder-permission feedback, and date-aware reminder rescheduling; medicine reminders keep tasks at P1.
 - **Advanced Recurrence Engine**: Daily, Weekly (custom weekday combinations such as Tue/Thu/Sun), Every N Days, Monthly (with month-end clamping), and Yearly (with leap-year handling).
 - **Occurrence Overrides**: Skip or reschedule individual occurrences without breaking recurring series.
 - **Schedule Conflict Engine**: Proactive detection of sleep window collisions (wake up / bedtime), overlapping commitments, and duplicate tasks.
