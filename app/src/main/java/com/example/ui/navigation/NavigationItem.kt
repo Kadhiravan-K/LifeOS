@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.CalendarMonth
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -83,6 +85,12 @@ enum class NavigationItem(
         selectedIcon = Icons.Filled.CheckCircle,
         unselectedIcon = Icons.Outlined.CheckCircle
     ),
+    QR_CODES(
+        route = "qr-codes",
+        label = "QR Codes",
+        selectedIcon = Icons.Filled.QrCode2,
+        unselectedIcon = Icons.Outlined.QrCode2
+    ),
     THEMES(
         route = "themes",
         label = "Themes",
@@ -102,7 +110,8 @@ enum class NavigationItem(
             CHALLENGE,
             GAMIFICATION,
             ANALYTICS,
-            MEDICATION
+            MEDICATION,
+            QR_CODES
         )
 
         fun fromSlotKey(key: String?, defaultItem: NavigationItem): NavigationItem {

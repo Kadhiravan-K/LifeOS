@@ -16,11 +16,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -51,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,31 +61,71 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.material3.AlertDialog
 import com.example.domain.templates.LifeTemplate
 import com.example.domain.templates.TemplateCatalog
 import com.example.domain.templates.TemplateCategory
 import com.example.domain.templates.TemplateImportSummary
 
 import com.example.domain.templates.TemplateBundle
+import com.example.domain.essentials.EssentialsCatalog
+import com.example.domain.essentials.TrackerTemplate
+import com.example.domain.essentials.SubscriptionTemplate
+import com.example.domain.qr.QrCodePayload
+import com.example.domain.qr.QrCodeTemplate
+import com.example.domain.qr.QrCodeTemplateCatalog
+import android.graphics.Bitmap
 
 enum class TemplateBrowserTab(val title: String, val emoji: String) {
     INDIVIDUAL("Individual Templates", "📋"),
     BUNDLES("Productivity Bundles", "📦"),
     SPECIAL_BUCKET_LISTS("Special Bucket Lists", "✨"),
-    IMPORTED("Imported", "✅")
+    IMPORTED("Imported", "✅"),
+    QR_CODES("QR Codes", "▦"),
+    TRACKERS("Trackers", "📊"),
+    SUBSCRIPTIONS("Subscriptions", "💳")
 }
 
 @Composable
 fun TemplateBrowserDialog(
     installedTemplateIds: Set<String>,
     onInstallTemplate: (LifeTemplate, Set<Int>, Set<Int>, (TemplateImportSummary) -> Unit) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    initialTab: TemplateBrowserTab = TemplateBrowserTab.INDIVIDUAL,
+    installedQrTemplateIds: Set<String> = emptySet(),
+    onImportQrTemplates: (List<QrCodeTemplate>, (Int, Int) -> Unit) -> Unit = { _, _ -> },
+    onImportTrackerTemplate: (TrackerTemplate) -> Unit = {},
+    onImportSubscriptionTemplate: (SubscriptionTemplate) -> Unit = {}
 ) {
-    var selectedTab by remember { mutableStateOf(TemplateBrowserTab.INDIVIDUAL) }
+    var selectedTab by remember { mutableStateOf(initialTab) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<TemplateCategory?>(null) }
     var previewTemplate by remember { mutableStateOf<LifeTemplate?>(null) }
     var lastImportSummary by remember { mutableStateOf<TemplateImportSummary?>(null) }
+    var previewQrTemplate by remember { mutableStateOf<QrCodeTemplate?>(null) }
+    var showQrBundlePreview by remember { mutableStateOf(false) }
+    var qrImportSummary by remember { mutableStateOf<String?>(null) }
+
+    val visibleQrTemplates = remember(searchQuery) {
+        QrCodeTemplateCatalog.testingBundle.filter {
+            searchQuery.isBlank() || it.title.contains(searchQuery, true) ||
+                    it.description.contains(searchQuery, true) || it.type.displayName.contains(searchQuery, true)
+        }
+    }
+
+    val visibleTrackerTemplates = remember(searchQuery) {
+        EssentialsCatalog.trackerTemplates.filter {
+            searchQuery.isBlank() || it.title.contains(searchQuery, true) ||
+                    it.description.contains(searchQuery, true) || it.category.contains(searchQuery, true)
+        }
+    }
+
+    val visibleSubscriptionTemplates = remember(searchQuery) {
+        EssentialsCatalog.subscriptionTemplates.filter {
+            searchQuery.isBlank() || it.title.contains(searchQuery, true) ||
+                    it.category.contains(searchQuery, true) || it.notes.contains(searchQuery, true)
+        }
+    }
 
     val individualTemplates = remember(searchQuery, selectedCategory) {
         TemplateCatalog.allTemplates.filter { template ->
@@ -166,7 +209,7 @@ fun TemplateBrowserDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 4-Tab Selector
+                // Shared module and template categories
                 val tabScrollState = rememberScrollState()
                 Row(
                     modifier = Modifier
@@ -197,6 +240,9 @@ fun TemplateBrowserDialog(
                                 TemplateBrowserTab.BUNDLES -> "Search 7 productivity bundles..."
                                 TemplateBrowserTab.SPECIAL_BUCKET_LISTS -> "Search 4 special bucket lists..."
                                 TemplateBrowserTab.IMPORTED -> "Search imported templates..."
+                                TemplateBrowserTab.QR_CODES -> "Search QR code templates..."
+                                TemplateBrowserTab.TRACKERS -> "Search tracker templates..."
+                                TemplateBrowserTab.SUBSCRIPTIONS -> "Search subscription templates..."
                             }
                         )
                     },
@@ -219,12 +265,9 @@ fun TemplateBrowserDialog(
 
                 when (selectedTab) {
                     TemplateBrowserTab.INDIVIDUAL -> {
-                        // Category Filter Chips
                         val chipScrollState = rememberScrollState()
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(chipScrollState),
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(chipScrollState),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             FilterChip(
@@ -242,21 +285,15 @@ fun TemplateBrowserDialog(
                                 )
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Template List
+                        Spacer(Modifier.height(12.dp))
                         LazyColumn(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             items(individualTemplates, key = { it.id }) { template ->
-                                val isInstalled = installedTemplateIds.contains(template.id)
                                 TemplateCard(
                                     template = template,
-                                    isInstalled = isInstalled,
+                                    isInstalled = template.id in installedTemplateIds,
                                     onPreviewClick = { previewTemplate = template }
                                 )
                             }
@@ -265,21 +302,25 @@ fun TemplateBrowserDialog(
 
                     TemplateBrowserTab.BUNDLES -> {
                         LazyColumn(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             items(productivityBundles, key = { it.id }) { bundle ->
-                                val allBundleInstalled = bundle.templateIds.all { installedTemplateIds.contains(it) }
+                                val allBundleInstalled = bundle.templateIds.all { it in installedTemplateIds }
                                 BundleCard(
                                     bundle = bundle,
                                     isInstalled = allBundleInstalled,
                                     onInstallClick = {
-                                        val templatesToInstall = bundle.templateIds.mapNotNull { TemplateCatalog.getTemplateById(it) }
+                                        val templatesToInstall = bundle.templateIds.mapNotNull {
+                                            TemplateCatalog.getTemplateById(it)
+                                        }
                                         var count = 0
-                                        templatesToInstall.forEach { tmpl ->
-                                            onInstallTemplate(tmpl, tmpl.tasks.indices.toSet(), tmpl.habits.indices.toSet()) {
+                                        templatesToInstall.forEach { template ->
+                                            onInstallTemplate(
+                                                template,
+                                                template.tasks.indices.toSet(),
+                                                template.habits.indices.toSet()
+                                            ) {
                                                 count++
                                                 if (count == templatesToInstall.size) {
                                                     lastImportSummary = TemplateImportSummary(
@@ -303,16 +344,13 @@ fun TemplateBrowserDialog(
 
                     TemplateBrowserTab.SPECIAL_BUCKET_LISTS -> {
                         LazyColumn(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             items(bucketListTemplates, key = { it.id }) { template ->
-                                val isInstalled = installedTemplateIds.contains(template.id)
                                 TemplateCard(
                                     template = template,
-                                    isInstalled = isInstalled,
+                                    isInstalled = template.id in installedTemplateIds,
                                     onPreviewClick = { previewTemplate = template }
                                 )
                             }
@@ -322,22 +360,16 @@ fun TemplateBrowserDialog(
                     TemplateBrowserTab.IMPORTED -> {
                         if (importedTemplates.isEmpty()) {
                             Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth(),
+                                modifier = Modifier.weight(1f).fillMaxWidth(),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(text = "📥", fontSize = 48.sp)
-                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text("📥", fontSize = 48.sp)
+                                    Spacer(Modifier.height(12.dp))
+                                    Text("No Templates Installed Yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    Spacer(Modifier.height(4.dp))
                                     Text(
-                                        text = "No Templates Installed Yet",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "Select templates from Individual, Bundles, or Special Bucket Lists.",
+                                        "Select templates from Individual, Bundles, or Special Bucket Lists.",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -345,18 +377,71 @@ fun TemplateBrowserDialog(
                             }
                         } else {
                             LazyColumn(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth(),
+                                modifier = Modifier.weight(1f).fillMaxWidth(),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 items(importedTemplates, key = { it.id }) { template ->
-                                    TemplateCard(
-                                        template = template,
-                                        isInstalled = true,
-                                        onPreviewClick = { previewTemplate = template }
-                                    )
+                                    TemplateCard(template, true) { previewTemplate = template }
                                 }
+                            }
+                        }
+                    }
+
+                    TemplateBrowserTab.QR_CODES -> {
+                        LazyColumn(
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            item(key = "qr_testing_bundle") {
+                                QrTestingBundleCard(
+                                    alreadyImported = QrCodeTemplateCatalog.testingBundle.all {
+                                        it.id in installedQrTemplateIds
+                                    },
+                                    onPreview = { showQrBundlePreview = true }
+                                )
+                            }
+                            items(visibleQrTemplates, key = { it.id }) { template ->
+                                QrTemplateCard(template, template.id in installedQrTemplateIds) {
+                                    previewQrTemplate = template
+                                }
+                            }
+                        }
+                    }
+
+                    TemplateBrowserTab.TRACKERS -> {
+                        LazyColumn(
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(visibleTrackerTemplates, key = { it.id }) { template ->
+                                ModuleTemplateCard(
+                                    title = template.title,
+                                    emoji = template.emoji,
+                                    description = "${template.category} • ${template.description}",
+                                    detail = buildList {
+                                        if (template.measurements.trackDuration) add("Cycle")
+                                        if (template.measurements.trackDistance) add(template.distanceUnit.displayName)
+                                        if (template.measurements.trackQuantity) add(template.quantityUnit.displayName)
+                                    }.joinToString(" • "),
+                                    onImport = { onImportTrackerTemplate(template) }
+                                )
+                            }
+                        }
+                    }
+
+                    TemplateBrowserTab.SUBSCRIPTIONS -> {
+                        LazyColumn(
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(visibleSubscriptionTemplates, key = { it.id }) { template ->
+                                ModuleTemplateCard(
+                                    title = template.title,
+                                    emoji = template.emoji,
+                                    description = template.category,
+                                    detail = "${template.currency} ${template.defaultAmount} • ${template.frequency.displayName}",
+                                    onImport = { onImportSubscriptionTemplate(template) }
+                                )
                             }
                         }
                     }
@@ -387,6 +472,204 @@ fun TemplateBrowserDialog(
             onDismiss = { lastImportSummary = null }
         )
     }
+
+    previewQrTemplate?.let { template ->
+        QrTemplatePreviewDialog(
+            template = template,
+            alreadyImported = template.id in installedQrTemplateIds,
+            onDismiss = { previewQrTemplate = null },
+            onImport = {
+                onImportQrTemplates(listOf(template)) { imported, alreadyPresent ->
+                    previewQrTemplate = null
+                    qrImportSummary = if (imported > 0) {
+                        "Imported $imported QR code."
+                    } else {
+                        "$alreadyPresent QR code was already imported; nothing was duplicated."
+                    }
+                }
+            }
+        )
+    }
+
+    if (showQrBundlePreview) {
+        QrBundlePreviewDialog(
+            onDismiss = { showQrBundlePreview = false },
+            onConfirm = {
+                onImportQrTemplates(QrCodeTemplateCatalog.testingBundle) { imported, alreadyPresent ->
+                    showQrBundlePreview = false
+                    qrImportSummary = when {
+                        imported == 0 -> "All 8 QR codes were already imported; no duplicates were created."
+                        alreadyPresent == 0 -> "Imported all $imported QR codes."
+                        else -> "Imported $imported QR codes; skipped $alreadyPresent already-imported codes."
+                    }
+                }
+            }
+        )
+    }
+
+    qrImportSummary?.let { summary ->
+        AlertDialog(
+            onDismissRequest = { qrImportSummary = null },
+            title = { Text("QR template import") },
+            text = { Text(summary) },
+            confirmButton = { TextButton(onClick = { qrImportSummary = null }) { Text("Done") } }
+        )
+    }
+}
+
+@Composable
+private fun QrTestingBundleCard(alreadyImported: Boolean, onPreview: () -> Unit) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth().testTag("qr_testing_bundle_card"),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text("QR Code Testing Bundle", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                "QR Codes • 8 sample records across URL, vCard, Wi-Fi, text, email, phone, SMS, and location. " +
+                    "Fictional, offline-safe test data.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+            Button(onClick = onPreview, modifier = Modifier.fillMaxWidth()) {
+                Text(if (alreadyImported) "Preview / Re-import safely" else "Preview 8-code bundle")
+            }
+        }
+    }
+}
+
+@Composable
+private fun QrTemplateCard(template: QrCodeTemplate, isInstalled: Boolean, onPreview: () -> Unit) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth().testTag("qr_template_${template.id}"),
+        onClick = onPreview,
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Text("${template.type.displayName} • ${template.title}", fontWeight = FontWeight.Bold)
+            Text(template.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (isInstalled) "Imported" else "Preview", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
+        }
+    }
+}
+
+@Composable
+private fun ModuleTemplateCard(
+    title: String,
+    emoji: String,
+    description: String,
+    detail: String,
+    onImport: () -> Unit
+) {
+    var showPreview by remember(title) { mutableStateOf(false) }
+    ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(emoji, fontSize = 26.sp)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.Bold)
+                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(detail, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            }
+            Button(onClick = { showPreview = true }) { Text("Preview") }
+        }
+    }
+    if (showPreview) {
+        AlertDialog(
+            onDismissRequest = { showPreview = false },
+            title = { Text("$emoji $title") },
+            text = { Text("$description\n\n$detail") },
+            confirmButton = {
+                Button(onClick = {
+                    showPreview = false
+                    onImport()
+                }) { Text("Add") }
+            },
+            dismissButton = { TextButton(onClick = { showPreview = false }) { Text("Cancel") } }
+        )
+    }
+}
+
+@Composable
+private fun QrTemplatePreviewDialog(
+    template: QrCodeTemplate,
+    alreadyImported: Boolean,
+    onDismiss: () -> Unit,
+    onImport: () -> Unit
+) {
+    val matrix = remember(template) {
+        runCatching {
+            val payload = when (val result = QrCodePayload.validateAndEncode(template.toDraft())) {
+                is com.example.domain.qr.QrCodeValidation.Valid -> result.payload
+                is com.example.domain.qr.QrCodeValidation.Invalid -> error(result.message)
+            }
+            QrCodePayload.encodeQr(payload, 320)
+        }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(template.title) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                val bitMatrix = matrix.getOrNull()
+                if (bitMatrix != null) {
+                    val bitmap = remember(bitMatrix) { bitMatrixToBitmap(bitMatrix) }
+                    Image(
+                        bitmap.asImageBitmap(),
+                        contentDescription = "Preview QR code: ${template.title}",
+                        modifier = Modifier.size(200.dp)
+                    )
+                } else {
+                    Text("QR preview could not be generated.", color = MaterialTheme.colorScheme.error)
+                }
+                Text("${template.type.displayName} • functional QR payload", modifier = Modifier.padding(top = 8.dp))
+                Text(template.description, style = MaterialTheme.typography.bodySmall)
+            }
+        },
+        confirmButton = {
+            Button(onClick = onImport) { Text(if (alreadyImported) "Import again safely" else "Import") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+    )
+}
+
+@Composable
+private fun QrBundlePreviewDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("QR Code Testing Bundle") },
+        text = {
+            Column(modifier = Modifier.height(380.dp).verticalScroll(rememberScrollState())) {
+                Text("QR Codes — 8 records", fontWeight = FontWeight.Bold)
+                Text("All payloads are validated locally before the import transaction. Existing imported template records are skipped; manual QR records are preserved.")
+                Spacer(Modifier.height(8.dp))
+                QrCodeTemplateCatalog.testingBundle.forEach { template ->
+                    Text("• ${template.type.displayName}: ${template.title}", style = MaterialTheme.typography.bodySmall)
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "This bundle imports only QR codes. Other module templates remain available in their categories.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = { Button(onClick = onConfirm) { Text("Import 8 QR codes") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+private fun bitMatrixToBitmap(matrix: com.google.zxing.common.BitMatrix): Bitmap {
+    val bitmap = Bitmap.createBitmap(matrix.width, matrix.height, Bitmap.Config.ARGB_8888)
+    val pixels = IntArray(matrix.width * matrix.height) { index ->
+        if (matrix[index % matrix.width, index / matrix.width]) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+    }
+    bitmap.setPixels(pixels, 0, matrix.width, 0, 0, matrix.width, matrix.height)
+    return bitmap
 }
 
 @Composable

@@ -84,6 +84,10 @@ import com.example.domain.gamification.GamificationEngine
 import com.example.domain.gamification.StreakResult
 import com.example.domain.templates.LifeTemplate
 import com.example.domain.templates.TemplateImportSummary
+import com.example.domain.qr.QrCodeDraft
+import com.example.domain.qr.QrCodeImportSummary
+import com.example.domain.qr.QrCodeRecord
+import com.example.domain.qr.QrCodeTemplate
 import com.example.domain.medication.MedicationItem
 import com.example.domain.medication.MedicationDoseItem
 import com.example.domain.medication.DoseStatus
@@ -508,6 +512,57 @@ class LifeViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = listOf(ProfileEntity.createDefaultPersonal())
     )
+
+    val qrCodes: StateFlow<List<QrCodeRecord>> = activeProfileIdFlow.flatMapLatest { profileId ->
+        repository.observeQrCodes(profileId)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    fun saveQrCode(
+        draft: QrCodeDraft,
+        id: Long? = null,
+        onResult: (Result<QrCodeRecord>) -> Unit
+    ) {
+        viewModelScope.launch {
+            val result = captureQrResult {
+                repository.saveQrCode(activeProfileIdFlow.value, draft, id)
+            }
+            onResult(result)
+        }
+    }
+
+    fun importQrTemplates(
+        templates: List<QrCodeTemplate>,
+        onResult: (Result<QrCodeImportSummary>) -> Unit
+    ) {
+        viewModelScope.launch {
+            val result = captureQrResult {
+                repository.importQrTemplates(activeProfileIdFlow.value, templates)
+            }
+            onResult(result)
+        }
+    }
+
+    fun deleteQrCode(id: Long, onResult: (Result<Unit>) -> Unit) {
+        viewModelScope.launch {
+            val result = captureQrResult {
+                repository.qrCodeRepository.delete(activeProfileIdFlow.value, id)
+            }
+            onResult(result)
+        }
+    }
+
+    private suspend fun <T> captureQrResult(action: suspend () -> T): Result<T> =
+        try {
+            Result.success(action())
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
 
     // Batch 05C: App-Entry Profile Selection & Onboarding Survey Flows (#9, #19)
     val showProfileSelectorOnLaunchFlow: StateFlow<Boolean> = preferences.showProfileSelectorOnLaunch.stateIn(

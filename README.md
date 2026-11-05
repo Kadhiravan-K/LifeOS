@@ -5,7 +5,7 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-purple.svg)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-blue.svg)](https://developer.android.com/jetpack/compose)
 [![Privacy](https://img.shields.io/badge/Privacy-Local--First-success.svg)](PRIVACY.md)
-[![Database](https://img.shields.io/badge/Room%20DB-v19%20SQLite-orange.svg)](app/src/main/java/com/example/data/local/AppDatabase.kt)
+[![Database](https://img.shields.io/badge/Room%20DB-v22%20SQLite-orange.svg)](app/src/main/java/com/example/data/local/AppDatabase.kt)
 
 > **LifeOS** is a privacy-first, local-first native Android productivity and life operating system developed by **Kadhiravan**. Built with Jetpack Compose Material 3, Room SQLite (v19, 40 entities), and Clean MVVM architecture.
 
@@ -63,6 +63,12 @@ LifeOS is built with strict privacy and architectural guarantees:
 - **Habit Master**: One-tap habit completion with per-widget profile-aware data.
 - **Productivity Radar**: Profile-scoped analytics and completion summaries.
 
+### 🔳 QR Code Studio
+- Create and save URL, vCard, Wi-Fi, text, email, phone, SMS, and location QR codes locally.
+- Preview, edit, scan with the device camera, share as PNG, and download through Android's document picker.
+- Browse module templates in the shared template browser and import the eight-code offline QR testing bundle without duplicating prior imports.
+- QR Codes are a separate module from the Quick Reminders dashboard and widget.
+
 ### 🎨 14 Handcrafted Theme Environments
 1. **Genesis (Default Free)**: Clean, high-contrast obsidian & gold distraction-free neutral theme.
 2. **Cyberpunk Neon**: High-contrast neon teal and ultraviolet laser accents.
@@ -81,7 +87,7 @@ LifeOS is built with strict privacy and architectural guarantees:
 
 ### 💾 Safe Offline Backup & Restore
 - **Deterministic JSON Export & Import (v1 and v2)**: Complete snapshot of all 40 database entities, tasks, habits, challenge progress, and honeycomb layouts.
-- **Version 19 Room SQLite Database**: Enforces strict foreign-key integrity with automatic orphan quarantine and zero silent data loss.
+- **Version 22 Room SQLite Database**: Enforces strict foreign-key integrity with automatic orphan quarantine and zero silent data loss.
 
 ---
 

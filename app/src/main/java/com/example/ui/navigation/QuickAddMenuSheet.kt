@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FolderSpecial
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -44,6 +45,7 @@ fun QuickAddMenuSheet(
     onAddReminder: () -> Unit,
     onAddProject: () -> Unit,
     onAddMedication: () -> Unit,
+    onOpenQrCodes: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     ModalBottomSheet(
@@ -118,6 +120,18 @@ fun QuickAddMenuSheet(
                     onAddProject()
                 },
                 testTag = "quick_add_action_project"
+            )
+
+            QuickAddMenuItem(
+                title = "QR Codes",
+                subtitle = "Create, save, share, and scan QR codes offline",
+                icon = Icons.Filled.QrCode2,
+                badgeColor = Color(0xFF06B6D4),
+                onClick = {
+                    onDismiss()
+                    onOpenQrCodes()
+                },
+                testTag = "quick_add_action_qr_codes"
             )
 
             QuickAddMenuItem(

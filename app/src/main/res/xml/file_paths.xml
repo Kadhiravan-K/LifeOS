@@ -7,4 +7,5 @@
 -->
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <cache-path name="shared_reports" path="shared_reports/" />
+    <cache-path name="shared_qr" path="shared_qr/" />
 </paths>

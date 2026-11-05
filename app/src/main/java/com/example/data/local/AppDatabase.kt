@@ -12,6 +12,7 @@ import com.example.data.local.dao.HoneycombShortcutDao
 import com.example.data.local.dao.LabelDao
 import com.example.data.local.dao.ProfileDao
 import com.example.data.local.dao.ProjectDao
+import com.example.data.local.dao.QrCodeDao
 import com.example.data.local.dao.TaskDao
 import com.example.data.local.dao.TaskReminderDao
 import com.example.data.local.dao.WaterLogDao
@@ -21,6 +22,7 @@ import com.example.data.local.entities.HoneycombShortcutEntity
 import com.example.data.local.entities.LabelEntity
 import com.example.data.local.entities.ProfileEntity
 import com.example.data.local.entities.ProjectEntity
+import com.example.data.local.entities.QrCodeEntity
 import com.example.data.local.entities.TaskEntity
 import com.example.data.local.entities.TaskLabelCrossRef
 import com.example.data.local.entities.TaskReminderEntity
@@ -1231,6 +1233,38 @@ val MIGRATION_19_20 = object : Migration(19, 20) {
     }
 }
 
+val MIGRATION_20_21 = object : Migration(20, 21) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `qr_codes` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `profileId` INTEGER NOT NULL,
+                `title` TEXT NOT NULL,
+                `type` TEXT NOT NULL,
+                `fieldsJson` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                `updatedAt` INTEGER NOT NULL,
+                FOREIGN KEY(`profileId`) REFERENCES `profiles`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_qr_codes_profileId` ON `qr_codes` (`profileId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_qr_codes_profileId_updatedAt` ON `qr_codes` (`profileId`, `updatedAt`)")
+    }
+}
+
+val MIGRATION_21_22 = object : Migration(21, 22) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `qr_codes` ADD COLUMN `sourceTemplateId` TEXT DEFAULT NULL")
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_qr_codes_profileId_sourceTemplateId` " +
+                "ON `qr_codes` (`profileId`, `sourceTemplateId`)"
+        )
+    }
+}
+
 @Database(
     entities = [
         ProfileEntity::class,
@@ -1273,9 +1307,10 @@ val MIGRATION_19_20 = object : Migration(19, 20) {
         com.example.data.local.entities.GlossaryItemEntity::class,
         com.example.data.local.entities.GlossaryUserDataEntity::class,
         com.example.data.local.entities.McpServerEntity::class,
-        com.example.data.local.entities.McpAuditLogEntity::class
+        com.example.data.local.entities.McpAuditLogEntity::class,
+        QrCodeEntity::class
     ],
-    version = 20,
+    version = 22,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -1299,6 +1334,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun projectWorkspaceDao(): com.example.data.local.dao.ProjectWorkspaceDao
     abstract fun glossaryDao(): com.example.data.local.dao.GlossaryDao
     abstract fun mcpDao(): com.example.data.local.dao.McpDao
+    abstract fun qrCodeDao(): QrCodeDao
 
     companion object {
         @Volatile
@@ -1347,7 +1383,9 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_16_17,
                         MIGRATION_17_18,
                         MIGRATION_18_19,
-                        MIGRATION_19_20
+                        MIGRATION_19_20,
+                        MIGRATION_20_21,
+                        MIGRATION_21_22
                     )
                     .build()
                 INSTANCE = instance

@@ -57,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -82,6 +83,7 @@ import com.example.ui.components.WaterTrackerCard
 import com.example.ui.screens.templates.TemplateBrowserDialog
 import com.example.ui.viewmodel.DashboardUiState
 import com.example.ui.viewmodel.LifeViewModel
+import android.widget.Toast
 import com.example.utils.DateUtils
 import kotlin.math.roundToInt
 
@@ -1144,11 +1146,24 @@ fun DashboardScreen(
 
     if (showTemplateBrowserDialog) {
         val installedTemplateIds by viewModel.installedTemplateIds.collectAsStateWithLifecycle()
+        val qrCodes by viewModel.qrCodes.collectAsStateWithLifecycle()
+        val context = LocalContext.current
         TemplateBrowserDialog(
             installedTemplateIds = installedTemplateIds,
             onInstallTemplate = { template, selectedTasks, selectedHabits, onDone ->
                 viewModel.installTemplate(template, selectedTasks, selectedHabits, onDone)
             },
+            installedQrTemplateIds = qrCodes.mapNotNull { it.sourceTemplateId }.toSet(),
+            onImportQrTemplates = { templates, onDone ->
+                viewModel.importQrTemplates(templates) { result ->
+                    result.onSuccess { onDone(it.imported, it.alreadyPresent) }
+                        .onFailure {
+                            Toast.makeText(context, it.message ?: "Could not import QR templates.", Toast.LENGTH_LONG).show()
+                        }
+                }
+            },
+            onImportTrackerTemplate = { viewModel.saveTracker(it.toTrackerItem()) },
+            onImportSubscriptionTemplate = { viewModel.saveSubscription(it.toSubscriptionItem()) },
             onDismiss = { showTemplateBrowserDialog = false }
         )
     }

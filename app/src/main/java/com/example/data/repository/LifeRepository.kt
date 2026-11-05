@@ -108,6 +108,10 @@ import com.example.domain.gamification.GamificationEngine
 import com.example.domain.gamification.StreakResult
 import com.example.domain.templates.LifeTemplate
 import com.example.domain.templates.TemplateImportSummary
+import com.example.domain.qr.QrCodeDraft
+import com.example.domain.qr.QrCodeImportSummary
+import com.example.domain.qr.QrCodeRecord
+import com.example.domain.qr.QrCodeTemplate
 import com.example.ui.theme.engine.PremiumEntitlementRepository
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -119,6 +123,8 @@ class LifeRepository(
     val trackerRepository: TrackerRepository = TrackerRepository(database, preferences),
     val taskRepository: TaskRepository = TaskRepository(database, preferences)
 ) {
+    val qrCodeRepository = QrCodeRepository(database)
+
     private val profileDao = database.profileDao()
     private val habitDao = database.habitDao()
     private val challengeDao = database.challengeDao()
@@ -147,6 +153,17 @@ class LifeRepository(
     val allProfilesFlow: Flow<List<ProfileEntity>> = profileDao.getAllProfilesFlow()
 
     suspend fun getActiveProfileId(): Long = preferences.activeProfileId.first()
+
+    fun observeQrCodes(profileId: Long): Flow<List<QrCodeRecord>> =
+        qrCodeRepository.observeForProfile(profileId)
+
+    suspend fun saveQrCode(profileId: Long, draft: QrCodeDraft, id: Long? = null): QrCodeRecord =
+        qrCodeRepository.save(profileId, draft, id)
+
+    suspend fun importQrTemplates(
+        profileId: Long,
+        templates: List<QrCodeTemplate>
+    ): QrCodeImportSummary = qrCodeRepository.importTemplates(profileId, templates)
 
     suspend fun setActiveProfileId(profileId: Long) {
         preferences.setActiveProfileId(profileId)
@@ -2989,4 +3006,3 @@ class LifeRepository(
         return mcpDaoInstance.insertAuditLog(log)
     }
 }
-

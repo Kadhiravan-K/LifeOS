@@ -38,6 +38,7 @@ import com.example.ui.screens.gamification.GamificationScreen
 import com.example.ui.screens.habits.HabitsScreen
 import com.example.ui.screens.medication.MedicationScreen
 import com.example.ui.screens.planning.PlanningScreen
+import com.example.ui.screens.qr.QrCodesScreen
 import com.example.ui.screens.settings.SettingsScreen
 import com.example.ui.screens.tasks.TasksScreen
 import com.example.ui.theme.engine.ThemeId
@@ -270,6 +271,13 @@ fun MainScreen(
                             )
                         }
 
+                        NavigationItem.QR_CODES -> {
+                            QrCodesScreen(
+                                viewModel = viewModel,
+                                onNavigateBack = { navManager.popBack() }
+                            )
+                        }
+
                         NavigationItem.THEMES -> {
                             ThemeMotifLoadingTransition(label = "Theme Gallery") {
                                 com.example.ui.screens.themes.ThemeGalleryScreen(
@@ -334,6 +342,10 @@ fun MainScreen(
             onAddMedication = {
                 showQuickAddMenuSheet = false
                 navManager.navigateTo(NavigationItem.MEDICATION)
+            },
+            onOpenQrCodes = {
+                showQuickAddMenuSheet = false
+                navManager.navigateTo(NavigationItem.QR_CODES)
             }
         )
     }

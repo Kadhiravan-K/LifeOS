@@ -143,6 +143,7 @@ import com.example.ui.screens.essentials.TrackersSubscriptionsScreen
 import com.example.ui.screens.legal.LegalDocumentViewerDialog
 import com.example.ui.screens.organization.ProjectsLabelsManagerScreen
 import com.example.ui.screens.templates.TemplateBrowserDialog
+import android.widget.Toast
 import com.example.ui.viewmodel.LifeViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -2221,11 +2222,24 @@ fun SettingsScreen(
     }
 
     if (showTemplateBrowserDialog) {
+        val qrCodes by viewModel.qrCodes.collectAsStateWithLifecycle()
+        val context = LocalContext.current
         TemplateBrowserDialog(
             installedTemplateIds = installedTemplates,
             onInstallTemplate = { template, habitIndices, taskIndices, onComplete ->
                 viewModel.installTemplate(template, habitIndices, taskIndices, onComplete)
             },
+            installedQrTemplateIds = qrCodes.mapNotNull { it.sourceTemplateId }.toSet(),
+            onImportQrTemplates = { templates, onDone ->
+                viewModel.importQrTemplates(templates) { result ->
+                    result.onSuccess { onDone(it.imported, it.alreadyPresent) }
+                        .onFailure {
+                            Toast.makeText(context, it.message ?: "Could not import QR templates.", Toast.LENGTH_LONG).show()
+                        }
+                }
+            },
+            onImportTrackerTemplate = { viewModel.saveTracker(it.toTrackerItem()) },
+            onImportSubscriptionTemplate = { viewModel.saveSubscription(it.toSubscriptionItem()) },
             onDismiss = { showTemplateBrowserDialog = false }
         )
     }
