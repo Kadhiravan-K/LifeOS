@@ -92,6 +92,7 @@ import com.example.domain.recurrence.RecurrenceEngine
 import com.example.domain.scheduling.SchedulingEngine
 import com.example.ui.screens.labels.EditLabelBottomSheet
 import com.example.ui.screens.projects.EditProjectBottomSheet
+import com.example.ui.util.resolveMedicationPriority
 import com.example.utils.DateUtils
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -305,7 +306,7 @@ fun TaskAdvancedEditorSheet(
                                 emoji = emoji.trim(),
                                 description = description.trim(),
                                 category = category,
-                                priority = priority,
+                                priority = resolveMedicationPriority(remindersList.isNotEmpty(), isPriorityManuallySet, task == null, priority),
                                 dueDateIso = dueDateIso,
                                 dueTime = if (isAllDay) null else draftDueTime,
                                 isAllDay = isAllDay,
@@ -586,16 +587,7 @@ fun TaskAdvancedEditorSheet(
                 isMedicineEnabled = isMedicineEnabled,
                 onMedicineEnabledChange = { enabled ->
                     isMedicineEnabled = enabled
-                    if (enabled) {
-                        if (!isPriorityManuallySet) {
-                            preservedPriorityBeforeMedicine = priority
-                            priority = TaskPriority.P1
-                        }
-                    } else {
-                        if (!isPriorityManuallySet) {
-                            priority = preservedPriorityBeforeMedicine
-                        }
-                    }
+                    // Priority is resolved at save based on reminder state; no mutation here.
                 },
                 taskTitle = title,
                 initialMedication = null,

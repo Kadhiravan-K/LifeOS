@@ -73,7 +73,11 @@ import com.example.domain.model.TodoistColorPalette
 import com.example.ui.screens.labels.EditLabelBottomSheet
 import com.example.ui.screens.projects.EditProjectBottomSheet
 import com.example.utils.DateUtils
-import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import com.example.ui.util.resolveMedicationPriority
+
 import java.util.Date
 import java.util.Locale
 
@@ -152,7 +156,7 @@ fun TaskQuickAddSheet(
             description = description.trim(),
             dueDateIso = dueDateIso,
             deadlineIso = deadlineIso,
-            priority = priority,
+            priority = resolveMedicationPriority(isReminderEnabled, isPriorityManuallySet, initialTask == null, priority),
             projectId = selectedProjectId,
             labels = selectedLabels,
             isReminderEnabled = isReminderEnabled,
@@ -538,16 +542,7 @@ fun TaskQuickAddSheet(
                 isMedicineEnabled = isMedicineEnabled,
                 onMedicineEnabledChange = { enabled ->
                     isMedicineEnabled = enabled
-                    if (enabled) {
-                        if (!isPriorityManuallySet) {
-                            preservedPriorityBeforeMedicine = priority
-                            priority = TaskPriority.P1
-                        }
-                    } else {
-                        if (!isPriorityManuallySet) {
-                            priority = preservedPriorityBeforeMedicine
-                        }
-                    }
+                    // No priority mutation here; priority is resolved at save based on reminder state.
                 },
                 taskTitle = title,
                 initialMedication = null,
@@ -624,8 +619,8 @@ fun TaskQuickAddSheet(
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { ms ->
-                        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                        dueDateIso = sdf.format(Date(ms))
+                        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.systemDefault())
+                        dueDateIso = formatter.format(Instant.ofEpochMilli(ms))
                     }
                     showDatePicker = false
                 }) {
