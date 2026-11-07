@@ -37,7 +37,8 @@ class LocalPremiumEntitlementRepository(
     private val context: Context,
     override val billingManager: BillingManager? = try {
         PlayBillingManager(context.applicationContext)
-    } catch (_: Throwable) {
+    } catch (t: Throwable) {
+        android.util.Log.w("PremiumEntitlement", "PlayBillingManager initialization deferred or unavailable: ${t.message}")
         null
     },
     private val purchaseVerifier: PurchaseVerifier = ClientSidePurchaseVerifier(BuildConfig.DEBUG),

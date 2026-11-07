@@ -38,7 +38,7 @@ class MaintenanceWorker(
                     request
                 )
             } catch (e: Throwable) {
-                // Background maintenance worker is non-critical and must never crash app startup
+                android.util.Log.e("MaintenanceWorker", "Failed to enqueue maintenance periodic work", e)
             }
         }
     }
