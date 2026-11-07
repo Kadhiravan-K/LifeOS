@@ -35,7 +35,11 @@ interface PremiumEntitlementRepository {
 
 class LocalPremiumEntitlementRepository(
     private val context: Context,
-    override val billingManager: BillingManager? = PlayBillingManager(context.applicationContext),
+    override val billingManager: BillingManager? = try {
+        PlayBillingManager(context.applicationContext)
+    } catch (_: Throwable) {
+        null
+    },
     private val purchaseVerifier: PurchaseVerifier = ClientSidePurchaseVerifier(BuildConfig.DEBUG),
     private val coroutineScope: kotlinx.coroutines.CoroutineScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default),
     private val offlineTrustDurationMillis: Long = 72L * 60 * 60 * 1000L, // Recommended 72-hour offline trust duration

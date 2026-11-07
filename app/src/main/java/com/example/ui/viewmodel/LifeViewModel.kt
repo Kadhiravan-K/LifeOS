@@ -300,31 +300,6 @@ class LifeViewModel(
             return _currentDateIso.value
         }
 
-    init {
-        refreshExactAlarmStatus(getApplication<Application>())
-        refreshReminderHealth(getApplication<Application>())
-        WidgetRefreshCoordinator.init(getApplication())
-        checkInitialLockOnLaunch()
-        refreshTodayShift()
-        viewModelScope.launch {
-            while (isActive) {
-                delay(30_000L)
-                checkDateRollover()
-            }
-        }
-        viewModelScope.launch {
-            // Guarantee default profile exists and Release 2 upgraded users with existing data do not see onboarding survey
-            repository.ensureDefaultPersonalProfileExists()
-            if (repository.hasAnyExistingUserData()) {
-                preferences.recordProfileOnboardingCompleted(com.example.data.local.entities.ProfileEntity.DEFAULT_PERSONAL_PROFILE_ID)
-            }
-            repository.seedDefaultHoneycombShortcuts()
-            repository.seedDefaultProjectsAndLabels()
-            repository.seedDefaultGamification()
-            repository.cleanupExpiredTrash()
-        }
-    }
-
     // --- Search & Filter States ---
     private val _taskSearchQuery = MutableStateFlow("")
     val taskSearchQuery: StateFlow<String> = _taskSearchQuery.asStateFlow()
@@ -4091,6 +4066,31 @@ class LifeViewModel(
     val distinctGiveGetPersons: StateFlow<List<String>> = activeProfileIdFlow
         .flatMapLatest { profileId -> repository.getDistinctGiveGetPersonsFlow(profileId) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    init {
+        refreshExactAlarmStatus(getApplication<Application>())
+        refreshReminderHealth(getApplication<Application>())
+        WidgetRefreshCoordinator.init(getApplication())
+        checkInitialLockOnLaunch()
+        refreshTodayShift()
+        viewModelScope.launch {
+            while (isActive) {
+                delay(30_000L)
+                checkDateRollover()
+            }
+        }
+        viewModelScope.launch {
+            // Guarantee default profile exists and Release 2 upgraded users with existing data do not see onboarding survey
+            repository.ensureDefaultPersonalProfileExists()
+            if (repository.hasAnyExistingUserData()) {
+                preferences.recordProfileOnboardingCompleted(com.example.data.local.entities.ProfileEntity.DEFAULT_PERSONAL_PROFILE_ID)
+            }
+            repository.seedDefaultHoneycombShortcuts()
+            repository.seedDefaultProjectsAndLabels()
+            repository.seedDefaultGamification()
+            repository.cleanupExpiredTrash()
+        }
+    }
 
     fun saveGiveGetTransaction(transaction: com.example.data.local.entities.GiveGetTransactionEntity, onComplete: ((Long) -> Unit)? = null) {
         viewModelScope.launch {

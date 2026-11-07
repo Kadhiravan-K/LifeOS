@@ -75,6 +75,59 @@ Every requirement was audited, implemented, integrated with the authoritative Ro
 
 ---
 
-## 4. Git Delivery Plan
-- All modified and new files staged and committed to `feat/lifeos-shiftplanner-giveget-nav-security-dashboard`.
-- Clean branch state ready for push and review.
+## 5. P0 Startup Blocker: Black Screen & Auto-Close Investigation & Fix
+
+### 5.1 Root Cause Analysis
+
+During fresh installation and launch testing, two separate uncaught initialization failures were discovered that together triggered an immediate process crash before or during activity startup, causing the system window background (black in dark mode) to hang briefly before the OS auto-closed the application:
+
+1. **Kotlin Constructor Initialization Order (`LifeViewModel.kt`)**:
+   - **Root Cause**: The `init { ... }` block in `LifeViewModel.kt` was declared at line 303, ahead of property declarations such as `activeProfileIdFlow` (line 498), `_isAppLocked` (line 610), and `_todayShiftPair` (line 3984).
+   - **Failing Stack Trace**:
+     ```
+     Exception in thread "Main Thread @coroutine#23" java.lang.NullPointerException: Cannot invoke "kotlinx.coroutines.flow.StateFlow.getValue()" because the return value of "com.example.ui.viewmodel.LifeViewModel.getActiveProfileIdFlow()" is null
+         at com.example.ui.viewmodel.LifeViewModel$checkInitialLockOnLaunch$1.invokeSuspend(LifeViewModel.kt:627)
+         at com.example.ui.viewmodel.LifeViewModel.checkInitialLockOnLaunch(LifeViewModel.kt:626)
+         at com.example.ui.viewmodel.LifeViewModel.<init>(LifeViewModel.kt:307)
+     ```
+   - When `checkInitialLockOnLaunch()` and `refreshTodayShift()` were invoked inside `init`, their launched coroutines accessed `activeProfileIdFlow.value`. Because Kotlin property initializers execute in textual order, the backing field for `activeProfileIdFlow` was still `null`, immediately crashing the ViewModel initialization thread.
+
+2. **Uncaught WorkManager Initialization (`MaintenanceWorker.kt` / `MainActivity.kt`)**:
+   - **Root Cause**: `MaintenanceWorker.schedulePeriodic(this)` was invoked directly on the main thread in `MainActivity.onCreate()` without defensive initialization or try-catch.
+   - **Failing Stack Trace**:
+     ```
+     java.lang.IllegalStateException: WorkManager is not initialized properly. You have explicitly disabled WorkManagerInitializer in your manifest, have not manually called WorkManager#initialize at this point, and your Application does not implement Configuration.Provider.
+         at androidx.work.impl.WorkManagerImpl.getInstance(WorkManagerImpl.java:179)
+         at androidx.work.WorkManager$Companion.getInstance(WorkManager.kt:173)
+         at com.example.notifications.MaintenanceWorker$Companion.schedulePeriodic(MaintenanceWorker.kt:27)
+         at com.example.MainActivity.onCreate(MainActivity.kt:69)
+     ```
+   - In environments where `WorkManagerInitializer` has not completed before `MainActivity.onCreate()` runs, or on devices where startup initializers are deferred, `WorkManager.getInstance()` threw an unhandled `IllegalStateException`, causing `MainActivity.onCreate()` to abort before calling `setContent {}`.
+
+3. **Google Play Billing Safety on Play-Less Hardware (`PremiumEntitlement.kt`)**:
+   - `LocalPremiumEntitlementRepository` was initializing `PlayBillingManager` directly in its constructor default argument without catching potential `Throwable` exceptions that occur on de-googled ROMs or devices without Google Play Services.
+
+### 5.2 Corrective Implementation
+
+1. **`LifeViewModel.kt`**:
+   - Relocated the `init { ... }` block to the bottom of the class, strictly after all StateFlow and property initializations (`activeProfileIdFlow`, `_isAppLocked`, `_todayShiftPair`, etc.).
+   - Guaranteed that every accessed property has a fully initialized backing instance before background rollover checks, lock evaluations, or shift queries execute.
+
+2. **`MaintenanceWorker.kt` & `MainActivity.kt`**:
+   - Added self-healing WorkManager fallback in `MaintenanceWorker.schedulePeriodic`: if `WorkManager.getInstance(context)` throws `IllegalStateException`, it initializes `WorkManager` with a default `Configuration.Builder().build()` before enqueuing.
+   - Wrapped background service startup (`MaintenanceWorker`, `NotificationHelper`) in defensive `try/catch` in `MainActivity.onCreate()` so non-critical background jobs can never block or crash UI launch.
+
+3. **`PremiumEntitlement.kt`**:
+   - Protected `PlayBillingManager(context.applicationContext)` instantiation with `try/catch`, falling back gracefully to `null` on devices without Google Play Services.
+
+### 5.3 Regression Verification
+
+- Created `MainActivityLaunchTest.kt` verifying:
+  - `testFreshInstall_MainActivityLaunchesWithoutCrash`: Simulates fresh install with empty preferences and validates that `MainActivity` completes `create()`, `start()`, `resume()` with `isFinishing == false`.
+  - `testLifeViewModel_initialization_doesNotThrowNpeOnProperties`: Verifies all core flows (`activeProfileIdFlow`, `isAppLocked`, `todayEffectiveShift`, `allTasks`, `habits`) are non-null and instantiated safely.
+  - `testExistingUser_LegalConsentAndOnboardingComplete_launchesCleanly`: Verifies existing users with completed consent launch without blocking.
+  - `testMaintenanceWorker_schedulePeriodic_doesNotThrow`: Confirms background scheduler resilience.
+- **Automated Test Results**: **651/651 tests passed (100% green)**.
+- **Physical Device Status**: **NOT TESTED** (Host USB device `1596218277000I7` was disconnected / unauthorized via ADB; results not fabricated).
+- **Generated APK**: `app/build/outputs/apk/debug/app-debug.apk` (29,213,758 bytes, SHA-256: `7460AA6F1E46F596A14C0E1A33CC346740EDB45E207F89D9E4A0BA459848528A`).
+

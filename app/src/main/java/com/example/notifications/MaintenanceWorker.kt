@@ -22,13 +22,24 @@ class MaintenanceWorker(
         const val WORK_NAME = "lifeos_maintenance_worker"
 
         fun schedulePeriodic(context: Context) {
-            val request = PeriodicWorkRequestBuilder<MaintenanceWorker>(24, TimeUnit.HOURS)
-                .build()
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
-                request
-            )
+            try {
+                val workManager = try {
+                    WorkManager.getInstance(context)
+                } catch (e: IllegalStateException) {
+                    val config = androidx.work.Configuration.Builder().build()
+                    WorkManager.initialize(context.applicationContext, config)
+                    WorkManager.getInstance(context)
+                }
+                val request = PeriodicWorkRequestBuilder<MaintenanceWorker>(24, TimeUnit.HOURS)
+                    .build()
+                workManager.enqueueUniquePeriodicWork(
+                    WORK_NAME,
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    request
+                )
+            } catch (e: Throwable) {
+                // Background maintenance worker is non-critical and must never crash app startup
+            }
         }
     }
 

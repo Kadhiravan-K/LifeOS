@@ -63,10 +63,15 @@ class MainActivity : FragmentActivity() {
         val viewModelFactory = LifeViewModelFactory(application, repository, preferences)
         viewModel = ViewModelProvider(this, viewModelFactory)[LifeViewModel::class.java]
 
-        // Create local notification channels and schedule background maintenance
-        NotificationHelper.createNotificationChannels(this)
-        NotificationHelper.scheduleDailyReminder(this, 8, 0)
-        com.example.notifications.MaintenanceWorker.schedulePeriodic(this)
+        // Create local notification channels and schedule background maintenance (guarded against startup crashes)
+        try {
+            NotificationHelper.createNotificationChannels(this)
+            NotificationHelper.scheduleDailyReminder(this, 8, 0)
+        } catch (_: Throwable) {}
+
+        try {
+            com.example.notifications.MaintenanceWorker.schedulePeriodic(this)
+        } catch (_: Throwable) {}
 
         setContent {
             val activeThemeDef by viewModel.activeThemeDefinition.collectAsStateWithLifecycle()
