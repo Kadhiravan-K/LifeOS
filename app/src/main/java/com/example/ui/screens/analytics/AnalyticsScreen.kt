@@ -23,8 +23,11 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Stars
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -44,6 +47,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.domain.analytics.ProductivityRadarData
+import com.example.domain.analytics.ProductivityRadarEngine
 import com.example.domain.model.TaskPriority
 import com.example.ui.components.CalendarHeatmapView
 import com.example.ui.components.ProductivityHeatmap
@@ -93,11 +98,60 @@ fun AnalyticsScreen(
     val dashboardState by viewModel.dashboardUiState.collectAsStateWithLifecycle()
     val profile by viewModel.gamificationProfile.collectAsStateWithLifecycle()
     val productivityRadarData by viewModel.productivityRadarData.collectAsStateWithLifecycle()
+    val heatmapShowDates by viewModel.heatmapShowDatesAnalytics.collectAsStateWithLifecycle()
 
     var selectedChartType by remember { mutableStateOf(AnalysisChartType.PIE) }
     var selectedDimension by remember { mutableStateOf(AnalysisDimension.PRIORITY) }
 
+    var radarPriorityFilter by remember { mutableStateOf<TaskPriority?>(null) }
+    var radarProjectFilter by remember { mutableStateOf<Long?>(null) }
+    var radarLabelFilter by remember { mutableStateOf<String?>(null) }
+    var radarCategoryFilter by remember { mutableStateOf<String?>(null) }
+    var showPriorityMenu by remember { mutableStateOf(false) }
+    var showProjectMenu by remember { mutableStateOf(false) }
+    var showLabelMenu by remember { mutableStateOf(false) }
+    var showCategoryMenu by remember { mutableStateOf(false) }
+
     val allTasks = tasksState.allTasks
+    val isAnyRadarFilterActive = radarPriorityFilter != null || radarProjectFilter != null || radarLabelFilter != null || radarCategoryFilter != null
+
+    val effectiveRadarData: ProductivityRadarData? = remember(
+        allTasks, habitsState.habits, dashboardState.waterCurrentMl, dashboardState.waterGoalMl,
+        productivityRadarData,
+        radarPriorityFilter, radarProjectFilter, radarLabelFilter, radarCategoryFilter
+    ) {
+        if (!isAnyRadarFilterActive) {
+            productivityRadarData
+        } else {
+            var filtered = allTasks
+            radarPriorityFilter?.let { p ->
+                filtered = filtered.filter { it.priority == p }
+            }
+            radarProjectFilter?.let { pid ->
+                filtered = filtered.filter { it.projectId == pid }
+            }
+            radarLabelFilter?.let { lbl ->
+                filtered = filtered.filter { task -> task.labels.any { it.name.equals(lbl, ignoreCase = true) } }
+            }
+            radarCategoryFilter?.let { cat ->
+                filtered = filtered.filter { it.category.equals(cat, ignoreCase = true) }
+            }
+
+            if (filtered.isEmpty()) {
+                null
+            } else {
+                ProductivityRadarEngine.calculate(
+                    tasks = filtered,
+                    habits = habitsState.habits,
+                    waterCurrentMl = dashboardState.waterCurrentMl,
+                    waterGoalMl = dashboardState.waterGoalMl,
+                    plans = emptyList(),
+                    currentStreak = habitsState.habits.maxOfOrNull { it.currentStreak } ?: 0,
+                    period = productivityRadarData.period
+                )
+            }
+        }
+    }
     val completedTasksCount = remember(allTasks) { allTasks.count { it.isCompletedForDate || it.isOneTimeCompleted } }
     val totalTasksCount = allTasks.size
 
@@ -251,7 +305,9 @@ fun AnalyticsScreen(
             // GitHub-Style Productivity Consistency Heatmap (Issue #5)
             ProductivityHeatmap(
                 tasks = allTasks,
-                habits = habitsState.habits
+                habits = habitsState.habits,
+                showDates = heatmapShowDates,
+                onToggleShowDates = { viewModel.setHeatmapShowDatesAnalytics(it) }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -299,12 +355,231 @@ fun AnalyticsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     if (selectedChartType == AnalysisChartType.RADAR) {
-                        // 2a. Radar Chart directly with Time Period Selector & Pillar guidance
-                        ProductivityRadarChart(
-                            data = productivityRadarData,
-                            onPeriodSelected = { period -> viewModel.setProductivityPeriod(period) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        // Radar Filter Bar (Priority, Project, Label, Category)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Priority Filter Chip
+                            Box {
+                                FilterChip(
+                                    selected = radarPriorityFilter != null,
+                                    onClick = { showPriorityMenu = true },
+                                    label = {
+                                        Text(
+                                            radarPriorityFilter?.let { "Priority: ${it.name}" } ?: "Priority: All",
+                                            fontSize = 11.sp
+                                        )
+                                    },
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                DropdownMenu(
+                                    expanded = showPriorityMenu,
+                                    onDismissRequest = { showPriorityMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("All Priorities") },
+                                        onClick = {
+                                            radarPriorityFilter = null
+                                            showPriorityMenu = false
+                                        }
+                                    )
+                                    TaskPriority.entries.forEach { priority ->
+                                        DropdownMenuItem(
+                                            text = { Text(priority.name) },
+                                            onClick = {
+                                                radarPriorityFilter = priority
+                                                showPriorityMenu = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Project Filter Chip
+                            Box {
+                                val currentProjectName = tasksState.projects.find { it.id == radarProjectFilter }?.name
+                                FilterChip(
+                                    selected = radarProjectFilter != null,
+                                    onClick = { showProjectMenu = true },
+                                    label = {
+                                        Text(
+                                            currentProjectName?.let { "Project: $it" } ?: "Project: All",
+                                            fontSize = 11.sp
+                                        )
+                                    },
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                DropdownMenu(
+                                    expanded = showProjectMenu,
+                                    onDismissRequest = { showProjectMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("All Projects") },
+                                        onClick = {
+                                            radarProjectFilter = null
+                                            showProjectMenu = false
+                                        }
+                                    )
+                                    tasksState.projects.forEach { project ->
+                                        DropdownMenuItem(
+                                            text = { Text(project.name) },
+                                            onClick = {
+                                                radarProjectFilter = project.id
+                                                showProjectMenu = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Label Filter Chip
+                            Box {
+                                FilterChip(
+                                    selected = radarLabelFilter != null,
+                                    onClick = { showLabelMenu = true },
+                                    label = {
+                                        Text(
+                                            radarLabelFilter?.let { "Label: $it" } ?: "Label: All",
+                                            fontSize = 11.sp
+                                        )
+                                    },
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                DropdownMenu(
+                                    expanded = showLabelMenu,
+                                    onDismissRequest = { showLabelMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("All Labels") },
+                                        onClick = {
+                                            radarLabelFilter = null
+                                            showLabelMenu = false
+                                        }
+                                    )
+                                    tasksState.labels.forEach { label ->
+                                        DropdownMenuItem(
+                                            text = { Text(label.name) },
+                                            onClick = {
+                                                radarLabelFilter = label.name
+                                                showLabelMenu = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Category Filter Chip
+                            val distinctCategories = remember(allTasks) {
+                                allTasks.map { it.category.ifBlank { "Routine" } }.distinct()
+                            }
+                            Box {
+                                FilterChip(
+                                    selected = radarCategoryFilter != null,
+                                    onClick = { showCategoryMenu = true },
+                                    label = {
+                                        Text(
+                                            radarCategoryFilter?.let { "Category: $it" } ?: "Category: All",
+                                            fontSize = 11.sp
+                                        )
+                                    },
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                DropdownMenu(
+                                    expanded = showCategoryMenu,
+                                    onDismissRequest = { showCategoryMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("All Categories") },
+                                        onClick = {
+                                            radarCategoryFilter = null
+                                            showCategoryMenu = false
+                                        }
+                                    )
+                                    distinctCategories.forEach { category ->
+                                        DropdownMenuItem(
+                                            text = { Text(category) },
+                                            onClick = {
+                                                radarCategoryFilter = category
+                                                showCategoryMenu = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Clear All Filters Chip
+                            if (isAnyRadarFilterActive) {
+                                FilterChip(
+                                    selected = true,
+                                    onClick = {
+                                        radarPriorityFilter = null
+                                        radarProjectFilter = null
+                                        radarLabelFilter = null
+                                        radarCategoryFilter = null
+                                    },
+                                    label = { Text("✕ Clear Filters", fontSize = 11.sp, color = MaterialTheme.colorScheme.error) },
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (effectiveRadarData != null) {
+                            ProductivityRadarChart(
+                                data = effectiveRadarData,
+                                onPeriodSelected = { period -> viewModel.setProductivityPeriod(period) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                                    .testTag("radar_empty_filter_state")
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text("🔍", fontSize = 36.sp)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "No Tasks Match Selected Filters",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "No tasks were found with the active priority, project, label, or category combination. Adjust or reset your filters.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Button(
+                                        onClick = {
+                                            radarPriorityFilter = null
+                                            radarProjectFilter = null
+                                            radarLabelFilter = null
+                                            radarCategoryFilter = null
+                                        }
+                                    ) {
+                                        Text("Reset Filters")
+                                    }
+                                }
+                            }
+                        }
                     } else {
                         // 2b. Task Breakdown Dimension Selector (Priority, Projects, Labels, Category)
                         Row(

@@ -1097,8 +1097,13 @@ fun WaterTrackerCard(
 @Composable
 fun CalendarHeatmapView(
     days: List<Pair<String, Float>>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showDates: Boolean = false,
+    onToggleShowDates: ((Boolean) -> Unit)? = null
 ) {
+    var internalShowDates by remember { mutableStateOf(showDates) }
+    val effectiveShowDates = onToggleShowDates?.let { showDates } ?: internalShowDates
+
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1107,16 +1112,34 @@ fun CalendarHeatmapView(
             .testTag("calendar_heatmap_card")
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Consistency Heatmap (Last 5 Weeks)",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Track your daily momentum and habit intensity",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Consistency Heatmap (Last 5 Weeks)",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Track your daily momentum and habit intensity",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                HeatmapVisibilityEyeButton(
+                    showDates = effectiveShowDates,
+                    onToggle = { newShow ->
+                        if (onToggleShowDates != null) {
+                            onToggleShowDates.invoke(newShow)
+                        } else {
+                            internalShowDates = newShow
+                        }
+                    }
+                )
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -1141,13 +1164,15 @@ fun CalendarHeatmapView(
                             .background(blockColor),
                         contentAlignment = Alignment.Center
                     ) {
-                        val dayNum = dateIso.takeLast(2)
-                        Text(
-                            text = dayNum,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (ratio >= 0.8f) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        if (effectiveShowDates) {
+                            val dayNum = dateIso.takeLast(2)
+                            Text(
+                                text = dayNum,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (ratio >= 0.8f) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }

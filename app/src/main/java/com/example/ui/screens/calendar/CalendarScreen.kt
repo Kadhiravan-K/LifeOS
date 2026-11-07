@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -43,9 +44,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
@@ -67,6 +70,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -341,7 +345,17 @@ fun CalendarScreen(
                         },
                         onToggleTask = { viewModel.toggleTaskCompletion(it.id, uiState.selectedDateIso) },
                         onReschedule = { taskToReschedule = it },
-                        onHistory = { historyTask = it }
+                        onHistory = { historyTask = it },
+                        onSlotClick = { slotTime ->
+                            editingTask = com.example.domain.model.TaskItem(
+                                title = "",
+                                dueDateIso = uiState.selectedDateIso,
+                                dueTime = slotTime,
+                                isAllDay = false,
+                                durationMinutes = 30
+                            )
+                            showTaskModal = true
+                        }
                     )
                 }
                 "THREE_DAY" -> {
@@ -560,8 +574,16 @@ fun CalendarScreen(
 }
 
 /**
- * Hourly Time Blocking View from 06:00 to 22:00.
+ * Google Calendar-inspired 24-Hour Vertical Daily Timeline View (00:00 to 23:00).
+ * Features:
+ * - Full 24-hour vertical timeline grid
+ * - Proportional duration-height event placement
+ * - Overlapping event layout
+ * - Current-time indicator (red line with live time badge and marker)
+ * - Pinned All-Day tasks bar
+ * - Clickable hourly slots for quick task creation
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DayTimeBlockingView(
     selectedDateIso: String,
@@ -569,120 +591,87 @@ fun DayTimeBlockingView(
     onTaskClick: (TaskItem) -> Unit,
     onToggleTask: (TaskItem) -> Unit,
     onReschedule: (TaskItem) -> Unit,
-    onHistory: (TaskItem) -> Unit
+    onHistory: (TaskItem) -> Unit,
+    onSlotClick: (String) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
     val allDayTasks = tasks.filter { it.isAllDay || it.dueTime == null }
     val timedTasks = tasks.filter { !it.isAllDay && it.dueTime != null }
+    val todayIso = com.example.utils.DateUtils.todayString()
+    val isToday = selectedDateIso == todayIso
+    val hourHeight = 64.dp
+    val density = androidx.compose.ui.platform.LocalDensity.current
+
+    // Auto-scroll to current hour or first event
+    LaunchedEffect(selectedDateIso) {
+        val targetHour = if (isToday) {
+            java.time.LocalTime.now().hour
+        } else {
+            timedTasks.firstOrNull()?.dueTime?.substringBefore(":")?.toIntOrNull() ?: 8
+        }
+        val scrollPx = with(density) { ((targetHour - 1).coerceAtLeast(0) * hourHeight.toPx()).toInt() }
+        scrollState.animateScrollTo(scrollPx)
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(scrollState)
+            .testTag("day_hourly_calendar_view")
     ) {
-        // All-day tasks section
+        // Pinned All-Day Tasks Section (Google Calendar Style)
         if (allDayTasks.isNotEmpty()) {
-            Text(
-                text = "All-Day Tasks (${allDayTasks.size})",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
-            allDayTasks.forEach { task ->
-                TaskCard(
-                    task = task,
-                    onToggleComplete = { onToggleTask(task) },
-                    onToggleSubtask = {},
-                    onEdit = { onTaskClick(task) },
-                    onDelete = {},
-                    onReschedule = { onReschedule(task) },
-                    onViewHistory = { onHistory(task) }
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-            }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-        }
-
-        Text(
-            text = "Hourly Schedule",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 6.dp)
-        )
-
-        // Hours from 06:00 to 22:00
-        for (hour in 6..22) {
-            val hourStr = String.format(Locale.getDefault(), "%02d:00", hour)
-            val matchingTasks = timedTasks.filter {
-                val t = it.dueTime ?: ""
-                t.startsWith(String.format(Locale.getDefault(), "%02d", hour))
-            }
-
-            Row(
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.Top
+                    .padding(bottom = 8.dp)
+                    .testTag("all_day_tasks_bar")
             ) {
-                // Time label
-                Text(
-                    text = hourStr,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.width(44.dp)
-                )
-
-                // Timeline block
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .background(
-                            if (matchingTasks.isNotEmpty()) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
-                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
-                ) {
-                    if (matchingTasks.isEmpty()) {
-                        Text(
-                            text = "Free time slot",
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
-                        )
-                    } else {
-                        matchingTasks.forEach { task ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                Column(modifier = Modifier.padding(10.dp)) {
+                    Text(
+                        text = "All-Day (${allDayTasks.size})",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        allDayTasks.forEach { task ->
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = task.priority.composeColor.copy(alpha = 0.15f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, task.priority.composeColor.copy(alpha = 0.4f)),
                                 modifier = Modifier
-                                    .fillMaxWidth()
                                     .clickable { onTaskClick(task) }
-                                    .padding(vertical = 2.dp)
+                                    .testTag("all_day_task_chip_${task.id}")
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                    Text(text = task.emoji.ifBlank { "📌" }, fontSize = 14.sp)
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    IconButton(
+                                        onClick = { onToggleTask(task) },
+                                        modifier = Modifier.size(16.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (task.isCompletedForDate || task.isOneTimeCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                            contentDescription = "Toggle",
+                                            tint = if (task.isCompletedForDate || task.isOneTimeCompleted) MaterialTheme.colorScheme.primary else task.priority.composeColor,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = task.title,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
+                                        text = "${task.emoji.ifBlank { "📌" }} ${task.title}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                                Surface(
-                                    color = task.priority.composeColor.copy(alpha = 0.2f),
-                                    shape = RoundedCornerShape(4.dp)
-                                ) {
-                                    Text(
-                                        text = "${task.durationAmount} ${task.durationUnit.singularName}",
-                                        fontSize = 9.sp,
-                                        color = task.priority.composeColor,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                                     )
                                 }
                             }
@@ -691,7 +680,230 @@ fun DayTimeBlockingView(
                 }
             }
         }
-        Spacer(modifier = Modifier.height(72.dp))
+
+        // 24-Hour Vertical Time Grid (00:00 to 23:00)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+        ) {
+            // Background Hourly Lines & Time Labels
+            Column(modifier = Modifier.fillMaxWidth()) {
+                for (hour in 0..23) {
+                    val hourLabel = String.format(Locale.getDefault(), "%02d:00", hour)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(hourHeight)
+                            .clickable { onSlotClick(hourLabel) }
+                            .testTag("time_slot_$hourLabel")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.Top,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Text(
+                                text = hourLabel,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f),
+                                modifier = Modifier
+                                    .width(50.dp)
+                                    .padding(top = 2.dp)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(1.dp)
+                                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(72.dp))
+            }
+
+            // Current Time Indicator (Red line & circle when looking at today)
+            if (isToday) {
+                val now = java.time.LocalTime.now()
+                val currentMinute = now.hour * 60 + now.minute
+                val indicatorTop = hourHeight * (currentMinute.toFloat() / 60f)
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = indicatorTop)
+                        .testTag("current_time_indicator")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(50.dp)
+                                .padding(end = 4.dp),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFFDC2626)
+                            ) {
+                                Text(
+                                    text = String.format(Locale.getDefault(), "%02d:%02d", now.hour, now.minute),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFDC2626))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(2.dp)
+                                .background(Color(0xFFDC2626))
+                        )
+                    }
+                }
+            }
+
+            // Timed Tasks Layout with Overlap Handling
+            val processedTimedTasks = remember(timedTasks) {
+                val parsed = timedTasks.mapNotNull { task ->
+                    val timeParts = task.dueTime?.split(":")
+                    if (timeParts != null && timeParts.size >= 2) {
+                        val h = timeParts[0].toIntOrNull() ?: 0
+                        val m = timeParts[1].toIntOrNull() ?: 0
+                        val startMin = h * 60 + m
+                        val durMin = task.durationMinutes.coerceIn(15, 360)
+                        val endMin = startMin + durMin
+                        Triple(task, startMin, endMin)
+                    } else null
+                }.sortedBy { it.second }
+
+                // Calculate overlap clusters
+                parsed.map { current ->
+                    val overlaps = parsed.filter { other ->
+                        current.second < other.third && other.second < current.third
+                    }
+                    val totalCols = overlaps.size.coerceAtLeast(1)
+                    val colIndex = overlaps.indexOf(current).coerceAtLeast(0)
+                    Pair(current, Pair(colIndex, totalCols))
+                }
+            }
+
+            // Render Timed Event Cards
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 54.dp, end = 8.dp)
+            ) {
+                processedTimedTasks.forEach { (item, layout) ->
+                    val (task, startMin, endMin) = item
+                    val (colIndex, totalCols) = layout
+                    val startOffset = hourHeight * (startMin.toFloat() / 60f)
+                    val durationMinutes = (endMin - startMin).coerceAtLeast(20)
+                    val eventHeight = (hourHeight * (durationMinutes.toFloat() / 60f)).coerceAtLeast(34.dp)
+
+                    BoxWithConstraints(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = startOffset)
+                    ) {
+                        val columnWidth = maxWidth / totalCols
+                        val leftOffset = columnWidth * colIndex
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = task.priority.composeColor.copy(alpha = 0.22f),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, task.priority.composeColor),
+                            modifier = Modifier
+                                .padding(start = leftOffset)
+                                .width(columnWidth - 2.dp)
+                                .height(eventHeight)
+                                .clickable { onTaskClick(task) }
+                                .testTag("hourly_event_${task.id}")
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                                verticalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(text = task.emoji.ifBlank { "📌" }, fontSize = 12.sp)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = task.title,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { onToggleTask(task) },
+                                        modifier = Modifier.size(16.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (task.isCompletedForDate || task.isOneTimeCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                            contentDescription = "Toggle",
+                                            tint = if (task.isCompletedForDate || task.isOneTimeCompleted) MaterialTheme.colorScheme.primary else task.priority.composeColor,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                }
+
+                                if (eventHeight.value >= 46f) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        val endHour = endMin / 60
+                                        val endMinute = endMin % 60
+                                        val timeRangeStr = String.format(Locale.getDefault(), "%s - %02d:%02d", task.dueTime, endHour, endMinute)
+                                        Text(
+                                            text = timeRangeStr,
+                                            fontSize = 9.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Surface(
+                                            color = task.priority.composeColor.copy(alpha = 0.25f),
+                                            shape = RoundedCornerShape(4.dp)
+                                        ) {
+                                            Text(
+                                                text = "${task.durationAmount} ${task.durationUnit.singularName}",
+                                                fontSize = 8.sp,
+                                                color = task.priority.composeColor,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

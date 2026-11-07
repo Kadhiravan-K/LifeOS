@@ -208,6 +208,21 @@ fun ProductivityRadarChart(
                             color = gridColor,
                             style = Stroke(width = if (scale == 1.0f) 1.5.dp.toPx() else 1.dp.toPx())
                         )
+
+                        // Scale watermark label along top spoke
+                        val gridLabelY = center.y - maxR * scale
+                        val gridTextPaint = android.graphics.Paint().apply {
+                            color = gridColor.toArgb()
+                            textSize = with(density) { 9.sp.toPx() }
+                            textAlign = android.graphics.Paint.Align.RIGHT
+                            isAntiAlias = true
+                        }
+                        drawContext.canvas.nativeCanvas.drawText(
+                            "${(scale * 100).toInt()}%",
+                            center.x - 4.dp.toPx(),
+                            gridLabelY - 2.dp.toPx(),
+                            gridTextPaint
+                        )
                     }
 
                     // 2. Spoke Lines from Center to Vertices
@@ -290,7 +305,8 @@ fun ProductivityRadarChart(
                         }
 
                         val angle = (2 * Math.PI * i / n - Math.PI / 2).toFloat()
-                        val labelText = data.dimensions[i].dimension.displayName
+                        val dim = data.dimensions[i]
+                        val labelText = "${dim.dimension.displayName} (${dim.scorePercent}%)"
                         val labelR = maxR + 24.dp.toPx()
                         val lx = center.x + labelR * cos(angle)
                         val ly = center.y + labelR * sin(angle) + textPaint.textSize * 0.35f

@@ -83,6 +83,16 @@ data class TemplateChallengeDef(
     val rules: List<ChallengeRule>
 )
 
+data class TemplateVariant(
+    val id: String,
+    val title: String,
+    val description: String,
+    val emoji: String,
+    val tasks: List<TemplateTaskDef> = emptyList(),
+    val habits: List<TemplateHabitDef> = emptyList(),
+    val shortcuts: List<TemplateShortcutDef> = emptyList()
+)
+
 data class LifeTemplate(
     val id: String,
     val version: Int = 1,
@@ -97,7 +107,8 @@ data class LifeTemplate(
     val subscriptions: List<SubscriptionTemplate> = emptyList(),
     val projects: List<TemplateProjectDef> = emptyList(),
     val challenge: TemplateChallengeDef? = null,
-    val tags: List<String> = emptyList()
+    val tags: List<String> = emptyList(),
+    val variants: List<TemplateVariant> = emptyList()
 ) {
     val iconEmoji: String
         get() = emoji

@@ -56,11 +56,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.FilledTonalButton
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.domain.model.ChallengeState
 import com.example.domain.model.DefaultChallengeRules
 import com.example.ui.components.CustomizeChallengePresetsDialog
+import com.example.ui.components.HeatmapVisibilityEyeButton
 import com.example.ui.components.RestartChallengeDialog
 import com.example.ui.viewmodel.LifeViewModel
 import com.example.utils.DateUtils
@@ -73,6 +76,7 @@ fun ChallengeScreen(
 ) {
     var showRestartDialog by remember { mutableStateOf(false) }
     var showPresetsDialog by remember { mutableStateOf(false) }
+    val showDatesChallenge by viewModel.heatmapShowDatesChallenge.collectAsStateWithLifecycle()
     var selectedDayNumber by remember(challenge.currentDayNumber) { mutableStateOf(challenge.currentDayNumber) }
     val todayIso = DateUtils.todayString()
     val selectedDateIso = DateUtils.addDays(challenge.startDateIso, selectedDayNumber - 1)
@@ -281,11 +285,17 @@ fun ChallengeScreen(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
-            if (selectedDayNumber != challenge.currentDayNumber) {
-                TextButton(
-                    onClick = { selectedDayNumber = challenge.currentDayNumber }
-                ) {
-                    Text("Jump to Today", fontSize = 12.sp, color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                HeatmapVisibilityEyeButton(
+                    showDates = showDatesChallenge,
+                    onToggle = { viewModel.setHeatmapShowDatesChallenge(it) }
+                )
+                if (selectedDayNumber != challenge.currentDayNumber) {
+                    TextButton(
+                        onClick = { selectedDayNumber = challenge.currentDayNumber }
+                    ) {
+                        Text("Jump to Today", fontSize = 12.sp, color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -332,12 +342,21 @@ fun ChallengeScreen(
                         .testTag("challenge_day_tab_$dayNum")
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = if (isDayToday) "TODAY" else "D$dayNum",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = textColor
-                        )
+                        if (showDatesChallenge || isDayToday) {
+                            Text(
+                                text = if (isDayToday) "TODAY" else "D$dayNum",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = textColor
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(textColor.copy(alpha = 0.7f))
+                            )
+                        }
                         Spacer(modifier = Modifier.height(2.dp))
                         if (isDone) {
                             Icon(

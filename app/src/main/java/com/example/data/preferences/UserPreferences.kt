@@ -147,6 +147,11 @@ class UserPreferences(private val context: Context) {
         val KEY_LIFETIME_PREMIUM_ACTIVE = booleanPreferencesKey("lifetime_premium_active")
         val KEY_TEMPORARY_PREMIUM_EXPIRY = longPreferencesKey("temporary_premium_expiry_millis")
         val KEY_PREMIUM_REDEMPTION_COUNT = intPreferencesKey("premium_redemption_count")
+
+        // Phase 5 Heatmap Date Visibility Preferences (Defaults to FALSE / OFF)
+        val KEY_HEATMAP_SHOW_DATES_ANALYTICS = booleanPreferencesKey("heatmap_show_dates_analytics")
+        val KEY_HEATMAP_SHOW_DATES_HABITS = booleanPreferencesKey("heatmap_show_dates_habits")
+        val KEY_HEATMAP_SHOW_DATES_CHALLENGE = booleanPreferencesKey("heatmap_show_dates_challenge")
     }
 
     // MCP Bridge Flows
@@ -214,6 +219,31 @@ class UserPreferences(private val context: Context) {
         context.dataStore.edit { prefs ->
             prefs[KEY_TEMPORARY_PREMIUM_EXPIRY] = 0L
         }
+    }
+
+    // Heatmap Date Visibility Flows (Default OFF / false)
+    val heatmapShowDatesAnalytics: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_HEATMAP_SHOW_DATES_ANALYTICS] ?: false
+    }
+
+    val heatmapShowDatesHabits: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_HEATMAP_SHOW_DATES_HABITS] ?: false
+    }
+
+    val heatmapShowDatesChallenge: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_HEATMAP_SHOW_DATES_CHALLENGE] ?: false
+    }
+
+    suspend fun setHeatmapShowDatesAnalytics(show: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_HEATMAP_SHOW_DATES_ANALYTICS] = show }
+    }
+
+    suspend fun setHeatmapShowDatesHabits(show: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_HEATMAP_SHOW_DATES_HABITS] = show }
+    }
+
+    suspend fun setHeatmapShowDatesChallenge(show: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_HEATMAP_SHOW_DATES_CHALLENGE] = show }
     }
 
     // Legal Consent Flows

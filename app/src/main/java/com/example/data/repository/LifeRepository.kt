@@ -2436,6 +2436,15 @@ class LifeRepository(
         return Result.success(durationLabel)
     }
 
+    // Phase 5 Heatmap Date Visibility Flows
+    val heatmapShowDatesAnalyticsFlow: Flow<Boolean> = preferences.heatmapShowDatesAnalytics
+    val heatmapShowDatesHabitsFlow: Flow<Boolean> = preferences.heatmapShowDatesHabits
+    val heatmapShowDatesChallengeFlow: Flow<Boolean> = preferences.heatmapShowDatesChallenge
+
+    suspend fun setHeatmapShowDatesAnalytics(show: Boolean) = preferences.setHeatmapShowDatesAnalytics(show)
+    suspend fun setHeatmapShowDatesHabits(show: Boolean) = preferences.setHeatmapShowDatesHabits(show)
+    suspend fun setHeatmapShowDatesChallenge(show: Boolean) = preferences.setHeatmapShowDatesChallenge(show)
+
     suspend fun insertReward(reward: RewardItem): Long {
         return gamificationDao.insertReward(
             RewardItemEntity(

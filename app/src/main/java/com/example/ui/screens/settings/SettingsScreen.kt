@@ -2287,6 +2287,7 @@ private fun SettingsHubView(
     val context = androidx.compose.ui.platform.LocalContext.current
     var morseSequence by remember { mutableStateOf("") }
     var lastMorseTime by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    var showChangelogDialog by remember { mutableStateOf(false) }
     val searchRegistry = remember {
         getSettingsSearchRegistry(
             onNavigateToThemeGallery = onNavigateToThemeGallery,
@@ -2562,7 +2563,26 @@ private fun SettingsHubView(
                     Spacer(modifier = Modifier.height(6.dp))
                     Text("Version 1.1.0 (Build 2) • Production Release", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                     Text("Zero cloud dependencies. Zero telemetry. Privacy-first offline architecture.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = { showChangelogDialog = true },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("whats_new_button")
+                    ) {
+                        Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("What's New & App Updates", fontSize = 12.sp)
+                    }
                 }
+            }
+
+            if (showChangelogDialog) {
+                com.example.ui.components.AppChangelogDialog(
+                    onDismiss = { showChangelogDialog = false },
+                    onOpenPremiumStore = onNavigateToGamificationHub
+                )
             }
 
             if (isLifetimePremiumActive) {

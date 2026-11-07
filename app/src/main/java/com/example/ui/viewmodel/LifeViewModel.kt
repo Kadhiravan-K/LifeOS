@@ -848,6 +848,37 @@ class LifeViewModel(
         initialValue = false
     )
 
+    // Phase 5: Heatmap Date Visibility Flows (Default false / OFF)
+    val heatmapShowDatesAnalytics: StateFlow<Boolean> = repository.heatmapShowDatesAnalyticsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val heatmapShowDatesHabits: StateFlow<Boolean> = repository.heatmapShowDatesHabitsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val heatmapShowDatesChallenge: StateFlow<Boolean> = repository.heatmapShowDatesChallengeFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    fun setHeatmapShowDatesAnalytics(show: Boolean) {
+        viewModelScope.launch { repository.setHeatmapShowDatesAnalytics(show) }
+    }
+
+    fun setHeatmapShowDatesHabits(show: Boolean) {
+        viewModelScope.launch { repository.setHeatmapShowDatesHabits(show) }
+    }
+
+    fun setHeatmapShowDatesChallenge(show: Boolean) {
+        viewModelScope.launch { repository.setHeatmapShowDatesChallenge(show) }
+    }
+
     private val _previewThemeId = MutableStateFlow<ThemeId?>(null)
     val previewThemeId: StateFlow<ThemeId?> = _previewThemeId.asStateFlow()
 

@@ -245,8 +245,13 @@ fun ProductivityHeatmap(
     modifier: Modifier = Modifier,
     initialMetric: HeatmapMetric = HeatmapMetric.ALL,
     initialRange: HeatmapDateRange = HeatmapDateRange.TWELVE_WEEKS,
-    initialPalette: HeatmapPalette = HeatmapPalette.EMERALD
+    initialPalette: HeatmapPalette = HeatmapPalette.EMERALD,
+    showDates: Boolean = false,
+    onToggleShowDates: ((Boolean) -> Unit)? = null
 ) {
+    var internalShowDates by remember { mutableStateOf(showDates) }
+    val effectiveShowDates = onToggleShowDates?.let { showDates } ?: internalShowDates
+
     var selectedMetric by remember { mutableStateOf(initialMetric) }
     var selectedRange by remember { mutableStateOf(initialRange) }
     var selectedPalette by remember { mutableStateOf(initialPalette) }
@@ -352,6 +357,16 @@ fun ProductivityHeatmap(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    HeatmapVisibilityEyeButton(
+                        showDates = effectiveShowDates,
+                        onToggle = { newShow ->
+                            if (onToggleShowDates != null) {
+                                onToggleShowDates.invoke(newShow)
+                            } else {
+                                internalShowDates = newShow
+                            }
+                        }
+                    )
                     IconButton(
                         onClick = { weekOffset -= selectedRange.weeks },
                         modifier = Modifier.size(32.dp)
@@ -481,13 +496,15 @@ fun ProductivityHeatmap(
                                     }
                             ) {
                                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Text(
-                                        text = cell.dayOfMonth.toString(),
-                                        fontSize = 9.sp,
-                                        color = if (cell.count == 0) MaterialTheme.colorScheme.onSurfaceVariant else Color.White,
-                                        fontWeight = FontWeight.Medium,
-                                        maxLines = 1
-                                    )
+                                    if (effectiveShowDates) {
+                                        Text(
+                                            text = cell.dayOfMonth.toString(),
+                                            fontSize = 9.sp,
+                                            color = if (cell.count == 0) MaterialTheme.colorScheme.onSurfaceVariant else Color.White,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1
+                                        )
+                                    }
                                 }
                             }
                         }

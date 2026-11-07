@@ -421,7 +421,75 @@ object TemplateCatalog {
             projects = listOf(
                 StandardProjects.HEALTH
             ),
-            tags = listOf("health", "hydration", "vitality")
+            tags = listOf("health", "hydration", "vitality", "water"),
+            variants = listOf(
+                TemplateVariant(
+                    id = "variant_water_log",
+                    title = "1-Tap Water Log",
+                    description = "Instant 1-tap water logging tile for App QR shortcuts and home screen widgets",
+                    emoji = "🚰",
+                    shortcuts = listOf(
+                        TemplateShortcutDef(ShortcutType.WATER, "water", "Water Log", "💧", 0, 0)
+                    )
+                ),
+                TemplateVariant(
+                    id = "variant_daily_goal",
+                    title = "Daily 2.5L Water Goal",
+                    description = "Consistent daily hydration routine with 250ml intake intervals",
+                    emoji = "🎯",
+                    tasks = listOf(
+                        TemplateTaskDef(
+                            title = "Daily Water Goal (2500ml)",
+                            description = "Stay consistently hydrated throughout the day with 250ml intervals",
+                            category = "Health",
+                            priority = TaskPriority.MEDIUM,
+                            dueTime = "08:00",
+                            durationMinutes = 0,
+                            recurrenceType = RecurrenceType.DAILY,
+                            projectName = "Health",
+                            labels = listOf("Hydration", "Water", "Health")
+                        )
+                    ),
+                    habits = listOf(
+                        TemplateHabitDef(
+                            title = "Optimal Daily Hydration",
+                            emoji = "💧",
+                            description = "Log 2500ml total water intake every single day",
+                            reminderTime = "09:00",
+                            colorHex = 0xFF0288D1
+                        )
+                    )
+                ),
+                TemplateVariant(
+                    id = "variant_drink_tracking",
+                    title = "Electrolytes & Fluid Balance",
+                    description = "Morning adrenal electrolyte drink and nutrient-rich clean meal hydration",
+                    emoji = "🍋",
+                    tasks = listOf(
+                        TemplateTaskDef(
+                            title = "Electrolyte Drink in Morning",
+                            description = "Water with pink salt and lemon for adrenal support",
+                            category = "Health",
+                            priority = TaskPriority.MEDIUM,
+                            dueTime = "06:30",
+                            durationMinutes = 10,
+                            projectName = "Health",
+                            labels = listOf("hydration", "wellness")
+                        )
+                    )
+                ),
+                TemplateVariant(
+                    id = "variant_hydration_reminder",
+                    title = "Hydration Reminders",
+                    description = "Scheduled hydration reminders at morning, midday, and afternoon",
+                    emoji = "⏰",
+                    habits = listOf(
+                        TemplateHabitDef("Morning Hydration (500ml)", "💧", "Drink full glass immediately upon waking", "06:30", 0xFF0288D1),
+                        TemplateHabitDef("Midday Hydration", "💧", "Refill bottle during lunch block", "13:00", 0xFF03A9F4),
+                        TemplateHabitDef("Afternoon Hydration", "💧", "Stay alert during evening focus", "16:00", 0xFF2196F3)
+                    )
+                )
+            )
         ),
 
         // 8. Habit Building

@@ -112,6 +112,8 @@ fun TemplateBrowserDialog(
 
     val individualTemplates = remember(searchQuery, selectedCategory) {
         TemplateCatalog.allTemplates.filter { template ->
+            // In browse view, deduplicate standalone single-purpose duplicates that are already grouped inside parent multi-track templates
+            template.id != "template_quick_hydration_tracker" &&
             template.category != TemplateCategory.BUCKET_LIST &&
                     (selectedCategory == null || template.category == selectedCategory) &&
                     (searchQuery.isBlank() ||
@@ -621,6 +623,21 @@ fun TemplateCard(
                                 }
                             }
                         }
+                        if (template.variants.isNotEmpty()) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+                            ) {
+                                Text(
+                                    text = "${template.variants.size} Tracks",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
                     }
 
                     Text(
@@ -867,8 +884,17 @@ fun TemplatePreviewDialog(
     onDismiss: () -> Unit,
     onConfirmInstall: (Set<Int>, Set<Int>) -> Unit
 ) {
-    var selectedTaskIndices by remember { mutableStateOf(template.tasks.indices.toSet()) }
-    var selectedHabitIndices by remember { mutableStateOf(template.habits.indices.toSet()) }
+    var selectedVariantId by remember { mutableStateOf<String?>(null) }
+    val activeTasks = remember(template, selectedVariantId) {
+        val variant = template.variants.find { it.id == selectedVariantId }
+        variant?.tasks?.takeIf { it.isNotEmpty() } ?: template.tasks
+    }
+    val activeHabits = remember(template, selectedVariantId) {
+        val variant = template.variants.find { it.id == selectedVariantId }
+        variant?.habits?.takeIf { it.isNotEmpty() } ?: template.habits
+    }
+    var selectedTaskIndices by remember(activeTasks) { mutableStateOf(activeTasks.indices.toSet()) }
+    var selectedHabitIndices by remember(activeHabits) { mutableStateOf(activeHabits.indices.toSet()) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -920,6 +946,38 @@ fun TemplatePreviewDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
+                if (template.variants.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Select Track / Variant:",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedVariantId == null,
+                            onClick = { selectedVariantId = null },
+                            label = { Text("Standard", fontSize = 11.sp) },
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        template.variants.forEach { variant ->
+                            FilterChip(
+                                selected = selectedVariantId == variant.id,
+                                onClick = { selectedVariantId = variant.id },
+                                label = { Text("${variant.emoji} ${variant.title}", fontSize = 11.sp) },
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                    }
+                }
+
                 if (isAlreadyInstalled) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Surface(
@@ -958,7 +1016,7 @@ fun TemplatePreviewDialog(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Tasks
-                    if (template.tasks.isNotEmpty()) {
+                    if (activeTasks.isNotEmpty()) {
                         item {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -966,29 +1024,29 @@ fun TemplatePreviewDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Tasks (${selectedTaskIndices.size}/${template.tasks.size})",
+                                    text = "Tasks (${selectedTaskIndices.size}/${activeTasks.size})",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold
                                 )
                                 TextButton(
                                     onClick = {
-                                        selectedTaskIndices = if (selectedTaskIndices.size == template.tasks.size) {
+                                        selectedTaskIndices = if (selectedTaskIndices.size == activeTasks.size) {
                                             emptySet()
                                         } else {
-                                            template.tasks.indices.toSet()
+                                            activeTasks.indices.toSet()
                                         }
                                     }
                                 ) {
                                     Text(
-                                        text = if (selectedTaskIndices.size == template.tasks.size) "Deselect All" else "Select All",
+                                        text = if (selectedTaskIndices.size == activeTasks.size) "Deselect All" else "Select All",
                                         fontSize = 11.sp
                                     )
                                 }
                             }
                         }
 
-                        items(template.tasks.indices.toList()) { idx ->
-                            val taskDef = template.tasks[idx]
+                        items(activeTasks.indices.toList()) { idx ->
+                            val taskDef = activeTasks[idx]
                             val isChecked = idx in selectedTaskIndices
                             Card(
                                 shape = RoundedCornerShape(10.dp),
@@ -1040,7 +1098,7 @@ fun TemplatePreviewDialog(
                     }
 
                     // Habits
-                    if (template.habits.isNotEmpty()) {
+                    if (activeHabits.isNotEmpty()) {
                         item {
                             Spacer(modifier = Modifier.height(6.dp))
                             Row(
@@ -1049,29 +1107,29 @@ fun TemplatePreviewDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Habits (${selectedHabitIndices.size}/${template.habits.size})",
+                                    text = "Habits (${selectedHabitIndices.size}/${activeHabits.size})",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold
                                 )
                                 TextButton(
                                     onClick = {
-                                        selectedHabitIndices = if (selectedHabitIndices.size == template.habits.size) {
+                                        selectedHabitIndices = if (selectedHabitIndices.size == activeHabits.size) {
                                             emptySet()
                                         } else {
-                                            template.habits.indices.toSet()
+                                            activeHabits.indices.toSet()
                                         }
                                     }
                                 ) {
                                     Text(
-                                        text = if (selectedHabitIndices.size == template.habits.size) "Deselect All" else "Select All",
+                                        text = if (selectedHabitIndices.size == activeHabits.size) "Deselect All" else "Select All",
                                         fontSize = 11.sp
                                     )
                                 }
                             }
                         }
 
-                        items(template.habits.indices.toList()) { idx ->
-                            val habitDef = template.habits[idx]
+                        items(activeHabits.indices.toList()) { idx ->
+                            val habitDef = activeHabits[idx]
                             val isChecked = idx in selectedHabitIndices
                             Card(
                                 shape = RoundedCornerShape(10.dp),

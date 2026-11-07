@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -45,6 +46,7 @@ fun HabitsScreen(
     var showHabitModal by remember { mutableStateOf(false) }
     var editingHabit by remember { mutableStateOf<HabitItem?>(null) }
     var selectedDetailHabitId by remember { mutableStateOf<Long?>(null) }
+    val heatmapShowDates by viewModel.heatmapShowDatesHabits.collectAsStateWithLifecycle()
 
     Scaffold(
         floatingActionButton = {
@@ -92,7 +94,11 @@ fun HabitsScreen(
             Spacer(modifier = Modifier.height(14.dp))
 
             // Calendar Heatmap Card
-            CalendarHeatmapView(days = uiState.heatmapDays)
+            CalendarHeatmapView(
+                days = uiState.heatmapDays,
+                showDates = heatmapShowDates,
+                onToggleShowDates = { viewModel.setHeatmapShowDatesHabits(it) }
+            )
 
             Spacer(modifier = Modifier.height(14.dp))
 
