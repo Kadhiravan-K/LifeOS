@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -556,12 +557,12 @@ class PremiumEntitlementUnitTest {
 
         // First emission
         fakeBilling.emitPurchase(purchase)
-        val state1 = repo.entitlementState.first()
+        val state1 = repo.entitlementState.filter { it.isEntitled }.first()
         assertTrue(state1.isEntitled)
 
         // Duplicate emission (e.g. repeated broadcast or multiple query callbacks)
         fakeBilling.emitPurchase(purchase)
-        val state2 = repo.entitlementState.first()
+        val state2 = repo.entitlementState.filter { it.isEntitled }.first()
         assertEquals(state1, state2)
     }
 

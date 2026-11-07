@@ -4,10 +4,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
@@ -35,6 +33,10 @@ import kotlinx.coroutines.runBlocking
 class MainActivity : FragmentActivity() {
 
     private lateinit var viewModel: LifeViewModel
+
+    companion object {
+        private const val REQUEST_CODE_NOTIFICATION_PERMISSION = 1001
+    }
 
     override fun onStart() {
         super.onStart()
@@ -87,11 +89,7 @@ class MainActivity : FragmentActivity() {
                 else -> systemDark
             }
 
-            // Notification permission request for Android 13+
-            val permissionLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.RequestPermission()
-            ) { /* permission granted/denied handled gracefully */ }
-
+            // Notification permission request for Android 13+ (using 16-bit safe requestCode for FragmentActivity)
             LaunchedEffect(Unit) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     if (ContextCompat.checkSelfPermission(
@@ -99,7 +97,15 @@ class MainActivity : FragmentActivity() {
                             Manifest.permission.POST_NOTIFICATIONS
                         ) != PackageManager.PERMISSION_GRANTED
                     ) {
-                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        try {
+                            androidx.core.app.ActivityCompat.requestPermissions(
+                                this@MainActivity,
+                                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                                REQUEST_CODE_NOTIFICATION_PERMISSION
+                            )
+                        } catch (t: Throwable) {
+                            android.util.Log.e("MainActivity", "Failed to request notification permission", t)
+                        }
                     }
                 }
             }

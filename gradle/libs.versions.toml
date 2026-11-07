@@ -25,8 +25,10 @@ workManager = "2.10.0"
 desugarJdkLibs = "2.1.5"
 playBilling = "7.1.1"
 biometric = "1.2.0-alpha05"
+fragmentKtx = "1.8.5"
 
 [libraries]
+androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragmentKtx" }
 androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibs" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }

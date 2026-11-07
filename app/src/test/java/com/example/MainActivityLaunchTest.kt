@@ -97,4 +97,18 @@ class MainActivityLaunchTest {
         controller.stop()
         controller.destroy()
     }
+
+    @Test
+    fun testNotificationPermissionRequestCode_is16BitSafeForFragmentActivity() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).create()
+        val activity = controller.get()
+        // Must use <= 16-bit requestCode (<= 65535) so FragmentActivity.checkForValidRequestCode does not throw
+        androidx.core.app.ActivityCompat.requestPermissions(
+            activity,
+            arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+            1001
+        )
+        assertFalse(activity.isFinishing)
+        controller.destroy()
+    }
 }

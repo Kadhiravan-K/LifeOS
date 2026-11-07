@@ -269,34 +269,39 @@ fun ThemedAtmosphereBackground(
     ) {
         if (theme.motion.enableAtmosphereGlow) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                when (theme.id) {
-                    ThemeId.COSMIC_EXPLORER -> {
-                        ThemeAssetManager.drawStarfield(
-                            scope = this,
-                            width = size.width,
-                            height = size.height,
-                            starColor = theme.colors.primary
-                        )
-                    }
-                    ThemeId.CYBER_NEXUS -> {
-                        ThemeAssetManager.drawCyberGrid(
-                            scope = this,
-                            width = size.width,
-                            height = size.height,
-                            scanLineProgress = 0.5f,
-                            cyanColor = theme.colors.primary.copy(alpha = 0.15f),
-                            gridColor = theme.colors.outline.copy(alpha = 0.08f)
-                        )
-                    }
-                    else -> {
-                        // Soft ambient radial glow in top corner
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(theme.colors.glowColor, Color.Transparent),
-                                center = Offset(size.width * 0.85f, size.height * 0.15f),
-                                radius = size.width * 0.7f
+                if (size.width > 0f && size.height > 0f) {
+                    when (theme.id) {
+                        ThemeId.COSMIC_EXPLORER -> {
+                            ThemeAssetManager.drawStarfield(
+                                scope = this,
+                                width = size.width,
+                                height = size.height,
+                                starColor = theme.colors.primary
                             )
-                        )
+                        }
+                        ThemeId.CYBER_NEXUS -> {
+                            ThemeAssetManager.drawCyberGrid(
+                                scope = this,
+                                width = size.width,
+                                height = size.height,
+                                scanLineProgress = 0.5f,
+                                cyanColor = theme.colors.primary.copy(alpha = 0.15f),
+                                gridColor = theme.colors.outline.copy(alpha = 0.08f)
+                            )
+                        }
+                        else -> {
+                            val radius = size.width * 0.7f
+                            if (radius > 0f) {
+                                // Soft ambient radial glow in top corner
+                                drawCircle(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(theme.colors.glowColor, Color.Transparent),
+                                        center = Offset(size.width * 0.85f, size.height * 0.15f),
+                                        radius = radius
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
             }
