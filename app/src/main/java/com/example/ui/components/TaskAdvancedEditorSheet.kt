@@ -139,8 +139,10 @@ fun TaskAdvancedEditorSheet(
     var selectedLabelIds by remember { mutableStateOf<Set<Long>>(task?.labels?.map { it.id }?.toSet() ?: emptySet()) }
     var isQuickReminder by remember { mutableStateOf(task?.isQuickReminder ?: false) }
     var isMedicineEnabled by remember { mutableStateOf(false) }
-    var eventLink by remember { mutableStateOf("") }
-    var eventLinkLabel by remember { mutableStateOf("Registration Link") }
+    val decodedNotesWithLinks = remember(task?.notes) {
+        com.example.domain.model.TaskLinksStorage.decode(task?.notes.orEmpty())
+    }
+    var linksList by remember(task?.notes) { mutableStateOf(decodedNotesWithLinks.links) }
     var medicationDraft by remember { mutableStateOf<com.example.domain.medication.MedicationItem?>(null) }
 
     // 2. Schedule Date & Time
@@ -306,7 +308,8 @@ fun TaskAdvancedEditorSheet(
                                 emoji = emoji.trim(),
                                 description = description.trim(),
                                 category = category,
-                                priority = resolveMedicationPriority(remindersList.isNotEmpty(), isPriorityManuallySet, task == null, priority),
+                                priority = if (isPriorityManuallySet) priority else resolveMedicationPriority(isMedicineEnabled, isPriorityManuallySet, task == null, priority, isQuickReminder),
+                                notes = com.example.domain.model.TaskLinksStorage.encode(task?.notes.orEmpty(), linksList),
                                 dueDateIso = dueDateIso,
                                 dueTime = if (isAllDay) null else draftDueTime,
                                 isAllDay = isAllDay,
@@ -587,7 +590,16 @@ fun TaskAdvancedEditorSheet(
                 isMedicineEnabled = isMedicineEnabled,
                 onMedicineEnabledChange = { enabled ->
                     isMedicineEnabled = enabled
-                    // Priority is resolved at save based on reminder state; no mutation here.
+                    if (enabled) {
+                        if (!isPriorityManuallySet) {
+                            preservedPriorityBeforeMedicine = priority
+                        }
+                        priority = TaskPriority.P1
+                    } else {
+                        if (!isPriorityManuallySet) {
+                            priority = if (isQuickReminder) TaskPriority.P2 else preservedPriorityBeforeMedicine
+                        }
+                    }
                 },
                 taskTitle = title,
                 initialMedication = null,
@@ -1134,7 +1146,12 @@ fun TaskAdvancedEditorSheet(
                     }
                     androidx.compose.material3.Switch(
                         checked = isQuickReminder,
-                        onCheckedChange = { isQuickReminder = it },
+                        onCheckedChange = { checked ->
+                            isQuickReminder = checked
+                            if (!isMedicineEnabled && !isPriorityManuallySet) {
+                                priority = if (checked) TaskPriority.P2 else preservedPriorityBeforeMedicine
+                            }
+                        },
                         modifier = Modifier.testTag("adv_editor_qr_switch")
                     )
                 }
@@ -1149,31 +1166,12 @@ fun TaskAdvancedEditorSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
-                    Text("🔗 Event Links & Attachment", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("🔗 Event Links & Attachments", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = eventLink,
-                        onValueChange = { eventLink = it },
-                        placeholder = { Text("https://example.com/event-registration...") },
-                        label = { Text("Event / Action Link") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                    TaskLinksEditor(
+                        links = linksList,
+                        onLinksChanged = { linksList = it }
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        listOf("Registration Link", "Meeting Link", "Location Map", "Docs", "Custom").forEach { lbl ->
-                            FilterChip(
-                                selected = eventLinkLabel == lbl,
-                                onClick = { eventLinkLabel = lbl },
-                                label = { Text(lbl, fontSize = 11.sp) }
-                            )
-                        }
-                    }
                 }
             }
 
@@ -1249,54 +1247,36 @@ fun TaskAdvancedEditorSheet(
         )
     }
 
-    // Material 3 Date Picker Dialog
+    // Vertical Month Scrolling Date Picker Dialog
     if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { ms ->
-                        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                        dueDateIso = sdf.format(Date(ms))
-                    }
-                    showDatePicker = false
-                }) {
-                    Text("OK")
-                }
+        LifeDatePickerDialog(
+            initialDateIso = dueDateIso,
+            title = "Select Due Date",
+            onConfirm = {
+                val updated = com.example.domain.model.TaskDateRangePolicy.updateStartDate(
+                    com.example.domain.model.TaskDateRange(dueDateIso, draftDeadlineIso),
+                    it
+                )
+                dueDateIso = updated.startDateIso
+                draftDeadlineIso = updated.endDateIso
+                showDatePicker = false
             },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
+            onDismiss = { showDatePicker = false }
+        )
     }
 
     // Deadline Date Picker Dialog
     if (showDeadlineDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDeadlineDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    deadlineDatePickerState.selectedDateMillis?.let { ms ->
-                        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                        draftDeadlineIso = sdf.format(Date(ms))
-                    }
-                    showDeadlineDatePicker = false
-                }) {
-                    Text("OK")
-                }
+        LifeDatePickerDialog(
+            initialDateIso = draftDeadlineIso ?: dueDateIso,
+            minDateIso = dueDateIso,
+            title = "Select Deadline Date",
+            onConfirm = {
+                draftDeadlineIso = it
+                showDeadlineDatePicker = false
             },
-            dismissButton = {
-                TextButton(onClick = { showDeadlineDatePicker = false }) {
-                    Text("Cancel")
-                }
-            }
-        ) {
-            DatePicker(state = deadlineDatePickerState)
-        }
+            onDismiss = { showDeadlineDatePicker = false }
+        )
     }
 
     // Time Picker Modal Dialog

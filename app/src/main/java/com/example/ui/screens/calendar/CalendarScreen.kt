@@ -1,5 +1,8 @@
 package com.example.ui.screens.calendar
 
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlin.math.abs
 import androidx.compose.ui.draw.drawBehind
 import com.example.domain.model.RecurrenceType
 import com.example.domain.recurrence.RecurrenceEngine
@@ -393,18 +396,50 @@ fun CalendarScreen(
                 else -> {
                     // "MONTH"
                     if (isMonthExpanded) {
-                        MonthGridView(
-                            monthDates = uiState.monthGridDates,
-                            selectedDate = uiState.selectedDateIso,
-                            today = todayStr,
-                            monthIndex = uiState.currentMonthZeroIndexed,
-                            datesWithTasks = datesWithTasks,
-                            datesWithRecurringTasks = datesWithRecurringTasks,
-                            rangeStartDate = rangeStartDate,
-                            rangeEndDate = rangeEndDate,
-                            firstDayOfWeek = uiState.firstDayOfWeek,
-                            onSelectDate = { viewModel.selectCalendarDate(it) }
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .pointerInput(viewModel) {
+                                    var totalDragX = 0f
+                                    var navigated = false
+                                    val threshold = 72.dp.toPx()
+
+                                    detectHorizontalDragGestures(
+                                        onHorizontalDrag = { change, dragAmount ->
+                                            change.consume()
+                                            if (!navigated) {
+                                                totalDragX += dragAmount
+                                                if (abs(totalDragX) >= threshold) {
+                                                    navigated = true
+                                                    if (totalDragX < 0f) viewModel.nextCalendarMonth()
+                                                    else viewModel.previousCalendarMonth()
+                                                }
+                                            }
+                                        },
+                                        onDragEnd = {
+                                            totalDragX = 0f
+                                            navigated = false
+                                        },
+                                        onDragCancel = {
+                                            totalDragX = 0f
+                                            navigated = false
+                                        }
+                                    )
+                                }
+                        ) {
+                            MonthGridView(
+                                monthDates = uiState.monthGridDates,
+                                selectedDate = uiState.selectedDateIso,
+                                today = todayStr,
+                                monthIndex = uiState.currentMonthZeroIndexed,
+                                datesWithTasks = datesWithTasks,
+                                datesWithRecurringTasks = datesWithRecurringTasks,
+                                rangeStartDate = rangeStartDate,
+                                rangeEndDate = rangeEndDate,
+                                firstDayOfWeek = uiState.firstDayOfWeek,
+                                onSelectDate = { viewModel.selectCalendarDate(it) }
+                            )
+                        }
                     } else {
                         WeekStripView(
                             weekDates = uiState.weekDates,

@@ -107,6 +107,30 @@ fun ThemeDefinition.toMaterial3ColorScheme(
         )
     }
 
+    if (id == ThemeId.GLASS && isLightMode) {
+        val lightColors = ThemeRegistry.GLASS_COLORS_LIGHT
+        val basePrimary = customPalette?.getPrimaryColor(lightColors.primary) ?: lightColors.primary
+        val baseSecondary = customPalette?.getSecondaryColor(lightColors.secondary) ?: lightColors.secondary
+        val baseTertiary = customPalette?.getAccentColor(lightColors.accent) ?: lightColors.accent
+        val baseBg = customPalette?.getBackgroundColor(lightColors.background) ?: lightColors.background
+        val baseSurface = customPalette?.getSurfaceColor(lightColors.surface) ?: lightColors.surface
+        val baseSurfaceVariant = customPalette?.cardHex?.let { Color(it) } ?: lightColors.surfaceVariant
+
+        return lightColorScheme(
+            primary = basePrimary,
+            onPrimary = lightColors.onPrimary,
+            secondary = baseSecondary,
+            tertiary = baseTertiary,
+            background = baseBg,
+            surface = baseSurface,
+            surfaceVariant = baseSurfaceVariant,
+            onBackground = lightColors.onBackground,
+            onSurface = lightColors.onSurface,
+            onSurfaceVariant = lightColors.onSurfaceVariant,
+            outline = lightColors.outline
+        )
+    }
+
     // Immersive themes map their bespoke color palettes into M3 tokens
     return darkColorScheme(
         primary = effectiveTheme.colors.primary,
@@ -131,11 +155,16 @@ fun LifeOSThemeProvider(
     customization: IndependentThemeCustomization = IndependentThemeCustomization(),
     content: @Composable () -> Unit
 ) {
-    val activePalette = if (customization.isEnabled) customization.getActivePalette(isLightMode) else null
-    val effectiveTheme = if (activePalette != null && activePalette.isCustomized) {
-        theme.withCustomPalette(activePalette)
+    val themeWithMode = if (theme.id == ThemeId.GLASS && isLightMode) {
+        theme.copy(colors = ThemeRegistry.GLASS_COLORS_LIGHT)
     } else {
         theme
+    }
+    val activePalette = if (customization.isEnabled) customization.getActivePalette(isLightMode) else null
+    val effectiveTheme = if (activePalette != null && activePalette.isCustomized) {
+        themeWithMode.withCustomPalette(activePalette)
+    } else {
+        themeWithMode
     }
     val m3ColorScheme = effectiveTheme.toMaterial3ColorScheme(isLightMode = isLightMode, customPalette = activePalette)
 

@@ -62,6 +62,9 @@ import com.example.domain.templates.LifeTemplate
 import com.example.domain.templates.TemplateCatalog
 import com.example.domain.templates.TemplateCategory
 import com.example.domain.templates.TemplateImportSummary
+import com.example.domain.essentials.EssentialsCatalog
+import com.example.domain.essentials.SubscriptionTemplate
+import com.example.domain.essentials.TrackerTemplate
 
 import com.example.domain.templates.TemplateBundle
 
@@ -69,6 +72,8 @@ enum class TemplateBrowserTab(val title: String, val emoji: String) {
     INDIVIDUAL("Individual Templates", "📋"),
     BUNDLES("Productivity Bundles", "📦"),
     SPECIAL_BUCKET_LISTS("Special Bucket Lists", "✨"),
+    TRACKERS("Trackers", "📊"),
+    SUBSCRIPTIONS("Subscriptions", "💳"),
     IMPORTED("Imported", "✅")
 }
 
@@ -76,13 +81,34 @@ enum class TemplateBrowserTab(val title: String, val emoji: String) {
 fun TemplateBrowserDialog(
     installedTemplateIds: Set<String>,
     onInstallTemplate: (LifeTemplate, Set<Int>, Set<Int>, (TemplateImportSummary) -> Unit) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    initialTab: TemplateBrowserTab = TemplateBrowserTab.INDIVIDUAL,
+    onImportTrackerTemplate: (TrackerTemplate) -> Unit = {},
+    onImportSubscriptionTemplate: (SubscriptionTemplate) -> Unit = {}
 ) {
-    var selectedTab by remember { mutableStateOf(TemplateBrowserTab.INDIVIDUAL) }
+    var selectedTab by remember { mutableStateOf(initialTab) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<TemplateCategory?>(null) }
     var previewTemplate by remember { mutableStateOf<LifeTemplate?>(null) }
     var lastImportSummary by remember { mutableStateOf<TemplateImportSummary?>(null) }
+
+    val visibleTrackerTemplates = remember(searchQuery) {
+        EssentialsCatalog.trackerTemplates.filter {
+            searchQuery.isBlank() ||
+                    it.title.contains(searchQuery, ignoreCase = true) ||
+                    it.description.contains(searchQuery, ignoreCase = true) ||
+                    it.category.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    val visibleSubscriptionTemplates = remember(searchQuery) {
+        EssentialsCatalog.subscriptionTemplates.filter {
+            searchQuery.isBlank() ||
+                    it.title.contains(searchQuery, ignoreCase = true) ||
+                    it.category.contains(searchQuery, ignoreCase = true) ||
+                    it.notes.contains(searchQuery, ignoreCase = true)
+        }
+    }
 
     val individualTemplates = remember(searchQuery, selectedCategory) {
         TemplateCatalog.allTemplates.filter { template ->
@@ -194,8 +220,10 @@ fun TemplateBrowserDialog(
                         Text(
                             when (selectedTab) {
                                 TemplateBrowserTab.INDIVIDUAL -> "Search individual templates..."
-                                TemplateBrowserTab.BUNDLES -> "Search 7 productivity bundles..."
-                                TemplateBrowserTab.SPECIAL_BUCKET_LISTS -> "Search 4 special bucket lists..."
+                                TemplateBrowserTab.BUNDLES -> "Search productivity bundles..."
+                                TemplateBrowserTab.SPECIAL_BUCKET_LISTS -> "Search special bucket lists..."
+                                TemplateBrowserTab.TRACKERS -> "Search smart trackers..."
+                                TemplateBrowserTab.SUBSCRIPTIONS -> "Search subscriptions..."
                                 TemplateBrowserTab.IMPORTED -> "Search imported templates..."
                             }
                         )
@@ -289,6 +317,8 @@ fun TemplateBrowserDialog(
                                                         habitsImported = templatesToInstall.sumOf { it.habits.size },
                                                         shortcutsImported = templatesToInstall.sumOf { it.shortcuts.size },
                                                         projectsImported = templatesToInstall.sumOf { it.projects.size },
+                                                        trackersImported = templatesToInstall.sumOf { it.trackers.size },
+                                                        subscriptionsImported = templatesToInstall.sumOf { it.subscriptions.size },
                                                         challengeConfigured = templatesToInstall.any { it.challenge != null },
                                                         xpAwarded = bundle.bonusXp
                                                     )
@@ -315,6 +345,139 @@ fun TemplateBrowserDialog(
                                     isInstalled = isInstalled,
                                     onPreviewClick = { previewTemplate = template }
                                 )
+                            }
+                        }
+                    }
+
+                    TemplateBrowserTab.TRACKERS -> {
+                        if (visibleTrackerTemplates.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("No trackers match '$searchQuery'", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                items(visibleTrackerTemplates, key = { it.id }) { tracker ->
+                                    ElevatedCard(
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = CardDefaults.elevatedCardColors(
+                                            containerColor = MaterialTheme.colorScheme.surface
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(14.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(tracker.emoji, fontSize = 28.sp)
+                                            Spacer(Modifier.width(12.dp))
+                                            Column(Modifier.weight(1f)) {
+                                                Text(
+                                                    tracker.title,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 15.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    tracker.description,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Text(
+                                                    "Category: ${tracker.category}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                            Button(
+                                                onClick = {
+                                                    onImportTrackerTemplate(tracker)
+                                                },
+                                                shape = RoundedCornerShape(10.dp)
+                                            ) {
+                                                Text("Add")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    TemplateBrowserTab.SUBSCRIPTIONS -> {
+                        if (visibleSubscriptionTemplates.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("No subscriptions match '$searchQuery'", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                items(visibleSubscriptionTemplates, key = { it.id }) { sub ->
+                                    ElevatedCard(
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = CardDefaults.elevatedCardColors(
+                                            containerColor = MaterialTheme.colorScheme.surface
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(14.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(sub.emoji, fontSize = 28.sp)
+                                            Spacer(Modifier.width(12.dp))
+                                            Column(Modifier.weight(1f)) {
+                                                Text(
+                                                    sub.title,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 15.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    "${sub.currency} ${sub.defaultAmount} / ${sub.frequency.displayName.lowercase()}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                Text(
+                                                    "Category: ${sub.category}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            Button(
+                                                onClick = {
+                                                    onImportSubscriptionTemplate(sub)
+                                                },
+                                                shape = RoundedCornerShape(10.dp)
+                                            ) {
+                                                Text("Add")
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -539,6 +702,18 @@ fun BundleCard(
     }
     val totalTasks = remember(includedTemplates) { includedTemplates.sumOf { it.tasks.size } }
     val totalHabits = remember(includedTemplates) { includedTemplates.sumOf { it.habits.size } }
+    val totalShortcuts = remember(includedTemplates) { includedTemplates.sumOf { it.shortcuts.size } }
+    val totalTrackers = remember(includedTemplates) { includedTemplates.sumOf { it.trackers.size } }
+    val totalSubs = remember(includedTemplates) { includedTemplates.sumOf { it.subscriptions.size } }
+    val bundleSummaryText = remember(totalTasks, totalHabits, totalShortcuts, totalTrackers, totalSubs) {
+        buildList {
+            if (totalTasks > 0) add("📋 $totalTasks Tasks")
+            if (totalHabits > 0) add("🌱 $totalHabits Habits")
+            if (totalShortcuts > 0) add("⚡ $totalShortcuts QR")
+            if (totalTrackers > 0) add("📊 $totalTrackers Trackers")
+            if (totalSubs > 0) add("💳 $totalSubs Subs")
+        }.joinToString(" • ")
+    }
 
     ElevatedCard(
         modifier = Modifier
@@ -643,7 +818,7 @@ fun BundleCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "📋 $totalTasks Tasks • 🌱 $totalHabits Habits",
+                    text = bundleSummaryText.ifBlank { "📋 $totalTasks Tasks • 🌱 $totalHabits Habits" },
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.SemiBold
@@ -946,7 +1121,7 @@ fun TemplatePreviewDialog(
                     }
 
                     // Project & Hexagons info
-                    if (template.projects.isNotEmpty() || template.shortcuts.isNotEmpty() || template.challenge != null) {
+                    if (template.projects.isNotEmpty() || template.shortcuts.isNotEmpty() || template.challenge != null || template.trackers.isNotEmpty() || template.subscriptions.isNotEmpty()) {
                         item {
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
@@ -964,7 +1139,21 @@ fun TemplatePreviewDialog(
                             }
                             if (template.shortcuts.isNotEmpty()) {
                                 Text(
-                                    text = "⬡ Honeycomb Shortcuts: Adds ${template.shortcuts.size} quick-access hex tile(s)",
+                                    text = "⚡ Honeycomb Shortcuts: Adds ${template.shortcuts.size} quick-access hex tile(s)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (template.trackers.isNotEmpty()) {
+                                Text(
+                                    text = "📊 Trackers: Adds ${template.trackers.size} smart tracker(s)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (template.subscriptions.isNotEmpty()) {
+                                Text(
+                                    text = "💳 Subscriptions: Adds ${template.subscriptions.size} subscription(s)",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1077,6 +1266,12 @@ fun ImportSuccessDialog(
                         }
                         if (summary.shortcutsAdded > 0) {
                             Text(text = "• ${summary.shortcutsAdded} Honeycomb hex shortcut(s) pinned", fontSize = 13.sp)
+                        }
+                        if (summary.trackersImported > 0) {
+                            Text(text = "• ${summary.trackersImported} Smart tracker(s) created", fontSize = 13.sp)
+                        }
+                        if (summary.subscriptionsImported > 0) {
+                            Text(text = "• ${summary.subscriptionsImported} Subscription(s) tracked", fontSize = 13.sp)
                         }
                         Text(text = "• +${summary.xpAwarded} XP awarded!", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }

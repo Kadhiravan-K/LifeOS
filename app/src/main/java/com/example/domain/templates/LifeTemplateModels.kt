@@ -1,5 +1,7 @@
 package com.example.domain.templates
 
+import com.example.domain.essentials.SubscriptionTemplate
+import com.example.domain.essentials.TrackerTemplate
 import com.example.domain.model.ChallengeRule
 import com.example.domain.model.RecurrenceType
 import com.example.domain.model.ShortcutType
@@ -91,6 +93,8 @@ data class LifeTemplate(
     val tasks: List<TemplateTaskDef> = emptyList(),
     val habits: List<TemplateHabitDef> = emptyList(),
     val shortcuts: List<TemplateShortcutDef> = emptyList(),
+    val trackers: List<TrackerTemplate> = emptyList(),
+    val subscriptions: List<SubscriptionTemplate> = emptyList(),
     val projects: List<TemplateProjectDef> = emptyList(),
     val challenge: TemplateChallengeDef? = null,
     val tags: List<String> = emptyList()
@@ -102,7 +106,7 @@ data class LifeTemplate(
         get() = projects.firstOrNull()
 
     val totalItemsCount: Int
-        get() = tasks.size + habits.size + shortcuts.size + projects.size
+        get() = tasks.size + habits.size + shortcuts.size + projects.size + trackers.size + subscriptions.size
 }
 
 data class TemplateImportSummary(
@@ -112,6 +116,8 @@ data class TemplateImportSummary(
     val habitsImported: Int,
     val shortcutsImported: Int,
     val projectsImported: Int,
+    val trackersImported: Int = 0,
+    val subscriptionsImported: Int = 0,
     val challengeConfigured: Boolean = false,
     val xpAwarded: Int = 25
 ) {
@@ -120,6 +126,9 @@ data class TemplateImportSummary(
 
     val projectsAdded: Int
         get() = projectsImported
+
+    val totalImported: Int
+        get() = tasksImported + habitsImported + shortcutsImported + trackersImported + subscriptionsImported
 }
 
 data class TemplateBundle(

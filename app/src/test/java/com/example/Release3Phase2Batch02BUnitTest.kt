@@ -135,4 +135,40 @@ class Release3Phase2Batch02BUnitTest {
         )
         assertEquals(Color(customDarkPrimary), glassCustomScheme.primary)
     }
+
+    @Test
+    fun testGlassmorphismDarkEnhancedContrastAndLightVariant() {
+        val glassTheme = ThemeRegistry.GLASS_THEME
+
+        // Dark Variant Verification (Req 8.1)
+        val darkColors = ThemeRegistry.GLASS_COLORS_DARK
+        assertEquals(darkColors, glassTheme.colors)
+        assertTrue("Dark glass must use dark palette", darkColors.isDarkPalette)
+        assertEquals("Crisp white foreground text for high readability", Color(0xFFFFFFFF), darkColors.onSurface)
+        assertEquals("Slate-100 secondary text for high readability", Color(0xFFE2E8F0), darkColors.onSurfaceVariant)
+        assertEquals("Specular cyan border", Color(0x6638BDF8), darkColors.outline)
+
+        val darkM3 = glassTheme.toMaterial3ColorScheme(isLightMode = false)
+        assertEquals(Color(0xFFFFFFFF), darkM3.onSurface)
+        assertEquals(Color(0xFFE2E8F0), darkM3.onSurfaceVariant)
+
+        // Light Variant Verification (Req 8.2)
+        val lightColors = ThemeRegistry.GLASS_COLORS_LIGHT
+        assertFalse("Light glass must be a light palette", lightColors.isDarkPalette)
+        assertEquals("High contrast deep navy text", Color(0xFF0B132B), lightColors.onSurface)
+        assertEquals("High contrast slate 700 text", Color(0xFF334155), lightColors.onSurfaceVariant)
+        assertEquals("Light frosty ice background", Color(0xFFF0F5FA), lightColors.background)
+        assertEquals("Frosted white surface", Color(0xCCFFFFFF), lightColors.surface)
+
+        val lightM3 = glassTheme.toMaterial3ColorScheme(isLightMode = true)
+        assertEquals(Color(0xFF0B132B), lightM3.onSurface)
+        assertEquals(Color(0xFF334155), lightM3.onSurfaceVariant)
+        assertEquals(Color(0xFFF0F5FA), lightM3.background)
+        assertEquals(Color(0xCCFFFFFF), lightM3.surface)
+
+        val effectiveLight = ThemeRegistry.getEffectiveColors(glassTheme, isLightMode = true)
+        assertEquals(lightColors, effectiveLight)
+        val effectiveDark = ThemeRegistry.getEffectiveColors(glassTheme, isLightMode = false)
+        assertEquals(darkColors, effectiveDark)
+    }
 }

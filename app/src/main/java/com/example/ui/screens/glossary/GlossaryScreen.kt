@@ -123,7 +123,7 @@ fun GlossaryScreen(
                 title = {
                     Column {
                         Text(
-                            text = "Knowledge Glossary",
+                            text = "Knowledge & Glossary Library",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )

@@ -99,9 +99,11 @@ fun TaskQuickAddSheet(
     onSaveTask: (TaskItem) -> Unit,
     defaultDuration: Int = 30,
     onSaveTaskWithMedication: ((TaskItem, com.example.domain.medication.MedicationItem?) -> Unit)? = null,
+    onSaveTaskWithResult: ((TaskItem, com.example.domain.medication.MedicationItem?, (Result<com.example.ui.viewmodel.TaskSaveReceipt>) -> Unit) -> Unit)? = null,
     onExpandToAdvanced: (TaskItem) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val today = DateUtils.todayString()
     var title by remember { mutableStateOf(initialTask?.title ?: "") }
     var emoji by remember { mutableStateOf(initialTask?.emoji ?: "") }
@@ -126,6 +128,8 @@ fun TaskQuickAddSheet(
     var isQuickReminder by remember { mutableStateOf(initialTask?.isQuickReminder ?: false) }
     var isMedicineEnabled by remember { mutableStateOf(false) }
     var medicationDraft by remember { mutableStateOf<com.example.domain.medication.MedicationItem?>(null) }
+    var isSaving by remember { mutableStateOf(false) }
+    var saveError by remember { mutableStateOf<String?>(null) }
 
     var showDatePicker by remember { mutableStateOf(false) }
     var showEmojiDialog by remember { mutableStateOf(false) }
@@ -133,10 +137,6 @@ fun TaskQuickAddSheet(
     var showMultiLabelSheet by remember { mutableStateOf(false) }
     var showCreateProjectSheet by remember { mutableStateOf(false) }
     var showCreateLabelSheet by remember { mutableStateOf(false) }
-
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = System.currentTimeMillis()
-    )
 
     fun currentTaskDraft(): TaskItem {
         val selectedLabels = labels.filter { selectedLabelIds.contains(it.id) }
@@ -156,7 +156,7 @@ fun TaskQuickAddSheet(
             description = description.trim(),
             dueDateIso = dueDateIso,
             deadlineIso = deadlineIso,
-            priority = resolveMedicationPriority(isReminderEnabled, isPriorityManuallySet, initialTask == null, priority),
+            priority = if (isPriorityManuallySet) priority else resolveMedicationPriority(isMedicineEnabled, isPriorityManuallySet, initialTask == null, priority, isQuickReminder),
             projectId = selectedProjectId,
             labels = selectedLabels,
             isReminderEnabled = isReminderEnabled,
@@ -487,7 +487,12 @@ fun TaskQuickAddSheet(
 
                 // Quick Reminders tile toggle chip
                 Surface(
-                    onClick = { isQuickReminder = !isQuickReminder },
+                    onClick = {
+                        isQuickReminder = !isQuickReminder
+                        if (!isMedicineEnabled && !isPriorityManuallySet) {
+                            priority = if (isQuickReminder) TaskPriority.P2 else preservedPriorityBeforeMedicine
+                        }
+                    },
                     shape = RoundedCornerShape(8.dp),
                     color = if (isQuickReminder) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     border = androidx.compose.foundation.BorderStroke(
@@ -542,7 +547,16 @@ fun TaskQuickAddSheet(
                 isMedicineEnabled = isMedicineEnabled,
                 onMedicineEnabledChange = { enabled ->
                     isMedicineEnabled = enabled
-                    // No priority mutation here; priority is resolved at save based on reminder state.
+                    if (enabled) {
+                        if (!isPriorityManuallySet) {
+                            preservedPriorityBeforeMedicine = priority
+                        }
+                        priority = TaskPriority.P1
+                    } else {
+                        if (!isPriorityManuallySet) {
+                            priority = if (isQuickReminder) TaskPriority.P2 else preservedPriorityBeforeMedicine
+                        }
+                    }
                 },
                 taskTitle = title,
                 initialMedication = null,
@@ -558,24 +572,53 @@ fun TaskQuickAddSheet(
             ) {
                 Button(
                     onClick = {
-                        if (title.isNotBlank()) {
+                        if (title.isNotBlank() && !isSaving) {
+                            saveError = null
                             val draft = currentTaskDraft()
-                            if (onSaveTaskWithMedication != null) {
-                                onSaveTaskWithMedication(draft, if (isMedicineEnabled) medicationDraft else null)
+                            val medication = if (isMedicineEnabled) medicationDraft else null
+                            if (onSaveTaskWithResult != null) {
+                                isSaving = true
+                                onSaveTaskWithResult(draft, medication) { result ->
+                                    isSaving = false
+                                    result.fold(
+                                        onSuccess = { receipt ->
+                                            receipt.warning?.let {
+                                                android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
+                                            }
+                                            onDismiss()
+                                        },
+                                        onFailure = { error ->
+                                            saveError = error.message ?: "Task could not be saved. Please try again."
+                                        }
+                                    )
+                                }
                             } else {
-                                onSaveTask(draft)
+                                if (onSaveTaskWithMedication != null) {
+                                    onSaveTaskWithMedication(draft, medication)
+                                } else {
+                                    onSaveTask(draft)
+                                }
+                                onDismiss()
                             }
-                            onDismiss()
                         }
                     },
-                    enabled = title.isNotBlank(),
+                    enabled = title.isNotBlank() && !isSaving,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.testTag("quick_add_save_btn")
                 ) {
                     Icon(imageVector = Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Add Task")
+                    Text(if (isSaving) "Saving..." else "Add Task")
                 }
+            }
+            if (saveError != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = saveError.orEmpty(),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("quick_add_save_error")
+                )
             }
         }
     }
@@ -612,29 +655,22 @@ fun TaskQuickAddSheet(
         )
     }
 
-    // Material 3 DatePickerDialog
+    // The shared Material 3 calendar scrolls vertically through months.
     if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { ms ->
-                        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.systemDefault())
-                        dueDateIso = formatter.format(Instant.ofEpochMilli(ms))
-                    }
-                    showDatePicker = false
-                }) {
-                    Text("OK")
-                }
+        LifeDatePickerDialog(
+            initialDateIso = dueDateIso,
+            title = "Select Due Date",
+            onConfirm = {
+                val updated = com.example.domain.model.TaskDateRangePolicy.updateStartDate(
+                    com.example.domain.model.TaskDateRange(dueDateIso, deadlineIso),
+                    it
+                )
+                dueDateIso = updated.startDateIso
+                deadlineIso = updated.endDateIso
+                showDatePicker = false
             },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
+            onDismiss = { showDatePicker = false }
+        )
     }
 
     // Inline Create Project Bottom Sheet

@@ -1,5 +1,6 @@
 package com.example.domain.templates
 
+import com.example.domain.essentials.EssentialsCatalog
 import com.example.domain.model.ChallengeRule
 import com.example.domain.model.RecurrenceType
 import com.example.domain.model.ShortcutType
@@ -1490,6 +1491,243 @@ object TemplateCatalog {
                 StandardProjects.HEALTH
             ),
             tags = listOf("hydration", "water", "health", "tracker", "qr", "widget")
+        ),
+
+        // 19. Mobile Testing & QA Bundle
+        LifeTemplate(
+            id = "template_mobile_testing",
+            version = 1,
+            title = "Mobile Testing & Evaluation Bundle",
+            description = "Complete 32-record offline bundle designed for mobile testing and evaluation: 8 tasks, 4 habits, 8 QR quick reminders, 6 trackers, and 6 subscriptions.",
+            category = TemplateCategory.PRODUCTIVITY,
+            emoji = "📱",
+            tasks = listOf(
+                TemplateTaskDef(
+                    title = "[P1] Critical Smoke Test & Priority Dispatch",
+                    description = "Verify P1 red badge rendering, high-priority sort ranking, and urgent alarm chime triggers",
+                    category = "QA",
+                    priority = TaskPriority.URGENT,
+                    dueTime = "09:00",
+                    durationMinutes = 15,
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Office",
+                    labels = listOf("P1", "SmokeTest", "Urgent", "QA")
+                ),
+                TemplateTaskDef(
+                    title = "[P1/Medication] Daily Morning Medication Alert",
+                    description = "Audit meal-relationship scheduling and notification audio alert delivery",
+                    category = "Health",
+                    priority = TaskPriority.URGENT,
+                    dueTime = "08:00",
+                    durationMinutes = 10,
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Health",
+                    labels = listOf("Health", "Medication", "Alarms", "P1")
+                ),
+                TemplateTaskDef(
+                    title = "[P2] Room Schema Migration & Integrity Verification",
+                    description = "Verify task persistence, cross-reference associations, and monotonic Room database migrations",
+                    category = "Database",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "11:00",
+                    durationMinutes = 30,
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Learning",
+                    labels = listOf("Database", "Room", "Migration", "P2")
+                ),
+                TemplateTaskDef(
+                    title = "[P2] Sync Offline State & Security Audit",
+                    description = "Verify profile lock timeout and local Keystore authentication boundary",
+                    category = "Security",
+                    priority = TaskPriority.HIGH,
+                    dueTime = "13:00",
+                    durationMinutes = 20,
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Office",
+                    labels = listOf("Security", "ProfileLock", "P2")
+                ),
+                TemplateTaskDef(
+                    title = "[P3] Calendar Recurrence Dots & Midnight Rollover",
+                    description = "Verify calendar dot indicators match recurrence engine scheduling deterministically across midnight boundaries",
+                    category = "Calendar",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "14:00",
+                    durationMinutes = 45,
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Daily Habits",
+                    labels = listOf("Calendar", "Recurrence", "Dots", "P3")
+                ),
+                TemplateTaskDef(
+                    title = "[P3] Weekly Review & Life Cycle Planner Alignment",
+                    description = "Multi-day schedule evaluation and shift cycle reconciliation",
+                    category = "Planning",
+                    priority = TaskPriority.MEDIUM,
+                    dueTime = "17:00",
+                    durationMinutes = 30,
+                    recurrenceType = RecurrenceType.WEEKLY,
+                    recurrenceDaysOfWeek = listOf("FRIDAY", "SUNDAY"),
+                    projectName = "Personal",
+                    labels = listOf("ShiftPlanner", "WeeklyReview", "P3")
+                ),
+                TemplateTaskDef(
+                    title = "[P4] Launcher QR Honeycomb Axial Grid Audit",
+                    description = "Audit pointy-top axial hex math (q, r), alternating row chunking, and widget PendingIntent dispatch",
+                    category = "Widget",
+                    priority = TaskPriority.LOW,
+                    dueTime = "18:00",
+                    durationMinutes = 30,
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Personal",
+                    labels = listOf("Widget", "Honeycomb", "Launcher", "P4")
+                ),
+                TemplateTaskDef(
+                    title = "[P4] Archive Completed Tasks & Clean Database",
+                    description = "Routine maintenance: purge stale trash records and verify backup export integrity",
+                    category = "Maintenance",
+                    priority = TaskPriority.LOW,
+                    dueTime = "20:00",
+                    durationMinutes = 15,
+                    recurrenceType = RecurrenceType.DAILY,
+                    projectName = "Office",
+                    labels = listOf("Maintenance", "Backup", "P4")
+                )
+            ),
+            habits = listOf(
+                TemplateHabitDef(
+                    title = "Morning Sunlight & 10-Min Walk",
+                    emoji = "☀️",
+                    description = "Anchor circadian rhythm with early outdoor sunlight exposure",
+                    reminderTime = "07:00",
+                    colorHex = 0xFFFF9800
+                ),
+                TemplateHabitDef(
+                    title = "Hydration: 3L Water Daily",
+                    emoji = "💧",
+                    description = "Consistent hydration throughout morning and focus blocks",
+                    reminderTime = "09:00",
+                    colorHex = 0xFF2196F3
+                ),
+                TemplateHabitDef(
+                    title = "Daily 10k Steps Movement",
+                    emoji = "👟",
+                    description = "Consistent daily physical baseline movement",
+                    reminderTime = "18:00",
+                    colorHex = 0xFF4CAF50
+                ),
+                TemplateHabitDef(
+                    title = "Evening Digital Sunset & Reading",
+                    emoji = "🌙",
+                    description = "Disconnect screens 45 minutes before sleep and read 10 pages",
+                    reminderTime = "21:30",
+                    colorHex = 0xFF9C27B0
+                )
+            ),
+            shortcuts = listOf(
+                TemplateShortcutDef(
+                    type = ShortcutType.WATER,
+                    targetId = "water",
+                    title = "Hydrate 250ml",
+                    emoji = "💧",
+                    coordQ = 0,
+                    coordR = 0,
+                    customColorHex = 0xFF2196F3,
+                    colorSource = "CUSTOM"
+                ),
+                TemplateShortcutDef(
+                    type = ShortcutType.TASK,
+                    targetId = "[P1] Critical Smoke Test & Priority Dispatch",
+                    title = "Smoke Test",
+                    emoji = "🧪",
+                    coordQ = 1,
+                    coordR = 0,
+                    customColorHex = 0xFFE53935,
+                    colorSource = "CUSTOM"
+                ),
+                TemplateShortcutDef(
+                    type = ShortcutType.TASK,
+                    targetId = "[P1/Medication] Daily Morning Medication Alert",
+                    title = "Medication",
+                    emoji = "💊",
+                    coordQ = -1,
+                    coordR = 0,
+                    customColorHex = 0xFFE91E63,
+                    colorSource = "CUSTOM"
+                ),
+                TemplateShortcutDef(
+                    type = ShortcutType.HABIT,
+                    targetId = "Morning Sunlight & 10-Min Walk",
+                    title = "Sunlight",
+                    emoji = "☀️",
+                    coordQ = 0,
+                    coordR = 1,
+                    customColorHex = 0xFFFF9800,
+                    colorSource = "CUSTOM"
+                ),
+                TemplateShortcutDef(
+                    type = ShortcutType.HABIT,
+                    targetId = "Hydration: 3L Water Daily",
+                    title = "Hydration Habit",
+                    emoji = "🌊",
+                    coordQ = 0,
+                    coordR = -1,
+                    customColorHex = 0xFF00BCD4,
+                    colorSource = "CUSTOM"
+                ),
+                TemplateShortcutDef(
+                    type = ShortcutType.TASK,
+                    targetId = "[P2] Room Schema Migration & Integrity Verification",
+                    title = "Room Check",
+                    emoji = "🗄️",
+                    coordQ = 1,
+                    coordR = -1,
+                    customColorHex = 0xFF3F51B5,
+                    colorSource = "CUSTOM"
+                ),
+                TemplateShortcutDef(
+                    type = ShortcutType.TASK,
+                    targetId = "[P3] Calendar Recurrence Dots & Midnight Rollover",
+                    title = "Calendar Dot",
+                    emoji = "📅",
+                    coordQ = -1,
+                    coordR = 1,
+                    customColorHex = 0xFF009688,
+                    colorSource = "CUSTOM"
+                ),
+                TemplateShortcutDef(
+                    type = ShortcutType.TASK,
+                    targetId = "[P4] Launcher QR Honeycomb Axial Grid Audit",
+                    title = "Launcher QR",
+                    emoji = "⚡",
+                    coordQ = 2,
+                    coordR = 0,
+                    customColorHex = 0xFF607D8B,
+                    colorSource = "CUSTOM"
+                )
+            ),
+            trackers = listOf(
+                EssentialsCatalog.trackerTemplates[0],
+                EssentialsCatalog.trackerTemplates[1],
+                EssentialsCatalog.trackerTemplates[2],
+                EssentialsCatalog.trackerTemplates[3],
+                EssentialsCatalog.trackerTemplates[4],
+                EssentialsCatalog.trackerTemplates[5]
+            ),
+            subscriptions = listOf(
+                EssentialsCatalog.subscriptionTemplates[0],
+                EssentialsCatalog.subscriptionTemplates[1],
+                EssentialsCatalog.subscriptionTemplates[2],
+                EssentialsCatalog.subscriptionTemplates[3],
+                EssentialsCatalog.subscriptionTemplates[6],
+                EssentialsCatalog.subscriptionTemplates[7]
+            ),
+            projects = listOf(
+                StandardProjects.OFFICE,
+                StandardProjects.HEALTH,
+                StandardProjects.LEARNING,
+                StandardProjects.PERSONAL,
+                StandardProjects.DAILY_HABITS
+            ),
+            tags = listOf("testing", "bundle", "qa", "mobile", "full-suite", "p1-p4", "32-records")
         )
     )
 
@@ -1607,6 +1845,14 @@ object TemplateCatalog {
             emoji = "💧",
             templateIds = listOf("template_quick_hydration_tracker"),
             bonusXp = 50
+        ),
+        TemplateBundle(
+            id = "bundle_mobile_testing",
+            title = "Mobile Testing Bundle",
+            description = "Dedicated QA bundle for physical evaluation: 8 QR quick reminders, 8 tasks, 6 trackers, 6 subscriptions, and 4 habits (32 records total).",
+            emoji = "📱",
+            templateIds = listOf("template_mobile_testing"),
+            bonusXp = 100
         )
     )
 

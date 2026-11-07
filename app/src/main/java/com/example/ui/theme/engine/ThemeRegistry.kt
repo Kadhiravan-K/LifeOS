@@ -299,33 +299,57 @@ object ThemeRegistry {
         honeycombEngraving = HoneycombEngravingType.ORBITAL
     )
 
+    val GLASS_COLORS_DARK = ThemeColors(
+        primary = Color(0xFF38BDF8), // Specular cyan
+        onPrimary = Color(0xFF0F172A),
+        secondary = Color(0xFF818CF8), // Prismatic violet
+        onSecondary = Color(0xFF0F172A),
+        accent = Color(0xFF38BDF8), // High contrast ice blue
+        background = Color(0xFF070B14), // Deep obsidian frost
+        surface = Color(0x99101C30), // Translucent frosted surface with subtle blue tint
+        surfaceVariant = Color(0xB3182844), // Translucent raised layer with distinct contrast
+        onBackground = Color(0xFFF8FAFC),
+        onSurface = Color(0xFFFFFFFF), // Crisp pure white for high contrast
+        onSurfaceVariant = Color(0xFFE2E8F0), // Slate-100 for high secondary text readability
+        outline = Color(0x6638BDF8), // Specular ice blue highlight border
+        glowColor = Color(0x5038BDF8),
+        gradientPrimary = listOf(Color(0xFF0EA5E9), Color(0xFF818CF8)),
+        gradientSurface = listOf(Color(0x99182844), Color(0x80101C30)),
+        honeycombBorder = Color(0x9938BDF8),
+        honeycombDefaultFill = Color(0xFF0EA5E9),
+        badgeBackground = Color(0x801E293B),
+        isDarkPalette = true
+    )
+
+    val GLASS_COLORS_LIGHT = ThemeColors(
+        primary = Color(0xFF0284C7), // Sky 600 specular blue
+        onPrimary = Color(0xFFFFFFFF),
+        secondary = Color(0xFF4F46E5), // Indigo 600
+        onSecondary = Color(0xFFFFFFFF),
+        accent = Color(0xFF0EA5E9), // Sky 500
+        background = Color(0xFFF0F5FA), // Crisp icy-blue tinted light background
+        surface = Color(0xCCFFFFFF), // Frosted white with subtle blue translucency
+        surfaceVariant = Color(0xE6E8F1FC), // Distinct elevated frosted layer with delicate blue tint
+        onBackground = Color(0xFF0F172A), // Slate 900 for high contrast
+        onSurface = Color(0xFF0B132B), // Deep navy for crisp foreground text readability
+        onSurfaceVariant = Color(0xFF334155), // Slate 700 for secondary text readability
+        outline = Color(0x6638BDF8), // Specular translucent blue border
+        glowColor = Color(0x330284C7),
+        gradientPrimary = listOf(Color(0xFF0284C7), Color(0xFF6366F1)),
+        gradientSurface = listOf(Color(0xE6FFFFFF), Color(0xCCE8F1FC)),
+        honeycombBorder = Color(0x990284C7),
+        honeycombDefaultFill = Color(0xFF38BDF8),
+        badgeBackground = Color(0x330284C7),
+        isDarkPalette = false
+    )
+
     val GLASS_THEME = ThemeDefinition(
         id = ThemeId.GLASS,
         name = "Glassmorphism",
         subtitle = "Frosted Specular Elegance",
         description = "Translucent frosted surfaces, layered glass panels, specular edge reflections, and subtle refractive prismatic motifs.",
         isPremium = true,
-        colors = ThemeColors(
-            primary = Color(0xFF38BDF8), // Specular cyan
-            onPrimary = Color(0xFF0F172A),
-            secondary = Color(0xFF818CF8), // Prismatic violet
-            onSecondary = Color(0xFF0F172A),
-            accent = Color(0xFF34D399), // Mint frost
-            background = Color(0xFF080C14), // Deep obsidian frost
-            surface = Color(0x80131E32), // Translucent frosted surface
-            surfaceVariant = Color(0x991E293B), // Translucent raised layer
-            onBackground = Color(0xFFF1F5F9),
-            onSurface = Color(0xFFF8FAFC),
-            onSurfaceVariant = Color(0xFFCBD5E1),
-            outline = Color(0x40FFFFFF), // Specular white highlight
-            glowColor = Color(0x4038BDF8),
-            gradientPrimary = listOf(Color(0xFF0EA5E9), Color(0xFF818CF8)),
-            gradientSurface = listOf(Color(0x661E293B), Color(0x330F172A)),
-            honeycombBorder = Color(0x8038BDF8),
-            honeycombDefaultFill = Color(0xFF0EA5E9),
-            badgeBackground = Color(0x66334155),
-            isDarkPalette = true
-        ),
+        colors = GLASS_COLORS_DARK,
         typography = ThemeTypography.createDefault(FontFamily.SansSerif),
         shapes = ThemeShapes(
             cardShape = RoundedCornerShape(20.dp),
@@ -370,5 +394,13 @@ object ThemeRegistry {
     fun getTheme(idString: String): ThemeDefinition {
         val themeId = ThemeId.fromId(idString)
         return getTheme(themeId)
+    }
+
+    fun getEffectiveColors(theme: ThemeDefinition, isLightMode: Boolean): ThemeColors {
+        return if (theme.id == ThemeId.GLASS && isLightMode) {
+            GLASS_COLORS_LIGHT
+        } else {
+            theme.colors
+        }
     }
 }

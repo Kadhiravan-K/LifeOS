@@ -70,9 +70,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.domain.essentials.EssentialsCatalog
-import com.example.domain.essentials.SubscriptionTemplate
-import com.example.domain.essentials.TrackerTemplate
 import com.example.domain.subscription.BillingOccurrenceItem
 import com.example.domain.subscription.BillStatus
 import com.example.domain.subscription.SubscriptionItem
@@ -80,6 +77,9 @@ import com.example.domain.subscription.SubscriptionStatus
 import com.example.domain.model.ProjectItem
 import com.example.domain.tracker.InventoryPolicy
 import com.example.domain.tracker.TrackerItem
+import com.example.ui.screens.templates.TemplateBrowserDialog
+import com.example.ui.screens.templates.TemplateBrowserTab
+import kotlinx.coroutines.flow.flowOf
 import com.example.ui.viewmodel.LifeViewModel
 import com.example.ui.viewmodel.SubscriptionViewModel
 import com.example.ui.viewmodel.TrackerViewModel
@@ -93,6 +93,7 @@ fun TrackersSubscriptionsScreen(
     projects: List<ProjectItem> = emptyList(),
     isPremium: Boolean = false,
     onNavigateBack: () -> Unit,
+    templateViewModel: LifeViewModel? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -518,16 +519,22 @@ fun TrackersSubscriptionsScreen(
         )
     }
 
-    // --- Bottom Sheet: Template Catalog ---
+    // --- Unified Template Browser ---
     if (showTemplateCatalogSheet) {
-        TemplateCatalogBottomSheet(
-            selectedTabIndex = selectedTabIndex,
-            onSelectTrackerTemplate = { template ->
+        val installedTemplateIds by (templateViewModel?.installedTemplateIds ?: flowOf(emptySet()))
+            .collectAsStateWithLifecycle(initialValue = emptySet())
+        TemplateBrowserDialog(
+            installedTemplateIds = installedTemplateIds,
+            onInstallTemplate = { template, tasks, habits, onDone ->
+                templateViewModel?.installTemplate(template, tasks, habits, onDone)
+            },
+            initialTab = if (selectedTabIndex == 0) TemplateBrowserTab.TRACKERS else TemplateBrowserTab.SUBSCRIPTIONS,
+            onImportTrackerTemplate = { template ->
                 showTemplateCatalogSheet = false
                 trackerViewModel.saveTracker(template.toTrackerItem())
                 Toast.makeText(context, "Added '${template.title}' from templates!", Toast.LENGTH_SHORT).show()
             },
-            onSelectSubscriptionTemplate = { template ->
+            onImportSubscriptionTemplate = { template ->
                 showTemplateCatalogSheet = false
                 subscriptionViewModel.saveSubscription(template.toSubscriptionItem())
                 Toast.makeText(context, "Added '${template.title}' subscription!", Toast.LENGTH_SHORT).show()
@@ -554,6 +561,7 @@ fun TrackersSubscriptionsScreen(
         projects = projects,
         isPremium = isPremium,
         onNavigateBack = onNavigateBack,
+        templateViewModel = viewModel,
         modifier = modifier
     )
 }
@@ -793,104 +801,6 @@ private fun EmptyEssentialsView(
                     Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(templateText)
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun TemplateCatalogBottomSheet(
-    selectedTabIndex: Int,
-    onSelectTrackerTemplate: (TrackerTemplate) -> Unit,
-    onSelectSubscriptionTemplate: (SubscriptionTemplate) -> Unit,
-    onDismiss: () -> Unit
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 36.dp)
-        ) {
-            Text(
-                text = if (selectedTabIndex == 0) "Predefined Tracker Templates" else "Popular Subscription Templates",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Tap any template to add it immediately with recommended settings.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (selectedTabIndex == 0) {
-                    items(EssentialsCatalog.trackerTemplates, key = { it.id }) { t ->
-                        Card(
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelectTrackerTemplate(t) }
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(text = t.emoji, fontSize = 24.sp)
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = t.title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                    Text(text = t.description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    items(EssentialsCatalog.subscriptionTemplates, key = { it.id }) { s ->
-                        Card(
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelectSubscriptionTemplate(s) }
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                    Text(text = s.emoji, fontSize = 24.sp)
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(text = s.title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                        Text(text = s.category, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                }
-                                Text(
-                                    text = "${s.currency} ${s.defaultAmount} / ${s.frequency.displayName.lowercase()}",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
                 }
             }
         }

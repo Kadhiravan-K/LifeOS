@@ -1976,6 +1976,8 @@ class LifeRepository(
         var habitsAdded = 0
         var projectsAdded = 0
         var shortcutsAdded = 0
+        var trackersAdded = 0
+        var subscriptionsAdded = 0
         var challengeConfigured = false
 
         database.withTransaction {
@@ -2232,6 +2234,32 @@ class LifeRepository(
                     shortcutsAdded++
                 }
             }
+
+            // 6. Trackers
+            val existingTrackers = database.trackerDao().getAllTrackersList().filter { it.profileId == activeProfileId }
+            template.trackers.forEach { trackerDef ->
+                val alreadyExists = existingTrackers.any { it.title.equals(trackerDef.title, ignoreCase = true) }
+                if (!alreadyExists) {
+                    val trackerItem = trackerDef.toTrackerItem()
+                    database.trackerDao().insertTracker(
+                        com.example.data.local.entities.TrackerEntity.fromDomain(trackerItem.copy(profileId = activeProfileId))
+                    )
+                    trackersAdded++
+                }
+            }
+
+            // 7. Subscriptions
+            val existingSubscriptions = database.subscriptionDao().getAllSubscriptionsList().filter { it.profileId == activeProfileId }
+            template.subscriptions.forEach { subDef ->
+                val alreadyExists = existingSubscriptions.any { it.title.equals(subDef.title, ignoreCase = true) }
+                if (!alreadyExists) {
+                    val subItem = subDef.toSubscriptionItem()
+                    database.subscriptionDao().insertSubscription(
+                        com.example.data.local.entities.SubscriptionEntity.fromDomain(subItem.copy(profileId = activeProfileId))
+                    )
+                    subscriptionsAdded++
+                }
+            }
         }
 
         // Record installed template ID
@@ -2255,6 +2283,8 @@ class LifeRepository(
             habitsImported = habitsAdded,
             shortcutsImported = shortcutsAdded,
             projectsImported = projectsAdded,
+            trackersImported = trackersAdded,
+            subscriptionsImported = subscriptionsAdded,
             challengeConfigured = challengeConfigured,
             xpAwarded = GamificationEngine.XP_TEMPLATE_INSTALLED
         )

@@ -45,6 +45,18 @@ object SchedulingEngine {
             } else null
 
             when (unit) {
+                DurationUnit.SECONDS -> {
+                    if (localTime != null) {
+                        val end = java.time.LocalDateTime.of(localDate, localTime).plusSeconds(safeAmount.toLong())
+                        val endIso = end.toLocalDate().format(dateFormatter)
+                        val endT = end.toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss", Locale.ROOT))
+                        val dateDisp = if (endIso == startDateIso) "" else " on ${DateUtils.formatDisplayDate(endIso)}"
+                        ProjectedEnd(endIso, endT, "Ends at $endT$dateDisp ($safeAmount sec)")
+                    } else {
+                        ProjectedEnd(startDateIso, null, "Duration: $safeAmount seconds")
+                    }
+                }
+
                 DurationUnit.MINUTES -> {
                     if (localTime != null) {
                         val totalMinutes = localTime.toSecondOfDay() / 60 + safeAmount
@@ -134,6 +146,7 @@ object SchedulingEngine {
     fun toElapsedMinutes(startDateIso: String, amount: Int, unit: DurationUnit): Int {
         val safeAmount = if (amount <= 0) 1 else amount
         return when (unit) {
+            DurationUnit.SECONDS -> ((safeAmount.toLong() + 59L) / 60L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
             DurationUnit.MINUTES -> safeAmount
             DurationUnit.HOURS -> safeAmount * 60
             DurationUnit.DAYS -> safeAmount * 24 * 60

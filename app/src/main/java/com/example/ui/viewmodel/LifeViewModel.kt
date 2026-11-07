@@ -48,6 +48,7 @@ import com.example.mcp.McpToolDefinition
 import com.example.mcp.McpServerCapabilities
 import com.example.mcp.McpToolCallResult
 import com.example.domain.projectworkspace.ProjectCustomProperty
+import com.example.notifications.TaskAlarmScheduleStatus
 import com.example.domain.schedule.ScheduleConflict
 import com.example.domain.schedule.ScheduleConflictEngine
 import com.example.notifications.ChannelHealthStatus
@@ -116,6 +117,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import com.example.domain.recurrence.RecurrenceEngine
 import com.example.widgets.WidgetRefreshCoordinator
+
+data class TaskSaveReceipt(
+    val taskId: Long,
+    val warning: String? = null
+)
 
 data class DashboardUiState(
     val isLoading: Boolean = true,
@@ -1827,29 +1833,19 @@ class LifeViewModel(
     }
 
     fun previousCalendarMonth() {
-        var m = _calendarMonth.value - 1
-        var y = _calendarYear.value
-        if (m < 0) {
-            m = 11
-            y -= 1
-        }
-        _calendarMonth.value = m
-        _calendarYear.value = y
-        val currentDay = DateUtils.getDayOfMonth(_calendarSelectedDate.value).coerceAtMost(DateUtils.getDaysInMonth(y, m))
-        _calendarSelectedDate.value = String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, currentDay)
+        val prevDate = com.example.domain.calendar.CalendarMonthNavigation.shiftSelectedDate(_calendarSelectedDate.value, -1)
+        val parsed = java.time.LocalDate.parse(prevDate)
+        _calendarMonth.value = parsed.monthValue - 1
+        _calendarYear.value = parsed.year
+        _calendarSelectedDate.value = prevDate
     }
 
     fun nextCalendarMonth() {
-        var m = _calendarMonth.value + 1
-        var y = _calendarYear.value
-        if (m > 11) {
-            m = 0
-            y += 1
-        }
-        _calendarMonth.value = m
-        _calendarYear.value = y
-        val currentDay = DateUtils.getDayOfMonth(_calendarSelectedDate.value).coerceAtMost(DateUtils.getDaysInMonth(y, m))
-        _calendarSelectedDate.value = String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, currentDay)
+        val nextDate = com.example.domain.calendar.CalendarMonthNavigation.shiftSelectedDate(_calendarSelectedDate.value, 1)
+        val parsed = java.time.LocalDate.parse(nextDate)
+        _calendarMonth.value = parsed.monthValue - 1
+        _calendarYear.value = parsed.year
+        _calendarSelectedDate.value = nextDate
     }
 
     fun setCalendarViewMode(mode: String) {
@@ -2199,43 +2195,101 @@ class LifeViewModel(
         viewModelScope.launch { preferences.setNotificationPrivacyEnabled(enabled) }
     }
 
-    fun saveTaskItem(task: TaskItem, medication: MedicationItem? = null) {
+    fun saveTaskItem(
+        task: TaskItem,
+        medication: MedicationItem? = null,
+        onComplete: (Result<TaskSaveReceipt>) -> Unit = {}
+    ) {
         viewModelScope.launch {
-            val savedId = if (task.id == 0L) {
-                repository.insertTask(task)
-            } else {
-                repository.updateTask(task)
-                task.id
-            }
-            val fullTask = task.copy(id = savedId)
-            repository.ensureTaskQuickReminderShortcut(fullTask)
-
-            if (medication != null) {
-                repository.saveMedicationForTask(savedId, medication)
-                // Schedule today's doses
-                val doses = repository.getMedicationDosesForDateFlow(DateUtils.todayString()).first().filter { it.medicationId == medication.id || it.taskId == savedId }
-                val overrideQuiet = preferences.medicineOverrideQuietHours.first()
-                doses.filter { it.status == DoseStatus.SCHEDULED }.forEach { dose ->
-                    NotificationHelper.scheduleMedicineDoseAlarm(
-                        context = getApplication(),
-                        dose = dose,
-                        overrideQuietHours = overrideQuiet
-                    )
+            try {
+                val oldTask = task.id.takeIf { it > 0L }?.let { repository.getTaskById(it) }
+                val savedId = if (task.id == 0L) {
+                    repository.insertTask(task)
+                } else {
+                    repository.updateTask(task)
+                    task.id
                 }
-            } else if (fullTask.isReminderEnabled) {
-                val qStart = DateUtils.timeToMinutes(quietHoursStartFlow.value).coerceAtLeast(1260)
-                val qEnd = DateUtils.timeToMinutes(quietHoursEndFlow.value).coerceAtLeast(330)
-                NotificationHelper.scheduleTaskAlarm(
-                    context = getApplication(),
-                    task = fullTask,
-                    dateIso = fullTask.dueDateIso,
-                    quietHoursStartMins = qStart,
-                    quietHoursEndMins = qEnd
-                )
-            } else {
-                NotificationHelper.cancelTaskAlarm(getApplication(), savedId, fullTask.dueDateIso)
+                val fullTask = task.copy(id = savedId)
+                val warnings = mutableListOf<String>()
+
+                try {
+                    if (oldTask != null) {
+                        NotificationHelper.cancelAllTaskReminders(getApplication(), oldTask, oldTask.dueDateIso)
+                    }
+                } catch (error: Exception) {
+                    if (error is kotlinx.coroutines.CancellationException) throw error
+                    android.util.Log.e("LifeViewModel", "Task saved but old alarm cancellation failed.", error)
+                    warnings += "The task was saved, but an older reminder could not be canceled."
+                }
+
+                try {
+                    repository.ensureTaskQuickReminderShortcut(fullTask)
+                } catch (error: Exception) {
+                    if (error is kotlinx.coroutines.CancellationException) throw error
+                    android.util.Log.e("LifeViewModel", "Task saved but quick reminder shortcut update failed.", error)
+                    warnings += "The task was saved, but its quick reminder shortcut could not be updated."
+                }
+
+                if (medication != null) {
+                    try {
+                        repository.saveMedicationForTask(savedId, medication)
+                        val doses = repository.getMedicationDosesForDateFlow(DateUtils.todayString())
+                            .first()
+                            .filter { it.medicationId == medication.id || it.taskId == savedId }
+                        val overrideQuiet = preferences.medicineOverrideQuietHours.first()
+                        doses.filter { it.status == DoseStatus.SCHEDULED }.forEach { dose ->
+                            NotificationHelper.scheduleMedicineDoseAlarm(
+                                context = getApplication(),
+                                dose = dose,
+                                overrideQuietHours = overrideQuiet
+                            )
+                        }
+                    } catch (error: Exception) {
+                        if (error is kotlinx.coroutines.CancellationException) throw error
+                        android.util.Log.e("LifeViewModel", "Task saved but medication reminder setup failed.", error)
+                        warnings += "The task was saved, but its medication reminder could not be set up."
+                    }
+                }
+
+                try {
+                    val isP1 = fullTask.priority == TaskPriority.P1
+                    if (!fullTask.isOneTimeCompleted && fullTask.dueDateIso !in fullTask.completedDates && (fullTask.isReminderEnabled || isP1)) {
+                        val qStart = DateUtils.timeToMinutes(quietHoursStartFlow.value).coerceAtLeast(1260)
+                        val qEnd = DateUtils.timeToMinutes(quietHoursEndFlow.value).coerceAtLeast(330)
+                        val scheduleResults = NotificationHelper.scheduleAllTaskReminders(
+                            context = getApplication(),
+                            task = fullTask,
+                            dateIso = fullTask.dueDateIso,
+                            quietHoursStartMins = qStart,
+                            quietHoursEndMins = qEnd
+                        )
+                        scheduleResults
+                            .filter { it.status != TaskAlarmScheduleStatus.NOT_REQUIRED && it.status != TaskAlarmScheduleStatus.SCHEDULED_EXACTLY }
+                            .mapNotNull { it.message }
+                            .distinct()
+                            .forEach(warnings::add)
+                    } else {
+                        NotificationHelper.cancelAllTaskReminders(getApplication(), fullTask, fullTask.dueDateIso)
+                    }
+                } catch (error: Exception) {
+                    if (error is kotlinx.coroutines.CancellationException) throw error
+                    android.util.Log.e("LifeViewModel", "Task saved but reminder scheduling failed.", error)
+                    warnings += "The task was saved, but its reminder could not be scheduled."
+                }
+
+                if (!NotificationHelper.hasNotificationPermission(getApplication()) &&
+                    (fullTask.isReminderEnabled || fullTask.priority == TaskPriority.P1)
+                ) {
+                    warnings += "Notification permission is not granted. Reminders will not appear until notifications are enabled in system settings."
+                }
+
+                WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
+                onComplete(Result.success(TaskSaveReceipt(savedId, warnings.firstOrNull())))
+            } catch (error: Exception) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                android.util.Log.e("LifeViewModel", "Task save failed.", error)
+                onComplete(Result.failure(error))
             }
-            WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }
     }
 

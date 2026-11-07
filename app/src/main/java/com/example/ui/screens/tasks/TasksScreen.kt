@@ -45,9 +45,12 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
+import com.example.ui.screens.templates.TemplateBrowserDialog
+import com.example.ui.screens.templates.TemplateBrowserTab
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Star
@@ -112,6 +115,7 @@ fun TasksScreen(
 ) {
     var showQuickAddSheet by remember { mutableStateOf(false) }
     var showAdvancedEditorSheet by remember { mutableStateOf(false) }
+    var showTemplateBrowserDialog by remember { mutableStateOf(false) }
     var taskToEdit by remember { mutableStateOf<TaskItem?>(null) }
     var taskToReschedule by remember { mutableStateOf<TaskItem?>(null) }
     var historyTask by remember { mutableStateOf<TaskItem?>(null) }
@@ -196,6 +200,16 @@ fun TasksScreen(
                         Icon(
                             imageVector = if (isGridView) Icons.Default.ViewList else Icons.Default.GridView,
                             contentDescription = if (isGridView) "Switch to List View" else "Switch to Grid View"
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { showTemplateBrowserDialog = true },
+                        modifier = Modifier.testTag("tasks_browse_templates_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LibraryBooks,
+                            contentDescription = "Browse Task Templates"
                         )
                     }
 
@@ -710,6 +724,18 @@ fun TasksScreen(
         }
     }
 
+    if (showTemplateBrowserDialog) {
+        val installedTemplateIds by viewModel.installedTemplateIds.collectAsStateWithLifecycle()
+        TemplateBrowserDialog(
+            installedTemplateIds = installedTemplateIds,
+            onInstallTemplate = { template, tasks, habits, onDone ->
+                viewModel.installTemplate(template, tasks, habits, onDone)
+            },
+            initialTab = TemplateBrowserTab.INDIVIDUAL,
+            onDismiss = { showTemplateBrowserDialog = false }
+        )
+    }
+
     // Quick Add Sheet (Todoist-inspired bottom sheet for rapid task entry)
     if (showQuickAddSheet) {
         TaskQuickAddSheet(
@@ -739,6 +765,9 @@ fun TasksScreen(
                 viewModel.saveTaskItem(task, med)
                 showQuickAddSheet = false
                 taskToEdit = null
+            },
+            onSaveTaskWithResult = { task, med, onComplete ->
+                viewModel.saveTaskItem(task, med, onComplete)
             },
             onExpandToAdvanced = { draft ->
                 taskToEdit = draft

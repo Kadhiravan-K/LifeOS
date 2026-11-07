@@ -48,6 +48,16 @@ object WidgetRefreshCoordinator {
         try {
             ProductivityRadarWidgetProvider.notifyDataChanged(ctx)
         } catch (_: Exception) {}
+
+        // 5. Refresh Productivity Analysis summary widget.
+        try {
+            ProductivityAnalysisWidgetProvider.notifyDataChanged(ctx)
+        } catch (_: Exception) {}
+
+        // 6. Refresh Habit Master interactive widget.
+        try {
+            HabitMasterWidgetProvider.notifyDataChanged(ctx)
+        } catch (_: Exception) {}
     }
 
     /**

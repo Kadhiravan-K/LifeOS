@@ -167,6 +167,7 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
         // Load data from Room on IO thread
         val db = AppDatabase.getInstance(context)
         val prefs = UserPreferences(context)
+        val honeycombZoomScale = prefs.honeycombZoomScale.first()
         val entitlementRepo = LocalPremiumEntitlementRepository(context)
         val repository = LifeRepository(db, prefs, entitlementRepo)
         val todayIso = DateUtils.todayString()
@@ -222,6 +223,27 @@ class QuickRemindersWidgetProvider : AppWidgetProvider() {
             todayChallengeLog, projects, todayIso
         )
         val tileCount = tileDataList.size
+        val visibleRows = when {
+            tileCount >= 9 -> 4
+            tileCount >= 6 -> 3
+            tileCount >= 4 -> 2
+            else -> 1
+        }
+        val widgetOptions = AppWidgetManager.getInstance(context).getAppWidgetOptions(appWidgetId)
+        val availableWidthDp = widgetOptions
+            .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0) - 12
+        val availableHeightDp = widgetOptions
+            .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) - 32
+        val gridHeightDp = 56 + (visibleRows - 1) * 44
+        val maxScaleForWidget = if (availableWidthDp > 0 && availableHeightDp > 0) {
+            minOf(availableWidthDp / 156f, availableHeightDp / gridHeightDp.toFloat())
+                .coerceIn(0.5f, 1.35f)
+        } else {
+            honeycombZoomScale
+        }
+        val effectiveZoomScale = minOf(honeycombZoomScale, maxScaleForWidget)
+        rv.setFloat(R.id.honeycomb_grid_container, "setScaleX", effectiveZoomScale)
+        rv.setFloat(R.id.honeycomb_grid_container, "setScaleY", effectiveZoomScale)
 
         rv.setViewVisibility(R.id.widget_empty_view, if (tileCount == 0) View.VISIBLE else View.GONE)
 
