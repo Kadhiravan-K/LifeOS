@@ -102,3 +102,117 @@ Clicking the Quick Add FAB opens `QuickAddMenuSheet` providing one-tap access to
 #### Build Verification
 - `compileDebugKotlin`: BUILD SUCCESSFUL
 - `assembleDebug`: BUILD SUCCESSFUL (APK generated cleanly)
+
+---
+
+## 6. Task 7 – Medication Priority (APPROVED)
+
+**Specification (owner‑approved):**
+- Reminder enabled **and** no explicitly selected priority → **P1**.
+- Reminder disabled **and** no explicitly selected priority → preserve existing **MEDIUM** fallback.
+- An explicitly selected priority (**P1‑P4**) always takes precedence over automatic defaults.
+- Editing an existing medication must **never** automatically change its stored priority.
+- Enabling, disabling, or re‑enabling reminders must **never** reset an existing priority.
+- Priority handling must respect **profile isolation**.
+- Quick‑Reminder behaviour remains unchanged (no new P2 setting or preference).
+
+**Acceptance‑test matrix (UNVERIFIED without source evidence):**
+| Test | Expected result |
+|------|-----------------|
+| Reminder ON + null priority → P1 | `TaskEntity.priority` = **P1** |
+| Reminder OFF + null priority → MEDIUM | `TaskEntity.priority` = **MEDIUM** |
+| Explicit **P2**, **P3**, **P4** with reminder ON → selected value retained | Priority unchanged |
+| Explicit **MEDIUM** selected → retained |
+| Editing medication (any reminder state) → priority unchanged |
+| Toggling reminder flag → priority unchanged |
+| Profile A and Profile B have independent priorities |
+| Quick‑Reminder flows unchanged |
+
+*Status:* **UNVERIFIED** – source code and test verification have not been inspected during this documentation update.
+
+---
+
+## 7. Task 8 – Glassmorphism Improvements (PROPOSED / UNVERIFIED)
+
+- Improve the **blue tint** of transparent glass surfaces for better readability.
+- Enhance contrast when glass surfaces overlap (e.g., text readability).
+- Provide a distinct **Light** Glassmorphism variant while preserving the existing **Dark** appearance.
+- Do **not** assert that `GlassSurface.kt` contains a hard‑coded alpha value; source evidence is missing.
+- Do **not** claim that a Light variant definitively does not exist; this remains to be verified.
+- Visual verification required: composited contrast measurements, side‑by‑side screenshot comparison between Dark and Light variants.
+- Implementation status: **PROPOSED** – no schema or code changes have been committed.
+
+---
+
+## 8. Task 10 – Unified Template Browser (PROPOSED / UNVERIFIED)
+
+**Core requirements:**
+- Provide a unified browsing experience across all supported template categories.
+- Ensure **profile isolation** – templates belong to the active profile.
+- Prevent duplicate imports of the same bundle.
+- Preserve user‑edited imported records when a bundle is removed.
+- Clean up imported data when a profile is deleted.
+- Maintain **backup & restore compatibility** (no schema breakage).
+- Perform **atomic import/rollback** within a single transaction.
+- Deletion must be scoped by both **entity identity** and **profile identity**.
+
+**Schema discussion:**
+- A new `TemplateBundleMapping` table has been **PROPOSED** to map `importBundleId` to allowed template types.  No migration exists; the proposal is **UNVERIFIED** until owner approval.
+- Existing migration that deduplicates `importBundleId` remains unchanged (COMPLETED verified).
+
+---
+
+## 9. Task 11A – Morse Promotional Entitlement (APPROVED)
+
+- Hidden Easter‑egg located on **Settings → About LifeOS**.
+- Exact Morse sequence (dot = short click, dash = long press):
+  `-.- .- - .... .. .-. .- ...- .- -.`
+- Decodes to **KATHIRAVAN**.
+- Successful entry grants a **promotional Lifetime Premium** entitlement.
+- **Revocation rules:**
+  - The promotional entitlement is uniquely identifiable.
+  - Revoking it **must never** affect a purchased lifetime entitlement.
+  - No automatic revocation based on suspicious usage is defined at this stage.
+
+*Implementation status:* **UNVERIFIED** – persistence architecture and revocation handling have not been examined.
+
+---
+
+## 10. Task 11B – Premium Reward Redemption Duration (APPROVED)
+
+| Redemption count | Duration |
+|------------------|----------|
+| First redemption | **72 hours** |
+| Redemptions 2‑10 | **24 hours** |
+| Redemptions 11‑19 | **18 hours** |
+| Redemptions 20+ | **12 hours** |
+
+**Expiry calculation (UNVERIFIED):**
+```
+newExpiry = max(currentExpiry, now) + duration
+```
+- The calculation must **preserve** any existing purchased lifetime entitlement.
+- Pending owner decisions:
+  1. Canonical source of truth for premium entitlement.
+  2. Whether redemption count is scoped per‑profile and per‑reward.
+  3. Ensure temporary redemption never overrides purchased lifetime entitlement.
+
+---
+
+## 11. Outstanding Owner Decisions (PENDING)
+
+1. **TemplateBundleMapping table** – approve creation or keep current approach.
+2. **Premium entitlement source of truth** – central server, local DB, or hybrid?
+3. **Redemption count scoping** – per profile, per reward, or global?
+4. **Glassmorphism Light variant** – design approval and visual specs.
+5. **Morse promotional entitlement revocation policy** – any automated detection?
+
+---
+
+## 12. Navigation Clarifications (APPROVED)
+
+- **Home** (position 1) and **Settings** (position 5) are permanently fixed.
+- **Positions 2** and **4** are **configurable** by the user via Settings → Customization → Bottom Navigation Slots.
+- The centre **Quick Add** button (position 3) is a fixed, elevated FAB with a semicircular cradle cut‑out in the navigation bar.
+
+---

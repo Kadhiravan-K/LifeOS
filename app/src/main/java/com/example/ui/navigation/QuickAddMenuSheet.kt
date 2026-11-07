@@ -44,6 +44,8 @@ fun QuickAddMenuSheet(
     onAddReminder: () -> Unit,
     onAddProject: () -> Unit,
     onAddMedication: () -> Unit,
+    onAddGiveGet: (() -> Unit)? = null,
+    onNavigateToShifts: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     ModalBottomSheet(
@@ -109,10 +111,34 @@ fun QuickAddMenuSheet(
             )
 
             QuickAddMenuItem(
+                title = "Give & Get",
+                subtitle = "Track money lent, borrowed items, or gifts",
+                icon = Icons.Filled.CheckCircle,
+                badgeColor = Color(0xFF06B6D4),
+                onClick = {
+                    onDismiss()
+                    onAddGiveGet?.invoke()
+                },
+                testTag = "quick_add_action_give_get"
+            )
+
+            QuickAddMenuItem(
+                title = "Shift Planner",
+                subtitle = "Manage rotating schedules and shift exceptions",
+                icon = Icons.Filled.NotificationsActive,
+                badgeColor = Color(0xFF8B5CF6),
+                onClick = {
+                    onDismiss()
+                    onNavigateToShifts?.invoke()
+                },
+                testTag = "quick_add_action_shifts"
+            )
+
+            QuickAddMenuItem(
                 title = "New Project",
                 subtitle = "Create a goal container with custom properties",
                 icon = Icons.Filled.FolderSpecial,
-                badgeColor = Color(0xFF8B5CF6),
+                badgeColor = Color(0xFF6366F1),
                 onClick = {
                     onDismiss()
                     onAddProject()

@@ -297,8 +297,8 @@ fun ProductivityRadarChart(
 
                         textPaint.color = textPaintColor.toArgb()
                         textPaint.textAlign = when {
-                            cos(angle) > 0.2f -> android.graphics.Paint.Align.RIGHT
-                            cos(angle) < -0.2f -> android.graphics.Paint.Align.LEFT
+                            cos(angle) > 0.15f -> android.graphics.Paint.Align.LEFT
+                            cos(angle) < -0.15f -> android.graphics.Paint.Align.RIGHT
                             else -> android.graphics.Paint.Align.CENTER
                         }
 

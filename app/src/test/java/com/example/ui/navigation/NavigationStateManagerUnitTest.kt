@@ -104,5 +104,15 @@ class NavigationStateManagerUnitTest {
         // HOME or SETTINGS cannot be chosen as customizable slots
         val homeAttempt = NavigationItem.fromSlotKey("HOME", NavigationItem.TASKS)
         assertEquals(NavigationItem.TASKS, homeAttempt)
+
+        // SHIFTS and GIVE_GET can be chosen as customizable slots
+        val shiftsSlot = NavigationItem.fromSlotKey("SHIFTS", NavigationItem.TASKS)
+        assertEquals(NavigationItem.SHIFTS, shiftsSlot)
+
+        val giveGetSlot = NavigationItem.fromSlotKey("GIVE_GET", NavigationItem.CALENDAR)
+        assertEquals(NavigationItem.GIVE_GET, giveGetSlot)
+
+        assertTrue(NavigationItem.customizableDestinations.contains(NavigationItem.SHIFTS))
+        assertTrue(NavigationItem.customizableDestinations.contains(NavigationItem.GIVE_GET))
     }
 }

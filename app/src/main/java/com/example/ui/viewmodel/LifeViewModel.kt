@@ -299,6 +299,7 @@ class LifeViewModel(
         refreshReminderHealth(getApplication<Application>())
         WidgetRefreshCoordinator.init(getApplication())
         checkInitialLockOnLaunch()
+        refreshTodayShift()
         viewModelScope.launch {
             while (isActive) {
                 delay(30_000L)
@@ -3842,6 +3843,157 @@ class LifeViewModel(
         viewModelScope.launch {
             val profileId = activeProfileIdFlow.value
             repository.clearMcpAuditLogs(profileId)
+        }
+    }
+
+    // =========================================================================
+    // SHIFT-BASED LIFE CYCLE PLANNER
+    // =========================================================================
+    val allShifts: StateFlow<List<com.example.data.local.entities.ShiftEntity>> = activeProfileIdFlow
+        .flatMapLatest { profileId -> repository.getShiftsFlow(profileId) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val activeRotation: StateFlow<com.example.data.local.entities.ShiftRotationEntity?> = activeProfileIdFlow
+        .flatMapLatest { profileId -> repository.getActiveRotationFlow(profileId) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val allRotations: StateFlow<List<com.example.data.local.entities.ShiftRotationEntity>> = activeProfileIdFlow
+        .flatMapLatest { profileId -> repository.getAllRotationsFlow(profileId) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _todayShiftPair = MutableStateFlow<Pair<com.example.data.local.entities.ShiftEntity?, com.example.data.local.entities.ShiftAssignmentEntity?>>(Pair(null, null))
+    val todayEffectiveShift: StateFlow<com.example.data.local.entities.ShiftEntity?> = _todayShiftPair
+        .map { it.first }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val todayShiftAssignment: StateFlow<com.example.data.local.entities.ShiftAssignmentEntity?> = _todayShiftPair
+        .map { it.second }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun refreshTodayShift() {
+        viewModelScope.launch {
+            val profileId = activeProfileIdFlow.value
+            val today = todayIso
+            _todayShiftPair.value = repository.resolveEffectiveShiftForDate(profileId, today)
+        }
+    }
+
+    fun saveShift(shift: com.example.data.local.entities.ShiftEntity, onComplete: ((Long) -> Unit)? = null) {
+        viewModelScope.launch {
+            val id = repository.saveShift(shift.copy(profileId = activeProfileIdFlow.value))
+            refreshTodayShift()
+            onComplete?.invoke(id)
+        }
+    }
+
+    fun deleteShift(shift: com.example.data.local.entities.ShiftEntity) {
+        viewModelScope.launch {
+            repository.deleteShift(shift)
+            refreshTodayShift()
+        }
+    }
+
+    fun saveRotation(rotation: com.example.data.local.entities.ShiftRotationEntity, setAsActive: Boolean = true, onComplete: ((Long) -> Unit)? = null) {
+        viewModelScope.launch {
+            val id = repository.saveRotation(rotation.copy(profileId = activeProfileIdFlow.value), setAsActive)
+            refreshTodayShift()
+            onComplete?.invoke(id)
+        }
+    }
+
+    fun deleteRotation(rotation: com.example.data.local.entities.ShiftRotationEntity) {
+        viewModelScope.launch {
+            repository.deleteRotation(rotation)
+            refreshTodayShift()
+        }
+    }
+
+    fun saveShiftAssignment(assignment: com.example.data.local.entities.ShiftAssignmentEntity, onComplete: ((Long) -> Unit)? = null) {
+        viewModelScope.launch {
+            val id = repository.saveShiftAssignment(assignment.copy(profileId = activeProfileIdFlow.value))
+            refreshTodayShift()
+            onComplete?.invoke(id)
+        }
+    }
+
+    fun recordShiftException(
+        dateIso: String,
+        shiftId: Long?,
+        exceptionType: String,
+        exceptionNotes: String = "",
+        overtimeHours: Double = 0.0,
+        onComplete: ((Long) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val profileId = activeProfileIdFlow.value
+            val existing = repository.getShiftAssignmentForDateFlow(profileId, dateIso).first()
+            val assignment = (existing ?: com.example.data.local.entities.ShiftAssignmentEntity(
+                profileId = profileId,
+                shiftId = shiftId,
+                dateIso = dateIso
+            )).copy(
+                shiftId = shiftId,
+                isException = true,
+                exceptionType = exceptionType,
+                exceptionNotes = exceptionNotes,
+                overtimeHours = overtimeHours,
+                updatedAt = System.currentTimeMillis()
+            )
+            val id = repository.saveShiftAssignment(assignment)
+            refreshTodayShift()
+            onComplete?.invoke(id)
+        }
+    }
+
+    fun deleteShiftAssignmentForDate(dateIso: String) {
+        viewModelScope.launch {
+            repository.deleteShiftAssignmentForDate(activeProfileIdFlow.value, dateIso)
+            refreshTodayShift()
+        }
+    }
+
+    fun getShiftAssignmentsInRange(startDateIso: String, endDateIso: String): Flow<List<com.example.data.local.entities.ShiftAssignmentEntity>> {
+        return activeProfileIdFlow.flatMapLatest { profileId ->
+            repository.getShiftAssignmentsInRangeFlow(profileId, startDateIso, endDateIso)
+        }
+    }
+
+    suspend fun resolveShiftForDate(dateIso: String): Pair<com.example.data.local.entities.ShiftEntity?, com.example.data.local.entities.ShiftAssignmentEntity?> {
+        return repository.resolveEffectiveShiftForDate(activeProfileIdFlow.value, dateIso)
+    }
+
+    // =========================================================================
+    // GIVE & GET — CONTACT-BASED TRACKING
+    // =========================================================================
+    val allGiveGetTransactions: StateFlow<List<com.example.data.local.entities.GiveGetTransactionEntity>> = activeProfileIdFlow
+        .flatMapLatest { profileId -> repository.getAllGiveGetTransactionsFlow(profileId) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val distinctGiveGetPersons: StateFlow<List<String>> = activeProfileIdFlow
+        .flatMapLatest { profileId -> repository.getDistinctGiveGetPersonsFlow(profileId) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun saveGiveGetTransaction(transaction: com.example.data.local.entities.GiveGetTransactionEntity, onComplete: ((Long) -> Unit)? = null) {
+        viewModelScope.launch {
+            val id = repository.saveGiveGetTransaction(transaction.copy(profileId = activeProfileIdFlow.value))
+            onComplete?.invoke(id)
+        }
+    }
+
+    fun deleteGiveGetTransaction(transaction: com.example.data.local.entities.GiveGetTransactionEntity) {
+        viewModelScope.launch {
+            repository.deleteGiveGetTransaction(transaction)
+        }
+    }
+
+    fun recordGiveGetRepayment(id: Long, repaymentDelta: Double) {
+        viewModelScope.launch {
+            repository.recordGiveGetRepayment(id, repaymentDelta)
+        }
+    }
+
+    fun markGiveGetReturned(id: Long) {
+        viewModelScope.launch {
+            repository.markGiveGetReturned(id)
         }
     }
 }

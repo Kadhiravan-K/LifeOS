@@ -88,6 +88,18 @@ enum class NavigationItem(
         label = "Themes",
         selectedIcon = Icons.Filled.Palette,
         unselectedIcon = Icons.Outlined.Palette
+    ),
+    SHIFTS(
+        route = "shifts",
+        label = "Shifts",
+        selectedIcon = Icons.Filled.CalendarMonth,
+        unselectedIcon = Icons.Outlined.CalendarMonth
+    ),
+    GIVE_GET(
+        route = "give_get",
+        label = "Give & Get",
+        selectedIcon = Icons.Filled.CheckCircle,
+        unselectedIcon = Icons.Outlined.CheckCircle
     );
 
     companion object {
@@ -102,7 +114,9 @@ enum class NavigationItem(
             CHALLENGE,
             GAMIFICATION,
             ANALYTICS,
-            MEDICATION
+            MEDICATION,
+            SHIFTS,
+            GIVE_GET
         )
 
         fun fromSlotKey(key: String?, defaultItem: NavigationItem): NavigationItem {

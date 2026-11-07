@@ -1231,6 +1231,106 @@ val MIGRATION_19_20 = object : Migration(19, 20) {
     }
 }
 
+val MIGRATION_20_21 = object : Migration(20, 21) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // 1. shifts table
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `shifts` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `profileId` INTEGER NOT NULL,
+                `name` TEXT NOT NULL,
+                `colorHex` TEXT NOT NULL DEFAULT '#3B82F6',
+                `startTime` TEXT NOT NULL,
+                `endTime` TEXT NOT NULL,
+                `wakeUpTime` TEXT NOT NULL,
+                `sleepTime` TEXT NOT NULL,
+                `isOvernight` INTEGER NOT NULL DEFAULT 0,
+                `shiftHabitIdsJson` TEXT NOT NULL DEFAULT '[]',
+                `shiftTaskTitlesJson` TEXT NOT NULL DEFAULT '[]',
+                `notes` TEXT NOT NULL DEFAULT '',
+                `createdAt` INTEGER NOT NULL DEFAULT 0,
+                `updatedAt` INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY(`profileId`) REFERENCES `profiles`(`id`) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shifts_profileId` ON `shifts` (`profileId`)")
+
+        // 2. shift_rotations table
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `shift_rotations` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `profileId` INTEGER NOT NULL,
+                `name` TEXT NOT NULL,
+                `rotationType` TEXT NOT NULL DEFAULT 'WEEKLY',
+                `startDateIso` TEXT NOT NULL,
+                `cycleLengthDays` INTEGER NOT NULL DEFAULT 7,
+                `patternJson` TEXT NOT NULL DEFAULT '[]',
+                `isActive` INTEGER NOT NULL DEFAULT 1,
+                `createdAt` INTEGER NOT NULL DEFAULT 0,
+                `updatedAt` INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY(`profileId`) REFERENCES `profiles`(`id`) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shift_rotations_profileId` ON `shift_rotations` (`profileId`)")
+
+        // 3. shift_assignments table
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `shift_assignments` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `profileId` INTEGER NOT NULL,
+                `shiftId` INTEGER,
+                `dateIso` TEXT NOT NULL,
+                `actualStartTime` TEXT,
+                `actualEndTime` TEXT,
+                `actualWakeUpTime` TEXT,
+                `actualSleepTime` TEXT,
+                `isException` INTEGER NOT NULL DEFAULT 0,
+                `exceptionType` TEXT NOT NULL DEFAULT 'NONE',
+                `exceptionNotes` TEXT NOT NULL DEFAULT '',
+                `overtimeHours` REAL NOT NULL DEFAULT 0.0,
+                `isCompleted` INTEGER NOT NULL DEFAULT 0,
+                `notes` TEXT NOT NULL DEFAULT '',
+                `createdAt` INTEGER NOT NULL DEFAULT 0,
+                `updatedAt` INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY(`profileId`) REFERENCES `profiles`(`id`) ON DELETE CASCADE,
+                FOREIGN KEY(`shiftId`) REFERENCES `shifts`(`id`) ON DELETE SET NULL
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shift_assignments_profileId` ON `shift_assignments` (`profileId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shift_assignments_shiftId` ON `shift_assignments` (`shiftId`)")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_shift_assignments_profileId_dateIso` ON `shift_assignments` (`profileId`, `dateIso`)")
+
+        // 4. give_get_transactions table
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `give_get_transactions` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `profileId` INTEGER NOT NULL,
+                `type` TEXT NOT NULL,
+                `personName` TEXT NOT NULL,
+                `personContactId` TEXT,
+                `personPhoneNumber` TEXT,
+                `amount` REAL NOT NULL DEFAULT 0.0,
+                `returnedAmount` REAL NOT NULL DEFAULT 0.0,
+                `itemDescription` TEXT NOT NULL DEFAULT '',
+                `dateIso` TEXT NOT NULL,
+                `expectedReturnDateIso` TEXT,
+                `actualReturnDateIso` TEXT,
+                `status` TEXT NOT NULL DEFAULT 'PENDING',
+                `notes` TEXT NOT NULL DEFAULT '',
+                `hasReminder` INTEGER NOT NULL DEFAULT 0,
+                `reminderDaysBefore` INTEGER NOT NULL DEFAULT 1,
+                `createdAt` INTEGER NOT NULL DEFAULT 0,
+                `updatedAt` INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY(`profileId`) REFERENCES `profiles`(`id`) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_give_get_transactions_profileId` ON `give_get_transactions` (`profileId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_give_get_transactions_personName` ON `give_get_transactions` (`personName`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_give_get_transactions_status` ON `give_get_transactions` (`status`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_give_get_transactions_dateIso` ON `give_get_transactions` (`dateIso`)")
+    }
+}
+
 @Database(
     entities = [
         ProfileEntity::class,
@@ -1273,9 +1373,13 @@ val MIGRATION_19_20 = object : Migration(19, 20) {
         com.example.data.local.entities.GlossaryItemEntity::class,
         com.example.data.local.entities.GlossaryUserDataEntity::class,
         com.example.data.local.entities.McpServerEntity::class,
-        com.example.data.local.entities.McpAuditLogEntity::class
+        com.example.data.local.entities.McpAuditLogEntity::class,
+        com.example.data.local.entities.ShiftEntity::class,
+        com.example.data.local.entities.ShiftRotationEntity::class,
+        com.example.data.local.entities.ShiftAssignmentEntity::class,
+        com.example.data.local.entities.GiveGetTransactionEntity::class
     ],
-    version = 20,
+    version = 21,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -1299,6 +1403,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun projectWorkspaceDao(): com.example.data.local.dao.ProjectWorkspaceDao
     abstract fun glossaryDao(): com.example.data.local.dao.GlossaryDao
     abstract fun mcpDao(): com.example.data.local.dao.McpDao
+    abstract fun shiftDao(): com.example.data.local.dao.ShiftDao
+    abstract fun giveGetDao(): com.example.data.local.dao.GiveGetDao
 
     companion object {
         @Volatile
@@ -1347,7 +1453,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_16_17,
                         MIGRATION_17_18,
                         MIGRATION_18_19,
-                        MIGRATION_19_20
+                        MIGRATION_19_20,
+                        MIGRATION_20_21
                     )
                     .build()
                 INSTANCE = instance

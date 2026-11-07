@@ -61,15 +61,30 @@ fun ThemedQuickAddButton(
     size: Dp = 56.dp,
     elevation: Dp = 8.dp
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val isSystemAnimationDisabled = remember(context) {
+        try {
+            val scale = android.provider.Settings.Global.getFloat(
+                context.contentResolver,
+                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                1.0f
+            )
+            scale <= 0.05f
+        } catch (_: Exception) {
+            false
+        }
+    }
+    val effectiveAnimationEnabled = isAnimationEnabled && !isSystemAnimationDisabled
+
     val interactionSource = remember { MutableInteractionSource() }
     val pressScale = remember { Animatable(1f) }
 
     val infiniteTransition = rememberInfiniteTransition(label = "themed_fab_transition")
 
-    // Theme-specific animation drivers (only animated if isAnimationEnabled is true)
+    // Theme-specific animation drivers (only animated if effectiveAnimationEnabled is true)
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = if (isAnimationEnabled) 1.06f else 1f,
+        targetValue = if (effectiveAnimationEnabled) 1.06f else 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(1200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -79,7 +94,7 @@ fun ThemedQuickAddButton(
 
     val continuousRotation by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = if (isAnimationEnabled) 360f else 0f,
+        targetValue = if (effectiveAnimationEnabled) 360f else 0f,
         animationSpec = infiniteRepeatable(
             animation = tween(8000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
@@ -89,7 +104,7 @@ fun ThemedQuickAddButton(
 
     val glowAlpha by infiniteTransition.animateFloat(
         initialValue = 0.4f,
-        targetValue = if (isAnimationEnabled) 0.85f else 0.4f,
+        targetValue = if (effectiveAnimationEnabled) 0.85f else 0.4f,
         animationSpec = infiniteRepeatable(
             animation = tween(1500, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse

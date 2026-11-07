@@ -283,6 +283,22 @@ fun MainScreen(
                             }
                         }
 
+                        NavigationItem.SHIFTS -> {
+                            com.example.ui.screens.shifts.ShiftPlannerScreen(
+                                viewModel = viewModel,
+                                onNavigateBack = { navManager.popBack() },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+
+                        NavigationItem.GIVE_GET -> {
+                            com.example.ui.screens.giveget.GiveGetScreen(
+                                viewModel = viewModel,
+                                onNavigateBack = { navManager.popBack() },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+
                         NavigationItem.SETTINGS -> {
                             SettingsScreen(
                                 viewModel = viewModel,
@@ -334,6 +350,14 @@ fun MainScreen(
             onAddMedication = {
                 showQuickAddMenuSheet = false
                 navManager.navigateTo(NavigationItem.MEDICATION)
+            },
+            onAddGiveGet = {
+                showQuickAddMenuSheet = false
+                navManager.navigateTo(NavigationItem.GIVE_GET)
+            },
+            onNavigateToShifts = {
+                showQuickAddMenuSheet = false
+                navManager.navigateTo(NavigationItem.SHIFTS)
             }
         )
     }

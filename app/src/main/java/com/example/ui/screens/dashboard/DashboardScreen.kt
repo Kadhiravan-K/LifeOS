@@ -125,6 +125,8 @@ fun DashboardScreen(
     val productivityRadarData by viewModel.productivityRadarData.collectAsStateWithLifecycle()
     val activeProfileId by viewModel.activeProfileIdFlow.collectAsStateWithLifecycle()
     val allProfiles by viewModel.allProfilesFlow.collectAsStateWithLifecycle()
+    val todayEffectiveShift by viewModel.todayEffectiveShift.collectAsStateWithLifecycle()
+    val todayShiftAssignment by viewModel.todayShiftAssignment.collectAsStateWithLifecycle()
     val activeTheme = com.example.ui.theme.engine.LocalLifeTheme.current
     var contextMenuShortcut by remember { mutableStateOf<HoneycombShortcut?>(null) }
     var showCustomizeDialog by remember { mutableStateOf(false) }
@@ -869,14 +871,59 @@ fun DashboardScreen(
         Card(
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().testTag("dashboard_schedule_breakdown_card")
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Today's Schedule Breakdown",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Today's Schedule Breakdown",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (todayEffectiveShift != null) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = "⏰ ${todayEffectiveShift!!.name}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (todayEffectiveShift != null) {
+                    val shift = todayEffectiveShift!!
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (shift.isOvernight) {
+                            "🌙 Overnight Routine • Wake: ${shift.wakeUpTime} • Work: ${shift.startTime} – ${shift.endTime} • Sleep: ${shift.sleepTime}"
+                        } else {
+                            "🌅 Adapted Routine • Wake: ${shift.wakeUpTime} • Work: ${shift.startTime} – ${shift.endTime} • Sleep: ${shift.sleepTime}"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                if (todayShiftAssignment?.isException == true) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "⚡ Exception Active: ${todayShiftAssignment!!.exceptionType} (${todayShiftAssignment!!.exceptionNotes})",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(10.dp))
 
                 TimeGroupSection("🌅 Morning (5:00 AM – 12:00 PM)", uiState.morningTasks, uiState.todayDateIso, viewModel)

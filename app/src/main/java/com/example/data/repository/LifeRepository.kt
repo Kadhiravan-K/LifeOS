@@ -134,6 +134,8 @@ class LifeRepository(
     private val profileSecurityDao = database.profileSecurityDao()
     private val projectWorkspaceDao = database.projectWorkspaceDao()
     private val glossaryDao = database.glossaryDao()
+    val shiftDao = database.shiftDao()
+    val giveGetDao = database.giveGetDao()
 
     @androidx.annotation.VisibleForTesting
     internal var testTransactionInterceptor: ((step: String) -> Unit)?
@@ -2987,6 +2989,127 @@ class LifeRepository(
 
     suspend fun insertMcpAuditLog(log: com.example.data.local.entities.McpAuditLogEntity): Long {
         return mcpDaoInstance.insertAuditLog(log)
+    }
+
+    // --- Shift-Based Life Cycle Planner ---
+    fun getShiftsFlow(profileId: Long): Flow<List<com.example.data.local.entities.ShiftEntity>> =
+        shiftDao.getShiftsForProfile(profileId)
+
+    suspend fun getShiftsDirect(profileId: Long): List<com.example.data.local.entities.ShiftEntity> =
+        shiftDao.getShiftsForProfileDirect(profileId)
+
+    suspend fun saveShift(shift: com.example.data.local.entities.ShiftEntity): Long {
+        return if (shift.id == 0L) shiftDao.insertShift(shift) else {
+            shiftDao.updateShift(shift)
+            shift.id
+        }
+    }
+
+    suspend fun deleteShift(shift: com.example.data.local.entities.ShiftEntity) {
+        shiftDao.deleteShift(shift)
+    }
+
+    suspend fun deleteShiftById(id: Long) {
+        shiftDao.deleteShiftById(id)
+    }
+
+    fun getActiveRotationFlow(profileId: Long): Flow<com.example.data.local.entities.ShiftRotationEntity?> =
+        shiftDao.getActiveRotation(profileId)
+
+    fun getAllRotationsFlow(profileId: Long): Flow<List<com.example.data.local.entities.ShiftRotationEntity>> =
+        shiftDao.getAllRotationsForProfile(profileId)
+
+    suspend fun saveRotation(rotation: com.example.data.local.entities.ShiftRotationEntity, setAsActive: Boolean = true): Long {
+        if (setAsActive) {
+            shiftDao.deactivateAllRotationsForProfile(rotation.profileId)
+        }
+        val target = rotation.copy(isActive = setAsActive)
+        return if (target.id == 0L) shiftDao.insertRotation(target) else {
+            shiftDao.updateRotation(target)
+            target.id
+        }
+    }
+
+    suspend fun deleteRotation(rotation: com.example.data.local.entities.ShiftRotationEntity) {
+        shiftDao.deleteRotation(rotation)
+    }
+
+    fun getShiftAssignmentForDateFlow(profileId: Long, dateIso: String): Flow<com.example.data.local.entities.ShiftAssignmentEntity?> =
+        shiftDao.getAssignmentForDate(profileId, dateIso)
+
+    fun getShiftAssignmentsInRangeFlow(profileId: Long, startDateIso: String, endDateIso: String): Flow<List<com.example.data.local.entities.ShiftAssignmentEntity>> =
+        shiftDao.getAssignmentsInRange(profileId, startDateIso, endDateIso)
+
+    suspend fun saveShiftAssignment(assignment: com.example.data.local.entities.ShiftAssignmentEntity): Long =
+        shiftDao.insertOrUpdateAssignment(assignment)
+
+    suspend fun deleteShiftAssignmentForDate(profileId: Long, dateIso: String) =
+        shiftDao.deleteAssignmentForDate(profileId, dateIso)
+
+    suspend fun resolveEffectiveShiftForDate(profileId: Long, dateIso: String): Pair<com.example.data.local.entities.ShiftEntity?, com.example.data.local.entities.ShiftAssignmentEntity?> {
+        val directAssignment = shiftDao.getAssignmentForDateDirect(profileId, dateIso)
+        if (directAssignment != null) {
+            val shift = directAssignment.shiftId?.let { shiftDao.getShiftById(it) }
+            return Pair(shift, directAssignment)
+        }
+
+        val activeRotation = shiftDao.getActiveRotationDirect(profileId)
+        if (activeRotation != null) {
+            try {
+                val start = java.time.LocalDate.parse(activeRotation.startDateIso)
+                val target = java.time.LocalDate.parse(dateIso)
+                val daysDiff = java.time.temporal.ChronoUnit.DAYS.between(start, target).toInt()
+                if (daysDiff >= 0 && activeRotation.cycleLengthDays > 0) {
+                    val patternArray = org.json.JSONArray(activeRotation.patternJson)
+                    if (patternArray.length() > 0) {
+                        val cycleIndex = daysDiff % activeRotation.cycleLengthDays
+                        if (cycleIndex < patternArray.length()) {
+                            val shiftId = patternArray.optLong(cycleIndex, -1L)
+                            if (shiftId > 0) {
+                                val shift = shiftDao.getShiftById(shiftId)
+                                return Pair(shift, null)
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // Fallback gracefully
+            }
+        }
+        return Pair(null, null)
+    }
+
+    // --- Give & Get Transactions ---
+    fun getAllGiveGetTransactionsFlow(profileId: Long): Flow<List<com.example.data.local.entities.GiveGetTransactionEntity>> =
+        giveGetDao.getAllTransactions(profileId)
+
+    fun getGiveGetTransactionsByStatusFlow(profileId: Long, status: String): Flow<List<com.example.data.local.entities.GiveGetTransactionEntity>> =
+        giveGetDao.getTransactionsByStatus(profileId, status)
+
+    fun getDistinctGiveGetPersonsFlow(profileId: Long): Flow<List<String>> =
+        giveGetDao.getDistinctPersons(profileId)
+
+    suspend fun saveGiveGetTransaction(transaction: com.example.data.local.entities.GiveGetTransactionEntity): Long =
+        if (transaction.id == 0L) giveGetDao.insertTransaction(transaction) else {
+            giveGetDao.updateTransaction(transaction)
+            transaction.id
+        }
+
+    suspend fun deleteGiveGetTransaction(transaction: com.example.data.local.entities.GiveGetTransactionEntity) =
+        giveGetDao.deleteTransaction(transaction)
+
+    suspend fun recordGiveGetRepayment(id: Long, repaymentDelta: Double) {
+        val tx = giveGetDao.getTransactionById(id) ?: return
+        val newReturned = (tx.returnedAmount + repaymentDelta).coerceAtLeast(0.0)
+        val newStatus = if (newReturned >= tx.amount) "RETURNED" else "PARTIALLY_RETURNED"
+        val returnDate = if (newStatus == "RETURNED") java.time.LocalDate.now().toString() else tx.actualReturnDateIso
+        giveGetDao.recordRepayment(id, newReturned, newStatus, returnDate)
+    }
+
+    suspend fun markGiveGetReturned(id: Long) {
+        val tx = giveGetDao.getTransactionById(id) ?: return
+        val newReturned = if (tx.isMoney) tx.amount else tx.returnedAmount
+        giveGetDao.recordRepayment(id, newReturned, "RETURNED", java.time.LocalDate.now().toString())
     }
 }
 
