@@ -1,6 +1,7 @@
 package com.example.ui.screens.gamification
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -64,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.domain.model.AchievementItem
 import com.example.domain.model.RewardItem
+import com.example.domain.gamification.TemporaryPremiumTierPolicy
 import com.example.ui.viewmodel.LifeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,6 +82,9 @@ fun GamificationScreen(
     val taskStreaks by viewModel.taskStreaks.collectAsStateWithLifecycle()
     val isPremiumActive by viewModel.isPremiumActive.collectAsStateWithLifecycle()
     val subscriptionProduct by viewModel.subscriptionProduct.collectAsStateWithLifecycle()
+    val redemptionCount by viewModel.premiumRedemptionCount.collectAsStateWithLifecycle()
+    val temporaryExpiry by viewModel.temporaryPremiumExpiry.collectAsStateWithLifecycle()
+    val isLifetimeActive by viewModel.isLifetimePremiumActive.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var selectedTab by remember { mutableIntStateOf(0) } // 0 = Achievements, 1 = Rewards Shop
@@ -432,6 +437,24 @@ fun GamificationScreen(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    item {
+                        TemporaryPremiumPassCard(
+                            currentCoins = profile.currentCoins,
+                            redemptionCount = redemptionCount,
+                            temporaryExpiry = temporaryExpiry,
+                            isLifetimeActive = isLifetimeActive,
+                            onRedeem = {
+                                viewModel.redeemTemporaryPremium { success, message ->
+                                    if (success) {
+                                        Toast.makeText(context, "🎉 Temporary Premium activated ($message)!", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        )
+                    }
+
                     items(rewards, key = { it.id }) { reward ->
                         RewardCard(
                             reward = reward,
@@ -779,4 +802,119 @@ fun AddRewardDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+}
+
+@Composable
+fun TemporaryPremiumPassCard(
+    currentCoins: Int,
+    redemptionCount: Int,
+    temporaryExpiry: Long,
+    isLifetimeActive: Boolean,
+    onRedeem: () -> Unit
+) {
+    val durationLabel = TemporaryPremiumTierPolicy.getDurationLabel(redemptionCount)
+    val tierDesc = TemporaryPremiumTierPolicy.getTierDescription(redemptionCount)
+    val cost = TemporaryPremiumTierPolicy.DEFAULT_COIN_COST
+    val canAfford = currentCoins >= cost
+    val now = System.currentTimeMillis()
+    val isTempActive = temporaryExpiry > now
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("temporary_premium_pass_card")
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("👑", fontSize = 28.sp)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "Temporary Premium Pass",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = tierDesc,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                ) {
+                    Text(
+                        text = durationLabel,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "Unlocks cosmetic themes, custom particle engines, soundscapes, and premium engravings. Stackable with existing passes.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (isLifetimeActive) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "🌟 Lifetime Plan Active — No temporary pass needed!",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            } else if (isTempActive) {
+                Spacer(modifier = Modifier.height(8.dp))
+                val hoursLeft = ((temporaryExpiry - now) / (1000 * 60 * 60)).coerceAtLeast(1)
+                Text(
+                    text = "⚡ Currently Active: ~$hoursLeft hour(s) remaining",
+                    fontSize = 11.sp,
+                    color = Color(0xFF10B981),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Cost: $cost 🪙  •  Claimed: ${redemptionCount}x",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Button(
+                    onClick = onRedeem,
+                    enabled = canAfford && !isLifetimeActive,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.testTag("redeem_temporary_premium_btn")
+                ) {
+                    Text(if (isTempActive) "Extend Pass" else "Redeem Pass")
+                }
+            }
+        }
+    }
 }

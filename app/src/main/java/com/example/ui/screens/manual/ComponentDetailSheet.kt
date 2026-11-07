@@ -110,6 +110,12 @@ import com.example.ui.theme.engine.LocalLifeAnimationSpeed
 import com.example.ui.theme.engine.ThemedLoadingIndicator
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -884,10 +890,35 @@ private fun RenderComponentLivePreview(componentId: String) {
                     }
                 }
                 Spacer(modifier = Modifier.height(14.dp))
+                val hexagonShape = remember {
+                    object : Shape {
+                        override fun createOutline(
+                            size: Size,
+                            layoutDirection: LayoutDirection,
+                            density: Density
+                        ): Outline {
+                            val width = size.width
+                            val height = size.height
+                            val cx = width / 2f
+                            val cy = height / 2f
+                            val radius = minOf(width, height) / 2f
+                            val path = Path().apply {
+                                for (i in 0 until 6) {
+                                    val angleRad = Math.toRadians((60.0 * i) - 30.0)
+                                    val x = cx + radius * kotlin.math.cos(angleRad).toFloat()
+                                    val y = cy + radius * kotlin.math.sin(angleRad).toFloat()
+                                    if (i == 0) moveTo(x, y) else lineTo(x, y)
+                                }
+                                close()
+                            }
+                            return Outline.Generic(path)
+                        }
+                    }
+                }
                 val tileShape = when (selectedShape) {
                     "Circle" -> CircleShape
                     "Square" -> RoundedCornerShape(12.dp)
-                    else -> RoundedCornerShape(18.dp)
+                    else -> hexagonShape
                 }
                 Box(
                     modifier = Modifier

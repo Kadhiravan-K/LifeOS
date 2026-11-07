@@ -312,18 +312,74 @@ class LifeRepository(
                 projectDao.getAllProjectsList().isNotEmpty()
     }
 
-    // --- Release 3 Phase 6: Advanced Project Workspace (#20) ---
+    // --- Release 3 Phase 6: Advanced Project Workspace (#20) & Task Linking ---
     fun getWorkspaceItemsForProjectFlow(projectId: Long): Flow<List<ProjectWorkspaceItem>> {
         return activeProfileIdFlow.flatMapLatest { profileId ->
-            projectWorkspaceDao.getItemsForProjectFlow(projectId, profileId).map { entities ->
-                entities.map { ProjectWorkspaceItem.fromEntity(it) }
+            combine(
+                projectWorkspaceDao.getItemsForProjectFlow(projectId, profileId),
+                taskRepository.getTasksForProfileFlow(profileId)
+            ) { workspaceEntities, taskEntities ->
+                val workspaceItems = workspaceEntities.map { ProjectWorkspaceItem.fromEntity(it) }.toMutableList()
+                val existingLinkedTaskIds = workspaceItems.mapNotNull { it.customProperties["linkedTaskId"]?.toLongOrNull() }.toSet()
+                val existingTitles = workspaceItems.map { it.title.trim().lowercase() }.toSet()
+
+                val tasksForProject = taskEntities.filter { it.projectId == projectId && !it.isArchived }
+                val synthesized = tasksForProject.filter { task ->
+                    task.id !in existingLinkedTaskIds && task.title.trim().lowercase() !in existingTitles
+                }.map { task ->
+                    val statusStr = if (task.isOneTimeCompleted) "DONE" else "NOT_STARTED"
+                    val priorityStr = when (task.priority.uppercase()) {
+                        "HIGH", "P1" -> "P1"
+                        "LOW", "P3" -> "P3"
+                        else -> "P2"
+                    }
+                    ProjectWorkspaceItem(
+                        id = -task.id,
+                        profileId = profileId,
+                        projectId = projectId,
+                        title = task.title,
+                        status = statusStr,
+                        progress = if (task.isOneTimeCompleted) 100 else 0,
+                        category = task.category.ifBlank { "Task" },
+                        version = "V1",
+                        dueDateIso = task.dueDateIso,
+                        notes = task.description.ifBlank { task.notes },
+                        priority = priorityStr,
+                        customProperties = mapOf("linkedTaskId" to task.id.toString(), "source" to "task_table"),
+                        orderIndex = workspaceItems.size
+                    )
+                }
+                workspaceItems + synthesized
             }
         }
     }
 
     suspend fun getWorkspaceItemsForProject(projectId: Long): List<ProjectWorkspaceItem> {
         val profileId = getActiveProfileId()
-        return projectWorkspaceDao.getItemsForProjectList(projectId, profileId).map { ProjectWorkspaceItem.fromEntity(it) }
+        val items = projectWorkspaceDao.getItemsForProjectList(projectId, profileId).map { ProjectWorkspaceItem.fromEntity(it) }.toMutableList()
+        val existingLinkedTaskIds = items.mapNotNull { it.customProperties["linkedTaskId"]?.toLongOrNull() }.toSet()
+        val existingTitles = items.map { it.title.trim().lowercase() }.toSet()
+        val tasks = taskRepository.getTasksForProfileList(profileId).filter { it.projectId == projectId && !it.isArchived }
+        val synthesized = tasks.filter { task ->
+            task.id !in existingLinkedTaskIds && task.title.trim().lowercase() !in existingTitles
+        }.map { task ->
+            ProjectWorkspaceItem(
+                id = -task.id,
+                profileId = profileId,
+                projectId = projectId,
+                title = task.title,
+                status = if (task.isOneTimeCompleted) "DONE" else "NOT_STARTED",
+                progress = if (task.isOneTimeCompleted) 100 else 0,
+                category = task.category.ifBlank { "Task" },
+                version = "V1",
+                dueDateIso = task.dueDateIso,
+                notes = task.description.ifBlank { task.notes },
+                priority = if (task.priority.equals("HIGH", ignoreCase = true) || task.priority.equals("P1", ignoreCase = true)) "P1" else "P2",
+                customProperties = mapOf("linkedTaskId" to task.id.toString(), "source" to "task_table"),
+                orderIndex = items.size
+            )
+        }
+        return items + synthesized
     }
 
     suspend fun insertWorkspaceItem(item: ProjectWorkspaceItem): Long {
@@ -333,10 +389,24 @@ class LifeRepository(
 
     suspend fun updateWorkspaceItem(item: ProjectWorkspaceItem) {
         val profileId = getActiveProfileId()
-        projectWorkspaceDao.updateItem(item.copy(profileId = profileId, updatedAt = System.currentTimeMillis()).toEntity())
+        if (item.id < 0) {
+            val taskId = -item.id
+            val task = taskRepository.getTaskById(taskId)
+            if (task != null) {
+                val isDone = item.status == "DONE" || item.progress >= 100
+                taskRepository.updateTask(task.copy(isOneTimeCompleted = isDone))
+            }
+        } else {
+            projectWorkspaceDao.updateItem(item.copy(profileId = profileId, updatedAt = System.currentTimeMillis()).toEntity())
+        }
     }
 
     suspend fun deleteWorkspaceItem(item: ProjectWorkspaceItem): Boolean {
+        if (item.id < 0) {
+            val taskId = -item.id
+            taskRepository.deleteTask(taskId)
+            return true
+        }
         return projectWorkspaceDao.deleteItem(item.toEntity()) > 0
     }
 
@@ -2097,6 +2167,30 @@ class LifeRepository(
                                 labelDao.insertTaskLabelCrossRefs(crossRefs)
                             }
                         }
+
+                        if (taskProjectId != null) {
+                            val workspaceEntity = ProjectWorkspaceItemEntity(
+                                profileId = activeProfileId,
+                                projectId = taskProjectId,
+                                title = taskDef.title,
+                                status = ProjectWorkspaceItemEntity.STATUS_NOT_STARTED,
+                                progress = 0,
+                                category = taskDef.category.ifBlank { "Task" },
+                                version = "V1",
+                                dueDateIso = todayIso,
+                                notes = taskDef.description,
+                                priority = when (taskDef.priority) {
+                                    TaskPriority.P1 -> "P1"
+                                    TaskPriority.P3 -> "P3"
+                                    else -> "P2"
+                                },
+                                customPropertiesJson = "{\"linkedTaskId\":\"$newTaskId\",\"source\":\"template\"}",
+                                orderIndex = index,
+                                createdAt = System.currentTimeMillis(),
+                                updatedAt = System.currentTimeMillis()
+                            )
+                            projectWorkspaceDao.insertItem(workspaceEntity)
+                        }
                     }
                 }
             }
@@ -2307,6 +2401,39 @@ class LifeRepository(
             )
         )
         return true
+    }
+
+    // Temporary Premium Pass & Lifetime Morse Code Secret
+    val temporaryPremiumExpiryFlow: Flow<Long> = preferences.temporaryPremiumExpiry
+    val premiumRedemptionCountFlow: Flow<Int> = preferences.premiumRedemptionCount
+    val isLifetimePremiumActiveFlow: Flow<Boolean> = preferences.isLifetimePremiumActive
+
+    suspend fun setLifetimePremium(active: Boolean) {
+        preferences.setLifetimePremium(active)
+    }
+
+    suspend fun redeemTemporaryPremium(): Result<String> {
+        val profile = gamificationDao.getProfile() ?: return Result.failure(IllegalStateException("No gamification profile"))
+        val cost = com.example.domain.gamification.TemporaryPremiumTierPolicy.DEFAULT_COIN_COST
+        if (profile.currentCoins < cost) {
+            return Result.failure(IllegalStateException("Not enough coins! Need $cost 🪙"))
+        }
+        val count = preferences.premiumRedemptionCount.first()
+        val durationMillis = com.example.domain.gamification.TemporaryPremiumTierPolicy.calculateDurationMillis(count)
+        val durationLabel = com.example.domain.gamification.TemporaryPremiumTierPolicy.getDurationLabel(count)
+
+        gamificationDao.insertOrUpdateProfile(
+            profile.copy(currentCoins = profile.currentCoins - cost)
+        )
+        preferences.recordTemporaryPremiumRedemption(durationMillis)
+        gamificationDao.insertRedemption(
+            RewardRedemptionEntity(
+                rewardId = -999L,
+                rewardTitle = "Temporary Premium Pass ($durationLabel)",
+                coinsSpent = cost
+            )
+        )
+        return Result.success(durationLabel)
     }
 
     suspend fun insertReward(reward: RewardItem): Long {

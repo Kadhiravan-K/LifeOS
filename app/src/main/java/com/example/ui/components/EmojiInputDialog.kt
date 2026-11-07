@@ -123,7 +123,7 @@ fun EmojiInputDialog(
     onEmojiSelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var rawInput by remember { mutableStateOf(currentEmoji) }
+    var directEmojiInput by remember { mutableStateOf(EmojiUtils.extractFirstEmoji(currentEmoji) ?: "") }
     var detectedEmoji by remember { mutableStateOf(EmojiUtils.extractFirstEmoji(currentEmoji) ?: "") }
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
@@ -187,18 +187,49 @@ fun EmojiInputDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Search or direct emoji input with clear button
+                // 1. Dedicated Single Emoji Input Field (Limits to 1 emoji, allows clean erase & replace)
+                OutlinedTextField(
+                    value = directEmojiInput,
+                    onValueChange = { input ->
+                        val directEmoji = EmojiUtils.extractFirstEmoji(input)
+                        if (directEmoji != null) {
+                            directEmojiInput = directEmoji
+                            detectedEmoji = directEmoji
+                            errorMessage = null
+                        } else if (input.isEmpty()) {
+                            directEmojiInput = ""
+                            detectedEmoji = ""
+                        }
+                    },
+                    label = { Text("Direct Emoji Input (1 emoji)", fontSize = 11.sp) },
+                    placeholder = { Text("Type or paste 1 emoji...", fontSize = 12.sp) },
+                    leadingIcon = { Icon(Icons.Default.SentimentSatisfied, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    trailingIcon = {
+                        if (directEmojiInput.isNotEmpty()) {
+                            IconButton(onClick = {
+                                directEmojiInput = ""
+                                detectedEmoji = ""
+                            }) {
+                                Icon(Icons.Default.Close, contentDescription = "Erase emoji", modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("direct_emoji_input_box")
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 2. Dedicated Search Bar (Filters catalog below)
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { input ->
                         searchQuery = input
-                        val directEmoji = EmojiUtils.extractFirstEmoji(input)
-                        if (directEmoji != null) {
-                            detectedEmoji = directEmoji
-                            errorMessage = null
-                        }
                     },
-                    placeholder = { Text("Search or type/paste any emoji...", fontSize = 12.sp) },
+                    label = { Text("Search Catalog", fontSize = 11.sp) },
+                    placeholder = { Text("Search by keywords (e.g. gym, reading)...", fontSize = 12.sp) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
@@ -247,7 +278,7 @@ fun EmojiInputDialog(
                             Surface(
                                 onClick = {
                                     detectedEmoji = em
-                                    rawInput = em
+                                    directEmojiInput = em
                                 },
                                 shape = RoundedCornerShape(8.dp),
                                 color = if (detectedEmoji == em) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -277,7 +308,7 @@ fun EmojiInputDialog(
                         Surface(
                             onClick = {
                                 detectedEmoji = item.emoji
-                                rawInput = item.emoji
+                                directEmojiInput = item.emoji
                                 errorMessage = null
                             },
                             shape = RoundedCornerShape(8.dp),

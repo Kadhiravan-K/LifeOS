@@ -169,8 +169,8 @@ fun LifeTimePickerDialog(
                     }
                 }
 
-                // Keep picker state stable while the user drags between hour and minute selection.
-                key(isInputMode, is24Hour, initialTime, presetSelectionVersion) {
+                // Keep picker state stable across dial and keyboard modes; only re-create when a preset is tapped.
+                key(presetSelectionVersion) {
                     val timePickerState = rememberTimePickerState(
                         initialHour = currentHour,
                         initialMinute = currentMinute,

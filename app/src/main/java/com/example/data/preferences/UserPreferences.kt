@@ -142,6 +142,11 @@ class UserPreferences(private val context: Context) {
         val KEY_MCP_ENABLED = booleanPreferencesKey("mcp_bridge_enabled")
         val KEY_MCP_AUTH_TOKEN = stringPreferencesKey("mcp_auth_token")
         val KEY_MCP_ALLOWED_PROFILE_ID = longPreferencesKey("mcp_allowed_profile_id")
+
+        // Morse Code Lifetime Secret and Gamification Temporary Premium Pass
+        val KEY_LIFETIME_PREMIUM_ACTIVE = booleanPreferencesKey("lifetime_premium_active")
+        val KEY_TEMPORARY_PREMIUM_EXPIRY = longPreferencesKey("temporary_premium_expiry_millis")
+        val KEY_PREMIUM_REDEMPTION_COUNT = intPreferencesKey("premium_redemption_count")
     }
 
     // MCP Bridge Flows
@@ -172,6 +177,42 @@ class UserPreferences(private val context: Context) {
     suspend fun setMcpAllowedProfileId(profileId: Long) {
         context.dataStore.edit { prefs ->
             prefs[KEY_MCP_ALLOWED_PROFILE_ID] = profileId
+        }
+    }
+
+    // Lifetime & Temporary Premium Flows
+    val isLifetimePremiumActive: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_LIFETIME_PREMIUM_ACTIVE] ?: false
+    }
+
+    val temporaryPremiumExpiry: Flow<Long> = context.dataStore.data.map { preferences ->
+        preferences[KEY_TEMPORARY_PREMIUM_EXPIRY] ?: 0L
+    }
+
+    val premiumRedemptionCount: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[KEY_PREMIUM_REDEMPTION_COUNT] ?: 0
+    }
+
+    suspend fun setLifetimePremium(active: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_LIFETIME_PREMIUM_ACTIVE] = active
+        }
+    }
+
+    suspend fun recordTemporaryPremiumRedemption(durationMillis: Long) {
+        context.dataStore.edit { prefs ->
+            val now = System.currentTimeMillis()
+            val currentExpiry = prefs[KEY_TEMPORARY_PREMIUM_EXPIRY] ?: 0L
+            val baseTime = if (currentExpiry > now) currentExpiry else now
+            prefs[KEY_TEMPORARY_PREMIUM_EXPIRY] = baseTime + durationMillis
+            val currentCount = prefs[KEY_PREMIUM_REDEMPTION_COUNT] ?: 0
+            prefs[KEY_PREMIUM_REDEMPTION_COUNT] = currentCount + 1
+        }
+    }
+
+    suspend fun clearTemporaryPremium() {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_TEMPORARY_PREMIUM_EXPIRY] = 0L
         }
     }
 

@@ -12,6 +12,7 @@ import com.example.billing.PremiumEntitlementState
 import com.example.billing.PurchaseState
 import com.example.billing.PurchaseVerificationStatus
 import com.example.billing.PurchaseVerifier
+import com.example.data.preferences.UserPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -37,7 +38,8 @@ class LocalPremiumEntitlementRepository(
     override val billingManager: BillingManager? = PlayBillingManager(context.applicationContext),
     private val purchaseVerifier: PurchaseVerifier = ClientSidePurchaseVerifier(BuildConfig.DEBUG),
     private val coroutineScope: kotlinx.coroutines.CoroutineScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default),
-    private val offlineTrustDurationMillis: Long = 72L * 60 * 60 * 1000L // Recommended 72-hour offline trust duration
+    private val offlineTrustDurationMillis: Long = 72L * 60 * 60 * 1000L, // Recommended 72-hour offline trust duration
+    private val userPreferences: UserPreferences = UserPreferences(context.applicationContext)
 ) : PremiumEntitlementRepository {
 
     companion object {
@@ -55,7 +57,27 @@ class LocalPremiumEntitlementRepository(
     }
 
     override val entitlementState: Flow<PremiumEntitlementState> = if (billingManager != null) {
-        combine(billingManager.subscriptionPurchase, simulatedPremiumFlow) { purchase, simulatedDebug ->
+        combine(
+            billingManager.subscriptionPurchase,
+            simulatedPremiumFlow,
+            userPreferences.isLifetimePremiumActive,
+            userPreferences.temporaryPremiumExpiry
+        ) { purchase, simulatedDebug, isLifetime, tempExpiry ->
+            if (isLifetime) {
+                return@combine PremiumEntitlementState.PremiumActive(
+                    expiryTimeMillis = Long.MAX_VALUE,
+                    isAutoRenewing = false
+                )
+            }
+
+            val now = System.currentTimeMillis()
+            if (tempExpiry > now) {
+                return@combine PremiumEntitlementState.PremiumActive(
+                    expiryTimeMillis = tempExpiry,
+                    isAutoRenewing = false
+                )
+            }
+
             if (BuildConfig.DEBUG && simulatedDebug) {
                 return@combine PremiumEntitlementState.PremiumActive(
                     expiryTimeMillis = Long.MAX_VALUE,
@@ -85,7 +107,6 @@ class LocalPremiumEntitlementRepository(
                             return@combine PremiumEntitlementState.AccountHold
                         }
 
-                        val now = System.currentTimeMillis()
                         val expiry = purchase.expiryTimeMillis ?: (purchase.purchaseTimeMillis + 30L * 24 * 60 * 60 * 1000)
 
                         if (purchase.isInGracePeriod && now < expiry) {
@@ -117,8 +138,16 @@ class LocalPremiumEntitlementRepository(
             }
         }
     } else {
-        simulatedPremiumFlow.map { simulated ->
-            if (BuildConfig.DEBUG && simulated) {
+        combine(
+            simulatedPremiumFlow,
+            userPreferences.isLifetimePremiumActive,
+            userPreferences.temporaryPremiumExpiry
+        ) { simulated, isLifetime, tempExpiry ->
+            if (isLifetime) {
+                PremiumEntitlementState.PremiumActive(Long.MAX_VALUE, false)
+            } else if (tempExpiry > System.currentTimeMillis()) {
+                PremiumEntitlementState.PremiumActive(tempExpiry, false)
+            } else if (BuildConfig.DEBUG && simulated) {
                 PremiumEntitlementState.PremiumActive(Long.MAX_VALUE, true)
             } else {
                 PremiumEntitlementState.Free

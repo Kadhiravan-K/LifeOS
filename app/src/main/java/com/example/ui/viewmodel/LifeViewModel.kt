@@ -830,6 +830,24 @@ class LifeViewModel(
     val subscriptionProduct: StateFlow<SubscriptionProduct?> =
         entitlementRepo.billingManager?.subscriptionProduct ?: MutableStateFlow(null)
 
+    val temporaryPremiumExpiry: StateFlow<Long> = repository.temporaryPremiumExpiryFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0L
+    )
+
+    val premiumRedemptionCount: StateFlow<Int> = repository.premiumRedemptionCountFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0
+    )
+
+    val isLifetimePremiumActive: StateFlow<Boolean> = repository.isLifetimePremiumActiveFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
     private val _previewThemeId = MutableStateFlow<ThemeId?>(null)
     val previewThemeId: StateFlow<ThemeId?> = _previewThemeId.asStateFlow()
 
@@ -2472,6 +2490,23 @@ class LifeViewModel(
         if (!BuildConfig.DEBUG) return
         viewModelScope.launch {
             entitlementRepo.setSimulatedPremium(active)
+        }
+    }
+
+    fun setLifetimePremium(active: Boolean) {
+        viewModelScope.launch {
+            repository.setLifetimePremium(active)
+        }
+    }
+
+    fun redeemTemporaryPremium(onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val result = repository.redeemTemporaryPremium()
+            if (result.isSuccess) {
+                onResult(true, result.getOrNull() ?: "")
+            } else {
+                onResult(false, result.exceptionOrNull()?.message ?: "Redemption failed")
+            }
         }
     }
 

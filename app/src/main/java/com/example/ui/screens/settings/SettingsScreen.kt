@@ -2,9 +2,14 @@ package com.example.ui.screens.settings
 
 import android.content.Intent
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.utils.MorseCodeSecretMatcher
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MusicNote
@@ -241,6 +246,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     var currentSubpage by remember { mutableStateOf(SettingsSubpage.HUB) }
     var searchQuery by remember { mutableStateOf("") }
+    val isLifetimePremiumActive by viewModel.isLifetimePremiumActive.collectAsStateWithLifecycle()
 
     // Resets to HUB on tab re-selection
     LaunchedEffect(resetTrigger) {
@@ -414,6 +420,8 @@ fun SettingsScreen(
                 onNavigateToThemeGallery = onNavigateToThemeGallery,
                 onNavigateToPlanning = onNavigateToPlanning,
                 onNavigateToMedication = onNavigateToMedication,
+                isLifetimePremiumActive = isLifetimePremiumActive,
+                onSetLifetimePremium = { viewModel.setLifetimePremium(it) },
                 modifier = modifier
             )
         }
@@ -2272,8 +2280,13 @@ private fun SettingsHubView(
     onNavigateToThemeGallery: () -> Unit = {},
     onNavigateToPlanning: () -> Unit = {},
     onNavigateToMedication: () -> Unit = {},
+    isLifetimePremiumActive: Boolean = false,
+    onSetLifetimePremium: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var morseSequence by remember { mutableStateOf("") }
+    var lastMorseTime by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
     val searchRegistry = remember {
         getSettingsSearchRegistry(
             onNavigateToThemeGallery = onNavigateToThemeGallery,
@@ -2503,11 +2516,42 @@ private fun SettingsHubView(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // About LifeOS Card
+            // About LifeOS Card with Hidden Morse Code Lifetime Secret
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = {
+                                val now = System.currentTimeMillis()
+                                if (now - lastMorseTime > 3500L) {
+                                    morseSequence = ""
+                                }
+                                lastMorseTime = now
+                                morseSequence += "."
+                                if (MorseCodeSecretMatcher.isSecretMatch(morseSequence)) {
+                                    onSetLifetimePremium(true)
+                                    morseSequence = ""
+                                    Toast.makeText(context, "🌟 Lifetime Premium Activated! Thank you Kadhiravan!", Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            onLongPress = {
+                                val now = System.currentTimeMillis()
+                                if (now - lastMorseTime > 3500L) {
+                                    morseSequence = ""
+                                }
+                                lastMorseTime = now
+                                morseSequence += "-"
+                                if (MorseCodeSecretMatcher.isSecretMatch(morseSequence)) {
+                                    onSetLifetimePremium(true)
+                                    morseSequence = ""
+                                    Toast.makeText(context, "🌟 Lifetime Premium Activated! Thank you Kadhiravan!", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        )
+                    }
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2518,6 +2562,34 @@ private fun SettingsHubView(
                     Spacer(modifier = Modifier.height(6.dp))
                     Text("Version 1.1.0 (Build 2) • Production Release", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                     Text("Zero cloud dependencies. Zero telemetry. Privacy-first offline architecture.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            if (isLifetimePremiumActive) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("👑 Lifetime Premium Active", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        TextButton(
+                            onClick = {
+                                onSetLifetimePremium(false)
+                                Toast.makeText(context, "Lifetime plan removed", Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
+                            Text("Revoke Plan", fontSize = 11.sp, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                 }
             }
         }
