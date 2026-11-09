@@ -16,6 +16,9 @@ object ProfileSecurityManager {
     private const val KEY_LENGTH = 256
     private const val SALT_LENGTH = 32
 
+    const val MIN_PATTERN_DOTS = 4
+    const val MAX_PATTERN_DOTS = 9
+
     fun generateSalt(): String {
         val random = SecureRandom()
         val salt = ByteArray(SALT_LENGTH)
@@ -32,15 +35,47 @@ object ProfileSecurityManager {
     }
 
     fun verifyCredential(raw: String, storedHash: String, saltHex: String): Boolean {
-        if (storedHash.isBlank() || saltHex.isBlank()) return false
+        if (storedHash.isBlank() || saltHex.isBlank() || raw.isBlank()) return false
         return try {
             val computedHash = hashCredential(raw, saltHex)
             MessageDigest.isEqual(
                 computedHash.toByteArray(Charsets.UTF_8),
                 storedHash.toByteArray(Charsets.UTF_8)
             )
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
+        }
+    }
+
+    /**
+     * Validates that a pattern string represents a valid, non-trivial pattern:
+     * - Formatted with numbers separated by hyphens (e.g. "0-1-2-5-8")
+     * - Contains between 4 and 9 dots
+     * - Every dot index is between 0 and 8 inclusive
+     * - No dot is repeated
+     */
+    fun validatePattern(patternString: String): Boolean {
+        if (patternString.isBlank()) return false
+        val dots = parsePattern(patternString)
+        return validatePatternDots(dots)
+    }
+
+    fun validatePatternDots(dots: List<Int>): Boolean {
+        if (dots.size < MIN_PATTERN_DOTS || dots.size > MAX_PATTERN_DOTS) return false
+        if (dots.any { it !in 0 until MAX_PATTERN_DOTS }) return false
+        return dots.distinct().size == dots.size
+    }
+
+    fun formatPattern(dots: List<Int>): String {
+        return dots.joinToString("-")
+    }
+
+    fun parsePattern(patternString: String): List<Int> {
+        if (patternString.isBlank()) return emptyList()
+        return try {
+            patternString.split("-").mapNotNull { it.trim().toIntOrNull() }
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 
@@ -51,21 +86,36 @@ object ProfileSecurityManager {
             .toByteArray()
     }
 
-    enum class BiometricStatus {
-        AVAILABLE,
-        NONE_ENROLLED,
-        NOT_SUPPORTED
+    enum class BiometricStatus(val userExplanation: String) {
+        AVAILABLE("Biometric authentication is ready and enrolled"),
+        NONE_ENROLLED("Biometric hardware is supported, but no credentials are enrolled in Android Settings"),
+        HARDWARE_UNAVAILABLE("Biometric sensor is present, but temporarily busy or unavailable"),
+        NOT_SUPPORTED("Biometric hardware is not supported on this device")
     }
 
     fun checkBiometricStatus(context: Context): BiometricStatus {
-        val biometricManager = BiometricManager.from(context)
-        return when (biometricManager.canAuthenticate(
-            BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
-        )) {
-            BiometricManager.BIOMETRIC_SUCCESS -> BiometricStatus.AVAILABLE
-            BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> BiometricStatus.NONE_ENROLLED
-            else -> BiometricStatus.NOT_SUPPORTED
+        return try {
+            val biometricManager = BiometricManager.from(context)
+            when (biometricManager.canAuthenticate(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
+            )) {
+                BiometricManager.BIOMETRIC_SUCCESS -> BiometricStatus.AVAILABLE
+                BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> BiometricStatus.NONE_ENROLLED
+                BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> BiometricStatus.HARDWARE_UNAVAILABLE
+                BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE,
+                BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED,
+                BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED,
+                BiometricManager.BIOMETRIC_STATUS_UNKNOWN -> BiometricStatus.NOT_SUPPORTED
+                else -> BiometricStatus.NOT_SUPPORTED
+            }
+        } catch (_: Exception) {
+            BiometricStatus.NOT_SUPPORTED
         }
+    }
+
+    fun isBiometricHardwarePresent(context: Context): Boolean {
+        val status = checkBiometricStatus(context)
+        return status == BiometricStatus.AVAILABLE || status == BiometricStatus.NONE_ENROLLED || status == BiometricStatus.HARDWARE_UNAVAILABLE
     }
 
     fun showBiometricPrompt(

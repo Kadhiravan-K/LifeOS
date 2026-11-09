@@ -184,6 +184,7 @@ class LifeRepository(
         }
         val deleted = profileDao.deleteCustomProfile(id)
         if (deleted > 0) {
+            profileSecurityDao.deleteSecurityForProfile(id)
             profileSurveyDao.deleteSurveyForProfile(id)
             taskRepository.deleteAllTasksForProfile(id)
             habitDao.deleteAllHabitsForProfile(id)

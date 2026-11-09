@@ -151,16 +151,16 @@ class MainActivity : FragmentActivity() {
                         val targetProfileId = pendingProfileSwitchId ?: activeProfileId
                         val targetProfile = allProfiles.find { it.id == targetProfileId }
                             ?: com.example.data.local.entities.ProfileEntity.createDefaultPersonal()
-                        val activeSecurity by viewModel.activeProfileSecurityFlow.collectAsStateWithLifecycle()
+                        val unlockSecurity by viewModel.unlockTargetSecurityFlow.collectAsStateWithLifecycle()
                         val coroutineScope = rememberCoroutineScope()
 
                         if (isAppLocked) {
                             ProfileUnlockScreen(
                                 profileName = targetProfile.name,
                                 profileEmoji = targetProfile.emoji,
-                                authMethod = activeSecurity?.authMethod ?: "PIN",
-                                biometricEnabled = activeSecurity?.biometricEnabled == true,
-                                lockoutUntilEpochMs = activeSecurity?.lockoutUntilEpochMs ?: 0L,
+                                authMethod = unlockSecurity?.authMethod ?: "PIN",
+                                biometricEnabled = unlockSecurity?.biometricEnabled == true,
+                                lockoutUntilEpochMs = unlockSecurity?.lockoutUntilEpochMs ?: 0L,
                                 onUnlockAttempt = { credential ->
                                     var result = false
                                     runBlocking {

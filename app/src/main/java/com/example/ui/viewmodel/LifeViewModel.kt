@@ -577,11 +577,23 @@ class LifeViewModel(
             initialValue = null
         )
 
-    private val _isAppLocked = MutableStateFlow(false)
-    val isAppLocked: StateFlow<Boolean> = _isAppLocked.asStateFlow()
-
     private val _pendingProfileSwitchId = MutableStateFlow<Long?>(null)
     val pendingProfileSwitchId: StateFlow<Long?> = _pendingProfileSwitchId.asStateFlow()
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val unlockTargetSecurityFlow: StateFlow<com.example.data.local.entities.ProfileSecurityEntity?> =
+        kotlinx.coroutines.flow.combine(activeProfileIdFlow, _pendingProfileSwitchId) { activeId, pendingId ->
+            pendingId ?: activeId
+        }.flatMapLatest { targetId ->
+            repository.getProfileSecurityFlow(targetId)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
+    private val _isAppLocked = MutableStateFlow(false)
+    val isAppLocked: StateFlow<Boolean> = _isAppLocked.asStateFlow()
 
     private var lastBackgroundEpochMs: Long = 0L
 
@@ -682,6 +694,11 @@ class LifeViewModel(
         autoLockTimeoutSeconds: Int = 300
     ): Boolean {
         if (rawCredential.isBlank()) return false
+        if (authMethod == com.example.data.local.entities.ProfileSecurityEntity.AUTH_METHOD_PATTERN) {
+            if (!com.example.security.ProfileSecurityManager.validatePattern(rawCredential)) {
+                return false
+            }
+        }
         val salt = com.example.security.ProfileSecurityManager.generateSalt()
         val hash = com.example.security.ProfileSecurityManager.hashCredential(rawCredential, salt)
         val entity = com.example.data.local.entities.ProfileSecurityEntity(
@@ -712,6 +729,12 @@ class LifeViewModel(
             saltHex = current.salt
         )
         if (!verified) return false
+
+        if (current.authMethod == com.example.data.local.entities.ProfileSecurityEntity.AUTH_METHOD_PATTERN) {
+            if (!com.example.security.ProfileSecurityManager.validatePattern(newCredentialRaw)) {
+                return false
+            }
+        }
 
         val newSalt = com.example.security.ProfileSecurityManager.generateSalt()
         val newHash = com.example.security.ProfileSecurityManager.hashCredential(newCredentialRaw, newSalt)
@@ -2603,6 +2626,9 @@ class LifeViewModel(
 
     fun deleteProfile(profileId: Long) {
         viewModelScope.launch {
+            if (_pendingProfileSwitchId.value == profileId) {
+                _pendingProfileSwitchId.value = null
+            }
             repository.deleteProfile(profileId)
             com.example.widgets.WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
         }

@@ -233,22 +233,44 @@ fun ProfileUnlockScreen(
                         }
 
                         "PATTERN" -> {
-                            PatternGrid(
-                                selectedPoints = patternSelectedPoints,
-                                onPointSelected = { pt ->
-                                    if (!patternSelectedPoints.contains(pt)) {
-                                        patternSelectedPoints = patternSelectedPoints + pt
-                                    }
-                                },
-                                onPatternCompleted = {
-                                    val patternStr = patternSelectedPoints.joinToString("-")
-                                    val ok = onUnlockAttempt(patternStr)
-                                    if (!ok) {
-                                        errorMessage = "Incorrect pattern"
-                                    }
-                                    patternSelectedPoints = emptyList()
+                            var isPatternError by remember { mutableStateOf(false) }
+
+                            LaunchedEffect(isPatternError) {
+                                if (isPatternError) {
+                                    delay(900)
+                                    isPatternError = false
                                 }
-                            )
+                            }
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                InteractivePatternLockView(
+                                    onPatternCompleted = { dots ->
+                                        val patternStr = dots.joinToString("-")
+                                        val ok = onUnlockAttempt(patternStr)
+                                        if (!ok) {
+                                            errorMessage = "Incorrect pattern"
+                                            isPatternError = true
+                                        } else {
+                                            errorMessage = null
+                                            isPatternError = false
+                                        }
+                                    },
+                                    onPatternTooShort = {
+                                        errorMessage = "Connect at least 4 dots"
+                                        isPatternError = true
+                                    },
+                                    onPatternChanged = {
+                                        errorMessage = null
+                                        isPatternError = false
+                                    },
+                                    isError = isPatternError,
+                                    enabled = !isLockedOut,
+                                    modifier = Modifier.fillMaxWidth(0.85f)
+                                )
+                            }
                         }
 
                         else -> {
@@ -404,60 +426,4 @@ private fun PinPad(
     }
 }
 
-@Composable
-private fun PatternGrid(
-    selectedPoints: List<Int>,
-    onPointSelected: (Int) -> Unit,
-    onPatternCompleted: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-    ) {
-        for (row in 0 until 3) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(36.dp),
-                modifier = Modifier.padding(vertical = 18.dp)
-            ) {
-                for (col in 0 until 3) {
-                    val index = row * 3 + col
-                    val isSelected = selectedPoints.contains(index)
-                    Surface(
-                        onClick = {
-                            onPointSelected(index)
-                        },
-                        shape = CircleShape,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                        border = androidx.compose.foundation.BorderStroke(
-                            2.dp,
-                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                        ),
-                        modifier = Modifier.size(48.dp).testTag("pattern_dot_$index")
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            if (isSelected) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.onPrimary)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = onPatternCompleted,
-            enabled = selectedPoints.size >= 4,
-            modifier = Modifier.testTag("pattern_done_button")
-        ) {
-            Text("Done")
-        }
-    }
-}
