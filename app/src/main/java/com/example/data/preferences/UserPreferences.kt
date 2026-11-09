@@ -11,8 +11,12 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.example.domain.legal.LegalConsentManager
 import com.example.domain.legal.LegalDocuments
 import com.example.domain.model.DashboardShape
+import com.example.ui.theme.engine.BackgroundScaleMode
 import com.example.ui.theme.engine.CustomColorPalette
 import com.example.ui.theme.engine.IndependentThemeCustomization
+import com.example.ui.theme.engine.ThemeBackgroundConfig
+import com.example.ui.theme.engine.ThemeBackgroundType
+import com.example.ui.theme.engine.ThemeId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -152,6 +156,13 @@ class UserPreferences(private val context: Context) {
         val KEY_HEATMAP_SHOW_DATES_ANALYTICS = booleanPreferencesKey("heatmap_show_dates_analytics")
         val KEY_HEATMAP_SHOW_DATES_HABITS = booleanPreferencesKey("heatmap_show_dates_habits")
         val KEY_HEATMAP_SHOW_DATES_CHALLENGE = booleanPreferencesKey("heatmap_show_dates_challenge")
+
+        // Theme-Specific Background Preferences
+        fun keyThemeBgType(themeId: String) = stringPreferencesKey("theme_bg_type_$themeId")
+        fun keyThemeBgUri(themeId: String) = stringPreferencesKey("theme_bg_uri_$themeId")
+        fun keyThemeBgOpacity(themeId: String) = floatPreferencesKey("theme_bg_opacity_$themeId")
+        fun keyThemeBgScale(themeId: String) = stringPreferencesKey("theme_bg_scale_$themeId")
+        fun keyThemeBgOverlay(themeId: String) = booleanPreferencesKey("theme_bg_overlay_$themeId")
     }
 
     // MCP Bridge Flows
@@ -456,6 +467,37 @@ class UserPreferences(private val context: Context) {
 
     suspend fun setActiveThemeId(themeId: String) {
         context.dataStore.edit { it[KEY_ACTIVE_THEME_ID] = themeId }
+    }
+
+    fun getThemeBackgroundConfig(themeId: ThemeId): Flow<ThemeBackgroundConfig> = context.dataStore.data.map { preferences ->
+        val typeStr = preferences[keyThemeBgType(themeId.idString)]
+        val uri = preferences[keyThemeBgUri(themeId.idString)]
+        val opacity = preferences[keyThemeBgOpacity(themeId.idString)] ?: 0.85f
+        val scaleStr = preferences[keyThemeBgScale(themeId.idString)]
+        val overlay = preferences[keyThemeBgOverlay(themeId.idString)] ?: true
+
+        ThemeBackgroundConfig(
+            themeId = themeId,
+            type = ThemeBackgroundType.fromId(typeStr),
+            customImageUri = uri,
+            opacity = opacity.coerceIn(0.1f, 1.0f),
+            scaleMode = try { BackgroundScaleMode.valueOf(scaleStr ?: "CROP") } catch (e: Exception) { BackgroundScaleMode.CROP },
+            enableOverlayTint = overlay
+        )
+    }
+
+    suspend fun setThemeBackgroundConfig(config: ThemeBackgroundConfig) {
+        context.dataStore.edit { preferences ->
+            preferences[keyThemeBgType(config.themeId.idString)] = config.type.idString
+            if (config.customImageUri != null) {
+                preferences[keyThemeBgUri(config.themeId.idString)] = config.customImageUri
+            } else {
+                preferences.remove(keyThemeBgUri(config.themeId.idString))
+            }
+            preferences[keyThemeBgOpacity(config.themeId.idString)] = config.opacity
+            preferences[keyThemeBgScale(config.themeId.idString)] = config.scaleMode.name
+            preferences[keyThemeBgOverlay(config.themeId.idString)] = config.enableOverlayTint
+        }
     }
 
     suspend fun setWaterGoalMl(goal: Int) {

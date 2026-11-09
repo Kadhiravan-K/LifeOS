@@ -104,7 +104,8 @@ object ThemeRegistry {
             buttonShape = RoundedCornerShape(14.dp),
             borderWidth = 1.5.dp,
             cornerRadiusDp = 18.dp,
-            isAngularCyber = false
+            isAngularCyber = false,
+            isRunicArcane = true
         ),
         motion = ThemeMotion(
             animationDurationMs = 350,
@@ -226,7 +227,8 @@ object ThemeRegistry {
             buttonShape = RoundedCornerShape(12.dp),
             borderWidth = 2.dp,
             cornerRadiusDp = 18.dp,
-            isAngularCyber = false
+            isAngularCyber = false,
+            isEmbossedAdventure = true
         ),
         motion = ThemeMotion(
             animationDurationMs = 300,
@@ -280,7 +282,8 @@ object ThemeRegistry {
             dialogShape = RoundedCornerShape(24.dp),
             borderWidth = 1.2.dp,
             cornerRadiusDp = 22.dp,
-            isAngularCyber = false
+            isAngularCyber = false,
+            isOrbitalCosmic = true
         ),
         motion = ThemeMotion(
             animationDurationMs = 280,
@@ -378,6 +381,116 @@ object ThemeRegistry {
         honeycombEngraving = HoneycombEngravingType.PRISM
     )
 
+    val DEFAULT_COLORS_LIGHT = ThemeColors(
+        primary = Color(0xFF2563EB),
+        onPrimary = Color(0xFFFFFFFF),
+        secondary = Color(0xFF4F46E5),
+        onSecondary = Color(0xFFFFFFFF),
+        accent = Color(0xFF10B981),
+        background = Color(0xFFF8FAFC),
+        surface = Color(0xFFFFFFFF),
+        surfaceVariant = Color(0xFFF1F5F9),
+        onBackground = Color(0xFF0F172A),
+        onSurface = Color(0xFF0F172A),
+        onSurfaceVariant = Color(0xFF64748B),
+        outline = Color(0xFFCBD5E1),
+        glowColor = Color(0x332563EB),
+        gradientPrimary = listOf(Color(0xFF2563EB), Color(0xFF3B82F6)),
+        gradientSurface = listOf(Color(0xFFFFFFFF), Color(0xFFF1F5F9)),
+        honeycombBorder = Color(0xFFCBD5E1),
+        honeycombDefaultFill = Color(0xFF10B981),
+        badgeBackground = Color(0xFFE2E8F0),
+        isDarkPalette = false
+    )
+
+    val ARCANE_COLORS_LIGHT = ThemeColors(
+        primary = Color(0xFF7C3AED), // Mystic royal violet
+        onPrimary = Color(0xFFFFFFFF),
+        secondary = Color(0xFFD97706), // Warm antique gold
+        onSecondary = Color(0xFFFFFFFF),
+        accent = Color(0xFFC026D3), // Spellbook magenta
+        background = Color(0xFFFBF8F3), // Aged ivory parchment
+        surface = Color(0xFFF5EFE3), // Illuminated manuscript page
+        surfaceVariant = Color(0xFFEBDDC8), // Bound parchment layer
+        onBackground = Color(0xFF281140), // Dark violet ink
+        onSurface = Color(0xFF281140),
+        onSurfaceVariant = Color(0xFF6B4687), // Muted runic script
+        outline = Color(0xFFD97706), // Antique gold trim
+        glowColor = Color(0x337C3AED),
+        gradientPrimary = listOf(Color(0xFF7C3AED), Color(0xFFA855F7)),
+        gradientSurface = listOf(Color(0xFFFAF5ED), Color(0xFFF0E5D5)),
+        honeycombBorder = Color(0xFFD97706),
+        honeycombDefaultFill = Color(0xFF9333EA),
+        badgeBackground = Color(0xFFE8D7F7),
+        isDarkPalette = false
+    )
+
+    val CYBER_COLORS_LIGHT = ThemeColors(
+        primary = Color(0xFF0891B2), // Clean laboratory cyan
+        onPrimary = Color(0xFFFFFFFF),
+        secondary = Color(0xFFDB2777), // Neon magenta
+        onSecondary = Color(0xFFFFFFFF),
+        accent = Color(0xFF2563EB), // Electric blue
+        background = Color(0xFFF1F5F9), // Clean server room slate
+        surface = Color(0xFFFFFFFF), // White terminal card
+        surfaceVariant = Color(0xFFE2E8F0), // Holographic telemetry panel
+        onBackground = Color(0xFF0F172A), // Data-stream black
+        onSurface = Color(0xFF0F172A),
+        onSurfaceVariant = Color(0xFF475569),
+        outline = Color(0xFF06B6D4), // Cyan bus trace
+        glowColor = Color(0x330891B2),
+        gradientPrimary = listOf(Color(0xFF0891B2), Color(0xFF06B6D4)),
+        gradientSurface = listOf(Color(0xFFFFFFFF), Color(0xFFF1F5F9)),
+        honeycombBorder = Color(0xFF0891B2),
+        honeycombDefaultFill = Color(0xFF06B6D4),
+        badgeBackground = Color(0xFFCFFAFE),
+        isDarkPalette = false
+    )
+
+    val ADVENTURE_COLORS_LIGHT = ThemeColors(
+        primary = Color(0xFFB45309), // Guildmaster saddle amber
+        onPrimary = Color(0xFFFFFFFF),
+        secondary = Color(0xFF15803D), // Forest green
+        onSecondary = Color(0xFFFFFFFF),
+        accent = Color(0xFFD97706),
+        background = Color(0xFFFAF5EC), // Explorer map parchment
+        surface = Color(0xFFF3EAD9), // Polished oak table
+        surfaceVariant = Color(0xFFE5D5BD), // Guild board cork/leather
+        onBackground = Color(0xFF2E1906), // Deep oak brown
+        onSurface = Color(0xFF2E1906),
+        onSurfaceVariant = Color(0xFF654728),
+        outline = Color(0xFFB45309), // Burnished brass
+        glowColor = Color(0x33B45309),
+        gradientPrimary = listOf(Color(0xFFB45309), Color(0xFFF59E0B)),
+        gradientSurface = listOf(Color(0xFFFAF5EC), Color(0xFFEFE2CD)),
+        honeycombBorder = Color(0xFFB45309),
+        honeycombDefaultFill = Color(0xFF15803D),
+        badgeBackground = Color(0xFFFEF3C7),
+        isDarkPalette = false
+    )
+
+    val COSMIC_COLORS_LIGHT = ThemeColors(
+        primary = Color(0xFF0284C7), // Stellar sky sapphire
+        onPrimary = Color(0xFFFFFFFF),
+        secondary = Color(0xFF6D28D9), // Nebula deep purple
+        onSecondary = Color(0xFFFFFFFF),
+        accent = Color(0xFF0EA5E9),
+        background = Color(0xFFF0F4F8), // Lunar silver
+        surface = Color(0xFFFFFFFF), // Spacecraft station panel
+        surfaceVariant = Color(0xFFDFE7F0), // Orbit telemetry layer
+        onBackground = Color(0xFF0A1224), // Deep space navy
+        onSurface = Color(0xFF0A1224),
+        onSurfaceVariant = Color(0xFF334155),
+        outline = Color(0xFF38BDF8), // Celestial coordinate line
+        glowColor = Color(0x330284C7),
+        gradientPrimary = listOf(Color(0xFF0284C7), Color(0xFF38BDF8)),
+        gradientSurface = listOf(Color(0xFFFFFFFF), Color(0xFFE2EAF3)),
+        honeycombBorder = Color(0xFF0284C7),
+        honeycombDefaultFill = Color(0xFF38BDF8),
+        badgeBackground = Color(0xFFE0F2FE),
+        isDarkPalette = false
+    )
+
     val allThemes: List<ThemeDefinition> = listOf(
         DEFAULT_THEME,
         ARCANE_ACADEMY,
@@ -397,10 +510,14 @@ object ThemeRegistry {
     }
 
     fun getEffectiveColors(theme: ThemeDefinition, isLightMode: Boolean): ThemeColors {
-        return if (theme.id == ThemeId.GLASS && isLightMode) {
-            GLASS_COLORS_LIGHT
-        } else {
-            theme.colors
+        if (!isLightMode) return theme.colors
+        return when (theme.id) {
+            ThemeId.DEFAULT -> DEFAULT_COLORS_LIGHT
+            ThemeId.ARCANE_ACADEMY -> ARCANE_COLORS_LIGHT
+            ThemeId.CYBER_NEXUS -> CYBER_COLORS_LIGHT
+            ThemeId.ADVENTURE_REALM -> ADVENTURE_COLORS_LIGHT
+            ThemeId.COSMIC_EXPLORER -> COSMIC_COLORS_LIGHT
+            ThemeId.GLASS -> GLASS_COLORS_LIGHT
         }
     }
 }

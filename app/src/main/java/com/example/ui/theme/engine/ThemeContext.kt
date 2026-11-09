@@ -57,94 +57,43 @@ fun ThemeDefinition.toMaterial3ColorScheme(
     isLightMode: Boolean = false,
     customPalette: CustomColorPalette? = null
 ): ColorScheme {
-    val effectiveTheme = if (customPalette != null && customPalette.isCustomized) {
-        withCustomPalette(customPalette)
-    } else this
+    val effectiveColors = ThemeRegistry.getEffectiveColors(this, isLightMode)
+    val basePrimary = customPalette?.getPrimaryColor(effectiveColors.primary) ?: effectiveColors.primary
+    val baseSecondary = customPalette?.getSecondaryColor(effectiveColors.secondary) ?: effectiveColors.secondary
+    val baseTertiary = customPalette?.getAccentColor(effectiveColors.accent) ?: effectiveColors.accent
+    val baseBg = customPalette?.getBackgroundColor(effectiveColors.background) ?: effectiveColors.background
+    val baseSurface = customPalette?.getSurfaceColor(effectiveColors.surface) ?: effectiveColors.surface
+    val baseSurfaceVariant = customPalette?.cardHex?.let { Color(it) } ?: effectiveColors.surfaceVariant
 
-    if (id == ThemeId.DEFAULT && isLightMode) {
-        val basePrimary = customPalette?.getPrimaryColor(PrimaryLight) ?: PrimaryLight
-        val baseSecondary = customPalette?.getSecondaryColor(SecondaryLight) ?: SecondaryLight
-        val baseTertiary = customPalette?.getAccentColor(AccentAmberLight) ?: AccentAmberLight
-        val baseBg = customPalette?.getBackgroundColor(SlateBackgroundLight) ?: SlateBackgroundLight
-        val baseSurface = customPalette?.getSurfaceColor(SlateSurfaceLight) ?: SlateSurfaceLight
-        val baseSurfaceVariant = customPalette?.cardHex?.let { Color(it) } ?: SlateSurfaceVariantLight
-
-        return lightColorScheme(
+    return if (isLightMode) {
+        lightColorScheme(
             primary = basePrimary,
-            onPrimary = OnPrimaryLight,
+            onPrimary = effectiveColors.onPrimary,
             secondary = baseSecondary,
             tertiary = baseTertiary,
             background = baseBg,
             surface = baseSurface,
             surfaceVariant = baseSurfaceVariant,
-            onBackground = OnSurfaceLight,
-            onSurface = OnSurfaceLight,
-            onSurfaceVariant = OnSurfaceVariantLight,
-            outline = SlateBorderLight
+            onBackground = effectiveColors.onBackground,
+            onSurface = effectiveColors.onSurface,
+            onSurfaceVariant = effectiveColors.onSurfaceVariant,
+            outline = effectiveColors.outline
         )
-    }
-
-    if (id == ThemeId.DEFAULT) {
-        val basePrimary = customPalette?.getPrimaryColor(PrimaryDark) ?: PrimaryDark
-        val baseSecondary = customPalette?.getSecondaryColor(SecondaryDark) ?: SecondaryDark
-        val baseTertiary = customPalette?.getAccentColor(AccentAmberDark) ?: AccentAmberDark
-        val baseBg = customPalette?.getBackgroundColor(SlateBackgroundDark) ?: SlateBackgroundDark
-        val baseSurface = customPalette?.getSurfaceColor(SlateSurfaceDark) ?: SlateSurfaceDark
-        val baseSurfaceVariant = customPalette?.cardHex?.let { Color(it) } ?: SlateSurfaceVariantDark
-
-        return darkColorScheme(
+    } else {
+        darkColorScheme(
             primary = basePrimary,
-            onPrimary = OnPrimaryDark,
+            onPrimary = effectiveColors.onPrimary,
             secondary = baseSecondary,
             tertiary = baseTertiary,
             background = baseBg,
             surface = baseSurface,
             surfaceVariant = baseSurfaceVariant,
-            onBackground = OnSurfaceDark,
-            onSurface = OnSurfaceDark,
-            onSurfaceVariant = OnSurfaceVariantDark,
-            outline = SlateBorderDark
+            onBackground = effectiveColors.onBackground,
+            onSurface = effectiveColors.onSurface,
+            onSurfaceVariant = effectiveColors.onSurfaceVariant,
+            outline = effectiveColors.outline
         )
     }
-
-    if (id == ThemeId.GLASS && isLightMode) {
-        val lightColors = ThemeRegistry.GLASS_COLORS_LIGHT
-        val basePrimary = customPalette?.getPrimaryColor(lightColors.primary) ?: lightColors.primary
-        val baseSecondary = customPalette?.getSecondaryColor(lightColors.secondary) ?: lightColors.secondary
-        val baseTertiary = customPalette?.getAccentColor(lightColors.accent) ?: lightColors.accent
-        val baseBg = customPalette?.getBackgroundColor(lightColors.background) ?: lightColors.background
-        val baseSurface = customPalette?.getSurfaceColor(lightColors.surface) ?: lightColors.surface
-        val baseSurfaceVariant = customPalette?.cardHex?.let { Color(it) } ?: lightColors.surfaceVariant
-
-        return lightColorScheme(
-            primary = basePrimary,
-            onPrimary = lightColors.onPrimary,
-            secondary = baseSecondary,
-            tertiary = baseTertiary,
-            background = baseBg,
-            surface = baseSurface,
-            surfaceVariant = baseSurfaceVariant,
-            onBackground = lightColors.onBackground,
-            onSurface = lightColors.onSurface,
-            onSurfaceVariant = lightColors.onSurfaceVariant,
-            outline = lightColors.outline
-        )
-    }
-
-    // Immersive themes map their bespoke color palettes into M3 tokens
-    return darkColorScheme(
-        primary = effectiveTheme.colors.primary,
-        onPrimary = effectiveTheme.colors.onPrimary,
-        secondary = effectiveTheme.colors.secondary,
-        tertiary = effectiveTheme.colors.accent,
-        background = effectiveTheme.colors.background,
-        surface = effectiveTheme.colors.surface,
-        surfaceVariant = effectiveTheme.colors.surfaceVariant,
-        onBackground = effectiveTheme.colors.onBackground,
-        onSurface = effectiveTheme.colors.onSurface,
-        onSurfaceVariant = effectiveTheme.colors.onSurfaceVariant,
-        outline = effectiveTheme.colors.outline
-    )
 }
 
 @Composable
@@ -155,11 +104,7 @@ fun LifeOSThemeProvider(
     customization: IndependentThemeCustomization = IndependentThemeCustomization(),
     content: @Composable () -> Unit
 ) {
-    val themeWithMode = if (theme.id == ThemeId.GLASS && isLightMode) {
-        theme.copy(colors = ThemeRegistry.GLASS_COLORS_LIGHT)
-    } else {
-        theme
-    }
+    val themeWithMode = theme.copy(colors = ThemeRegistry.getEffectiveColors(theme, isLightMode))
     val activePalette = if (customization.isEnabled) customization.getActivePalette(isLightMode) else null
     val effectiveTheme = if (activePalette != null && activePalette.isCustomized) {
         themeWithMode.withCustomPalette(activePalette)

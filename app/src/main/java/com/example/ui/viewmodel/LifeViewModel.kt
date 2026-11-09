@@ -116,6 +116,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import com.example.domain.recurrence.RecurrenceEngine
+import com.example.ui.theme.engine.ThemeBackgroundConfig
+import com.example.ui.theme.engine.ThemeBackgroundType
 import com.example.widgets.WidgetRefreshCoordinator
 
 data class TaskSaveReceipt(
@@ -871,6 +873,14 @@ class LifeViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = ThemeRegistry.DEFAULT_THEME
     )
+
+    val currentThemeBackgroundConfig: StateFlow<ThemeBackgroundConfig> = activeThemeDefinition
+        .flatMapLatest { theme -> preferences.getThemeBackgroundConfig(theme.id) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ThemeBackgroundConfig()
+        )
 
     val waterGoalFlow: StateFlow<Int> = preferences.waterGoalMl.stateIn(
         scope = viewModelScope,
@@ -2476,6 +2486,26 @@ class LifeViewModel(
 
     fun dismissThemePreview() {
         _previewThemeId.value = null
+    }
+
+    fun updateThemeBackground(config: ThemeBackgroundConfig) {
+        viewModelScope.launch {
+            preferences.setThemeBackgroundConfig(config)
+        }
+    }
+
+    fun resetThemeBackground(themeId: ThemeId) {
+        viewModelScope.launch {
+            preferences.setThemeBackgroundConfig(
+                ThemeBackgroundConfig(
+                    themeId = themeId,
+                    type = ThemeBackgroundType.ATMOSPHERE_DEFAULT,
+                    customImageUri = null,
+                    opacity = 0.85f,
+                    enableOverlayTint = true
+                )
+            )
+        }
     }
 
     fun launchSubscriptionPurchase(activity: Activity, onResult: (BillingResultStatus) -> Unit = {}) {

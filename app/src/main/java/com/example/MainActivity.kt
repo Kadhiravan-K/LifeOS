@@ -114,6 +114,7 @@ class MainActivity : FragmentActivity() {
             val hasCompletedOnboarding by viewModel.hasCompletedOnboarding.collectAsStateWithLifecycle()
             val animationSpeed by viewModel.animationSpeedFlow.collectAsStateWithLifecycle()
             val themeCustomization by viewModel.independentThemeCustomizationFlow.collectAsStateWithLifecycle()
+            val currentThemeBgConfig by viewModel.currentThemeBackgroundConfig.collectAsStateWithLifecycle()
 
             com.example.ui.theme.engine.LifeOSThemeProvider(
                 theme = activeThemeDef,
@@ -121,7 +122,7 @@ class MainActivity : FragmentActivity() {
                 animationSpeed = animationSpeed,
                 customization = themeCustomization
             ) {
-                com.example.ui.theme.engine.ThemedAtmosphereBackground {
+                com.example.ui.theme.engine.ThemedAtmosphereBackground(backgroundConfig = currentThemeBgConfig) {
                     if (isLegalConsentComplete == null || hasCompletedOnboarding == null) {
                         androidx.compose.foundation.layout.Box(
                             modifier = Modifier.fillMaxSize(),

@@ -78,8 +78,12 @@ data class ThemeShapes(
     val dialogShape: Shape = RoundedCornerShape(20.dp),
     val borderWidth: Dp = 1.dp,
     val cornerRadiusDp: Dp = 16.dp,
+    val fabShape: Shape = RoundedCornerShape(16.dp),
     val isAngularCyber: Boolean = false,
-    val isGlass: Boolean = false
+    val isGlass: Boolean = false,
+    val isOrbitalCosmic: Boolean = false,
+    val isEmbossedAdventure: Boolean = false,
+    val isRunicArcane: Boolean = false
 )
 
 /**
