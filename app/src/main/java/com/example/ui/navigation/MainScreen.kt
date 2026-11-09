@@ -29,7 +29,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.domain.model.ProjectItem
+import com.example.domain.model.TaskItem
 import com.example.ui.components.HabitEditModal
+import com.example.ui.components.TaskAdvancedEditorSheet
+import com.example.ui.components.TaskQuickAddSheet
 import com.example.ui.screens.analytics.AnalyticsScreen
 import com.example.ui.screens.calendar.CalendarScreen
 import com.example.ui.screens.challenge.ChallengeScreen
@@ -55,6 +58,8 @@ fun MainScreen(
 
     var showQuickAddMenuSheet by rememberSaveable { mutableStateOf(false) }
     var showTaskQuickAddSheet by rememberSaveable { mutableStateOf(initialOpenQuickAdd) }
+    var showTaskAdvancedEditorSheet by rememberSaveable { mutableStateOf(false) }
+    var taskDraftForAdvancedEditor by remember { mutableStateOf<TaskItem?>(null) }
     var showCreateHabitModal by rememberSaveable { mutableStateOf(false) }
     var showCreateProjectDialog by rememberSaveable { mutableStateOf(false) }
     var newProjectName by rememberSaveable { mutableStateOf("") }
@@ -364,7 +369,7 @@ fun MainScreen(
 
     // Task Quick Add Sheet
     if (showTaskQuickAddSheet) {
-        com.example.ui.components.TaskQuickAddSheet(
+        TaskQuickAddSheet(
             projects = tasksState.projects,
             labels = tasksState.labels,
             colorOrderingMode = colorOrderingMode,
@@ -385,11 +390,46 @@ fun MainScreen(
                 viewModel.saveTaskItem(task, med)
                 showTaskQuickAddSheet = false
             },
-            onExpandToAdvanced = {
+            onExpandToAdvanced = { draft ->
+                taskDraftForAdvancedEditor = draft
                 showTaskQuickAddSheet = false
+                showTaskAdvancedEditorSheet = true
                 navManager.navigateTo(NavigationItem.TASKS)
             },
             onDismiss = { showTaskQuickAddSheet = false }
+        )
+    }
+
+    // Task Advanced Editor Sheet (opened from Quick Add expand)
+    if (showTaskAdvancedEditorSheet) {
+        TaskAdvancedEditorSheet(
+            task = taskDraftForAdvancedEditor,
+            projects = tasksState.projects,
+            labels = tasksState.labels,
+            colorOrderingMode = colorOrderingMode,
+            colorUsageCounts = colorUsageCounts,
+            colorCustomOrder = colorCustomOrder,
+            defaultDuration = defaultDuration,
+            onCreateProject = { proj, cb -> viewModel.insertProject(proj) { newId -> cb(newId) } },
+            onCreateLabel = { lbl, cb -> viewModel.insertLabel(lbl) { newId -> cb(newId) } },
+            onColorUsed = { viewModel.recordColorUsage(it) },
+            onModeChanged = { viewModel.setColorOrderingMode(it) },
+            onSaveCustomOrder = { viewModel.saveCustomColorOrder(it) },
+            onResetCustomOrder = { viewModel.resetCustomColorOrder() },
+            onSaveTask = { task ->
+                viewModel.saveTaskItem(task)
+                showTaskAdvancedEditorSheet = false
+                taskDraftForAdvancedEditor = null
+            },
+            onSaveTaskWithMedication = { task, med ->
+                viewModel.saveTaskItem(task, med)
+                showTaskAdvancedEditorSheet = false
+                taskDraftForAdvancedEditor = null
+            },
+            onDismiss = {
+                showTaskAdvancedEditorSheet = false
+                taskDraftForAdvancedEditor = null
+            }
         )
     }
 
