@@ -530,14 +530,16 @@ fun LifeDatePickerField(
     maxDateIso: String? = null,
     isNullable: Boolean = false,
     onClear: (() -> Unit)? = null,
+    placeholder: String = "No Date Set",
+    enabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     var showDialog by remember { mutableStateOf(false) }
 
     val today = remember { DateUtils.todayString() }
-    val displayDate = remember(selectedDateIso) {
+    val displayDate = remember(selectedDateIso, placeholder) {
         if (selectedDateIso.isBlank()) {
-            "No Date Set"
+            placeholder
         } else {
             val formatted = DateUtils.formatDisplayDate(selectedDateIso)
             when (selectedDateIso) {
@@ -551,7 +553,7 @@ fun LifeDatePickerField(
 
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.5f else 0.25f),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
             if (selectedDateIso.isNotBlank()) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
@@ -560,7 +562,7 @@ fun LifeDatePickerField(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .clickable { showDialog = true }
+            .clickable(enabled = enabled) { showDialog = true }
             .testTag("date_picker_field")
     ) {
         Row(

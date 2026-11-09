@@ -52,6 +52,7 @@ import com.example.domain.subscription.BillingFrequency
 import com.example.domain.subscription.CustomIntervalUnit
 import com.example.domain.subscription.MissingDatePolicy
 import com.example.domain.subscription.SubscriptionItem
+import com.example.ui.components.LifeDatePickerField
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -357,13 +358,14 @@ fun SubscriptionEditorSheet(
                     modifier = Modifier.weight(1f),
                     singleLine = true
                 )
-                OutlinedTextField(
-                    value = anchorDateIso,
-                    onValueChange = { anchorDateIso = it },
-                    label = { Text("Anchor Date (YYYY-MM-DD)") },
-                    modifier = Modifier.weight(1.5f),
-                    singleLine = true
-                )
+                Box(modifier = Modifier.weight(1.5f)) {
+                    LifeDatePickerField(
+                        selectedDateIso = anchorDateIso,
+                        onDateSelected = { anchorDateIso = it },
+                        label = "Anchor Date",
+                        isNullable = false
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -412,12 +414,12 @@ fun SubscriptionEditorSheet(
 
             if (isTrial) {
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = trialEndDateIso,
-                    onValueChange = { trialEndDateIso = it },
-                    label = { Text("Trial End Date (YYYY-MM-DD)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                LifeDatePickerField(
+                    selectedDateIso = trialEndDateIso,
+                    onDateSelected = { trialEndDateIso = it },
+                    label = "Trial End Date",
+                    isNullable = false,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 

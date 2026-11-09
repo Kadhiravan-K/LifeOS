@@ -94,6 +94,45 @@ fun formatTimeDisplay(time: String?, is24Hour: Boolean): String {
 }
 
 /**
+ * Calculates the duration between two "HH:mm" time strings in minutes.
+ * If isOvernight is true (or endTime is chronologically earlier than startTime), wraps past midnight.
+ */
+fun calculateTimeDurationMinutes(startTime: String?, endTime: String?, isOvernight: Boolean = false): Int {
+    if (startTime.isNullOrBlank() || endTime.isNullOrBlank()) return 0
+    val (startH, startM) = parseTimeToHourMinute(startTime)
+    val (endH, endM) = parseTimeToHourMinute(endTime)
+    val startTotal = startH * 60 + startM
+    var endTotal = endH * 60 + endM
+    if (isOvernight || endTotal < startTotal) {
+        endTotal += 24 * 60
+    }
+    return (endTotal - startTotal).coerceAtLeast(0)
+}
+
+/**
+ * Returns a human-friendly duration string, e.g. "8h 00m" or "45m".
+ */
+fun formatDurationMinutesDisplay(minutes: Int): String {
+    val h = minutes / 60
+    val m = minutes % 60
+    return when {
+        h > 0 && m > 0 -> String.format(Locale.ROOT, "%dh %02dm", h, m)
+        h > 0 -> "${h}h"
+        else -> "${m}m"
+    }
+}
+
+/**
+ * Detects if the given start and end time cross midnight (i.e. start > end).
+ */
+fun isTimeRangeCrossMidnight(startTime: String?, endTime: String?): Boolean {
+    if (startTime.isNullOrBlank() || endTime.isNullOrBlank()) return false
+    val (startH, startM) = parseTimeToHourMinute(startTime)
+    val (endH, endM) = parseTimeToHourMinute(endTime)
+    return (startH * 60 + startM) > (endH * 60 + endM)
+}
+
+/**
  * Unified Material 3 Time Picker Dialog for LifeOS.
  * Features:
  * - Analog Clock Face dial mode & Numeric Keypad input mode toggle.

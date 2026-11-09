@@ -365,18 +365,24 @@ fun TaskEditModal(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    OutlinedTextField(
-                        value = dueDateIso,
-                        onValueChange = { dueDateIso = it },
-                        label = { Text("Due Date (YYYY-MM-DD)") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = dueTime,
-                        onValueChange = { dueTime = it },
-                        label = { Text("Time (e.g. 09:30)") },
-                        modifier = Modifier.weight(1f)
-                    )
+                    Box(modifier = Modifier.weight(1f)) {
+                        LifeDatePickerField(
+                            selectedDateIso = dueDateIso,
+                            onDateSelected = { dueDateIso = it },
+                            label = "Due Date",
+                            isNullable = true,
+                            onClear = { dueDateIso = "" }
+                        )
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        LifeTimePickerField(
+                            time = dueTime.ifBlank { null },
+                            onTimeSelected = { dueTime = it },
+                            onClear = { dueTime = "" },
+                            label = "Due Time",
+                            placeholder = "Set time"
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -451,10 +457,13 @@ fun TaskEditModal(
                 // Optional Recurrence End Date
                 if (recurrenceType != RecurrenceType.NONE) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = recurrenceEndDateIso,
-                        onValueChange = { recurrenceEndDateIso = it },
-                        label = { Text("Recurrence End Date (Optional: YYYY-MM-DD)") },
+                    LifeDatePickerField(
+                        selectedDateIso = recurrenceEndDateIso,
+                        onDateSelected = { recurrenceEndDateIso = it },
+                        label = "Recurrence End Date",
+                        isNullable = true,
+                        onClear = { recurrenceEndDateIso = "" },
+                        placeholder = "No end date",
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -690,10 +699,12 @@ fun HabitEditModal(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                OutlinedTextField(
-                    value = reminderTime,
-                    onValueChange = { reminderTime = it },
-                    label = { Text("Reminder Time (e.g. 05:30)") },
+                LifeTimePickerField(
+                    time = reminderTime.ifBlank { null },
+                    onTimeSelected = { reminderTime = it },
+                    onClear = { reminderTime = "" },
+                    label = "Daily Reminder Time",
+                    placeholder = "No reminder set",
                     modifier = Modifier.fillMaxWidth()
                 )
             }

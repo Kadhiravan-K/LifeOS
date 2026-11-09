@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.entities.GiveGetTransactionEntity
+import com.example.ui.components.LifeDatePickerField
 import com.example.ui.viewmodel.LifeViewModel
 import java.time.LocalDate
 
@@ -691,21 +692,24 @@ private fun GiveGetEditDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedTextField(
-                        value = dateIso,
-                        onValueChange = { dateIso = it },
-                        label = { Text("Date (YYYY-MM-DD)") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    if (!type.contains("GIFT")) {
-                        OutlinedTextField(
-                            value = expectedReturnDateIso,
-                            onValueChange = { expectedReturnDateIso = it },
-                            label = { Text("Expected Return") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
+                    Box(modifier = Modifier.weight(1f)) {
+                        LifeDatePickerField(
+                            selectedDateIso = dateIso,
+                            onDateSelected = { dateIso = it },
+                            label = "Transaction Date",
+                            isNullable = false
                         )
+                    }
+                    if (!type.contains("GIFT")) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            LifeDatePickerField(
+                                selectedDateIso = expectedReturnDateIso,
+                                onDateSelected = { expectedReturnDateIso = it },
+                                label = "Expected Return",
+                                isNullable = true,
+                                onClear = { expectedReturnDateIso = "" }
+                            )
+                        }
                     }
                 }
 

@@ -29,6 +29,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.entities.ShiftAssignmentEntity
 import com.example.data.local.entities.ShiftEntity
 import com.example.data.local.entities.ShiftRotationEntity
+import com.example.ui.components.LifeDatePickerField
+import com.example.ui.components.LifeTimePickerField
+import com.example.ui.components.calculateTimeDurationMinutes
+import com.example.ui.components.formatDurationMinutesDisplay
+import com.example.ui.components.isTimeRangeCrossMidnight
 import com.example.ui.viewmodel.LifeViewModel
 import org.json.JSONArray
 import java.time.LocalDate
@@ -193,9 +198,9 @@ fun ShiftPlannerScreen(
             dateIso = targetDate,
             allShifts = allShifts,
             onDismiss = { showExceptionDialogForDate = null },
-            onSave = { shiftId, type, notes, otHours ->
+            onSave = { selectedDate, shiftId, type, notes, otHours ->
                 viewModel.recordShiftException(
-                    dateIso = targetDate,
+                    dateIso = selectedDate,
                     shiftId = shiftId,
                     exceptionType = type,
                     exceptionNotes = notes,
@@ -943,43 +948,89 @@ private fun ShiftEditDialog(
                     singleLine = true
                 )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = startTime,
-                        onValueChange = { startTime = it },
-                        label = { Text("Start Time") },
-                        modifier = Modifier.weight(1f).testTag("shift_start_input"),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = endTime,
-                        onValueChange = { endTime = it },
-                        label = { Text("End Time") },
-                        modifier = Modifier.weight(1f).testTag("shift_end_input"),
-                        singleLine = true
-                    )
+                val shiftDurationMinutes = remember(startTime, endTime, isOvernight) {
+                    calculateTimeDurationMinutes(startTime, endTime, isOvernight)
+                }
+                val shiftDurationText = remember(shiftDurationMinutes) {
+                    formatDurationMinutesDisplay(shiftDurationMinutes)
                 }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedTextField(
-                        value = wakeUpTime,
-                        onValueChange = { wakeUpTime = it },
-                        label = { Text("Wake-up Time") },
-                        modifier = Modifier.weight(1f).testTag("shift_wake_input"),
-                        singleLine = true
+                    LifeTimePickerField(
+                        time = startTime,
+                        onTimeSelected = { newStart ->
+                            startTime = newStart
+                            if (isTimeRangeCrossMidnight(newStart, endTime)) {
+                                isOvernight = true
+                            }
+                        },
+                        label = "Start Time",
+                        modifier = Modifier.weight(1f).testTag("shift_start_input")
                     )
-                    OutlinedTextField(
-                        value = sleepTime,
-                        onValueChange = { sleepTime = it },
-                        label = { Text("Sleep Time") },
-                        modifier = Modifier.weight(1f).testTag("shift_sleep_input"),
-                        singleLine = true
+                    LifeTimePickerField(
+                        time = endTime,
+                        onTimeSelected = { newEnd ->
+                            endTime = newEnd
+                            if (isTimeRangeCrossMidnight(startTime, newEnd)) {
+                                isOvernight = true
+                            }
+                        },
+                        label = "End Time",
+                        modifier = Modifier.weight(1f).testTag("shift_end_input")
+                    )
+                }
+
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Shift Duration: $shiftDurationText",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (isOvernight) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "Overnight (Next Day)",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    LifeTimePickerField(
+                        time = wakeUpTime,
+                        onTimeSelected = { wakeUpTime = it },
+                        label = "Wake-up Time",
+                        modifier = Modifier.weight(1f).testTag("shift_wake_input")
+                    )
+                    LifeTimePickerField(
+                        time = sleepTime,
+                        onTimeSelected = { sleepTime = it },
+                        label = "Sleep Time",
+                        modifier = Modifier.weight(1f).testTag("shift_sleep_input")
                     )
                 }
 
@@ -1167,9 +1218,10 @@ private fun ShiftExceptionDialog(
     dateIso: String,
     allShifts: List<ShiftEntity>,
     onDismiss: () -> Unit,
-    onSave: (shiftId: Long?, type: String, notes: String, otHours: Double) -> Unit,
+    onSave: (dateIso: String, shiftId: Long?, type: String, notes: String, otHours: Double) -> Unit,
     onClear: () -> Unit
 ) {
+    var currentDateIso by remember(dateIso) { mutableStateOf(dateIso) }
     var selectedShiftId by remember { mutableStateOf<Long?>(allShifts.firstOrNull()?.id) }
     var exceptionType by remember { mutableStateOf("OVERTIME") }
     var notes by remember { mutableStateOf("") }
@@ -1179,12 +1231,19 @@ private fun ShiftExceptionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Log Exception for $dateIso") },
+        title = { Text("Log Shift Exception") },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                LifeDatePickerField(
+                    selectedDateIso = currentDateIso,
+                    onDateSelected = { currentDateIso = it },
+                    label = "Exception Date",
+                    isNullable = false
+                )
+
                 Text("Exception Type", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(exceptionTypes) { type ->
@@ -1233,7 +1292,7 @@ private fun ShiftExceptionDialog(
                 onClick = {
                     val ot = otHours.toDoubleOrNull() ?: 0.0
                     val sId = if (exceptionType == "LEAVE" || exceptionType == "WEEKLY_OFF") null else selectedShiftId
-                    onSave(sId, exceptionType, notes.trim(), ot)
+                    onSave(currentDateIso, sId, exceptionType, notes.trim(), ot)
                 },
                 modifier = Modifier.testTag("save_exception_button")
             ) {

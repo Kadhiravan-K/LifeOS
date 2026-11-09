@@ -551,6 +551,7 @@ class PremiumEntitlementUnitTest {
             purchaseState = PurchaseState.PURCHASED,
             isAcknowledged = true,
             isAutoRenewing = true,
+            isEligibleForTrial = false,
             expiryTimeMillis = System.currentTimeMillis() + 86400000L * 30,
             lastVerifiedTimeMillis = System.currentTimeMillis()
         )

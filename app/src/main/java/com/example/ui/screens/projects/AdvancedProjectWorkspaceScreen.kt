@@ -118,6 +118,7 @@ import com.example.domain.projectworkspace.ProjectCustomProperty
 import com.example.domain.projectworkspace.ProjectCustomStatus
 import com.example.domain.projectworkspace.ProjectWorkspaceItem
 import com.example.domain.projectworkspace.ProjectWorkspaceView
+import com.example.ui.components.LifeDatePickerField
 import com.example.domain.projectworkspace.WorkspaceGroupBy
 import com.example.domain.projectworkspace.WorkspaceSortBy
 import com.example.domain.projectworkspace.WorkspaceViewType
@@ -1909,12 +1910,13 @@ private fun CreateEditWorkspaceItemDialog(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 // Due Date
-                OutlinedTextField(
-                    value = dueDateIso,
-                    onValueChange = { dueDateIso = it },
-                    label = { Text("Due Date (YYYY-MM-DD)") },
-                    placeholder = { Text("e.g. 2026-11-15") },
-                    singleLine = true,
+                LifeDatePickerField(
+                    selectedDateIso = dueDateIso,
+                    onDateSelected = { dueDateIso = it },
+                    label = "Due Date",
+                    isNullable = true,
+                    onClear = { dueDateIso = "" },
+                    placeholder = "No due date set",
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -1976,12 +1978,14 @@ private fun CreateEditWorkspaceItemDialog(
                                 }
                             }
                             ProjectCustomPropertyEntity.TYPE_DATE -> {
-                                OutlinedTextField(
-                                    value = currentVal,
-                                    onValueChange = { customPropValues = customPropValues.toMutableMap().apply { put(cp.name, it) } },
-                                    label = { Text("${cp.name} (YYYY-MM-DD)") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                                LifeDatePickerField(
+                                    selectedDateIso = currentVal,
+                                    onDateSelected = { customPropValues = customPropValues.toMutableMap().apply { put(cp.name, it) } },
+                                    label = cp.name,
+                                    isNullable = true,
+                                    onClear = { customPropValues = customPropValues.toMutableMap().apply { remove(cp.name) } },
+                                    placeholder = "Select ${cp.name}",
+                                    modifier = Modifier.padding(vertical = 4.dp)
                                 )
                             }
                             ProjectCustomPropertyEntity.TYPE_SINGLE_SELECT -> {

@@ -90,6 +90,7 @@ import com.example.domain.model.TaskItem
 import com.example.domain.model.TaskPriority
 import com.example.domain.recurrence.RecurrenceEngine
 import com.example.ui.components.EmptyStateCard
+import com.example.ui.components.LifeDatePickerField
 import com.example.ui.viewmodel.LifeViewModel
 import com.example.utils.DateUtils
 import java.text.SimpleDateFormat
@@ -1863,12 +1864,12 @@ fun CreateEditPlanDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                OutlinedTextField(
-                    value = targetDateIso,
-                    onValueChange = { targetDateIso = it },
-                    label = { Text("Target Completion Date (YYYY-MM-DD)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                LifeDatePickerField(
+                    selectedDateIso = targetDateIso,
+                    onDateSelected = { targetDateIso = it },
+                    label = "Target Completion Date",
+                    isNullable = false,
+                    modifier = Modifier.fillMaxWidth().testTag("plan_dialog_target_date")
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
