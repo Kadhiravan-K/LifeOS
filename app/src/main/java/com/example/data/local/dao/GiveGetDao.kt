@@ -37,6 +37,9 @@ interface GiveGetDao {
     @Query("DELETE FROM give_get_transactions WHERE id = :id")
     suspend fun deleteTransactionById(id: Long)
 
+    @Query("DELETE FROM give_get_transactions WHERE profileId = :profileId")
+    suspend fun deleteAllTransactionsForProfile(profileId: Long)
+
     @Query("UPDATE give_get_transactions SET status = :status, actualReturnDateIso = :actualReturnDateIso, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateStatus(id: Long, status: String, actualReturnDateIso: String?, updatedAt: Long = System.currentTimeMillis())
 

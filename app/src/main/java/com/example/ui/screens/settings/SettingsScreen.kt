@@ -70,6 +70,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -136,12 +137,14 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.domain.legal.LegalDocuments
 import com.example.domain.model.HoneycombColorPresets
+import com.example.domain.reset.ResetCategory
 import com.example.domain.templates.TemplateCatalog
 import com.example.notifications.ExactAlarmStatus
 import com.example.notifications.NotificationHelper
 import com.example.notifications.ReminderScheduler
 import com.example.ui.components.BackupRestoreDialog
 import com.example.ui.components.ColorPickerDialog
+import com.example.ui.components.ResetDataConfirmationDialog
 import com.example.ui.components.TrashBinBottomSheet
 import com.example.ui.feedback.FeedbackSoundType
 import com.example.ui.screens.essentials.TrackersSubscriptionsScreen
@@ -210,6 +213,7 @@ fun getSettingsSearchRegistry(
     SettingsSearchItem("Encrypted Backup & Restore", "Export encrypted system JSON or restore LifeOS database", "Data & Storage", SettingsSubpage.DATA_STORAGE, listOf("backup", "restore", "export", "import", "database", "json")),
     SettingsSearchItem("Trash Bin Recovery & Retention", "Restore deleted items and configure auto-delete retention period", "Data & Storage", SettingsSubpage.DATA_STORAGE, listOf("trash", "bin", "recovery", "retention", "delete", "purge")),
     SettingsSearchItem("Starter Productivity Templates", "Browse and import curated habit, task, and shortcut bundles", "Data & Storage", SettingsSubpage.DATA_STORAGE, listOf("templates", "bundles", "browse", "routines", "morning", "deep work", "bucket list", "packing", "wedding", "startup")),
+    SettingsSearchItem("Reset Profile Data", "Selectively reset tasks, habits, projects, and modules with secure confirmation", "Data & Storage", SettingsSubpage.DATA_STORAGE, listOf("reset", "clear", "wipe", "delete", "erase", "data", "categories")),
     SettingsSearchItem("Terms & Conditions", "Review legal terms, offline pledge, and application licensing", "Legal & Privacy", SettingsSubpage.LEGAL_PRIVACY, listOf("terms", "conditions", "legal", "license", "eula")),
     SettingsSearchItem("Privacy Policy", "Offline-first privacy architecture, zero telemetry, local storage", "Legal & Privacy", SettingsSubpage.LEGAL_PRIVACY, listOf("privacy", "policy", "offline", "data", "security", "telemetry")),
     SettingsSearchItem("Knowledge & Glossary Library", "Downloadable offline knowledge packs, productivity mental models & systems thinking", "Knowledge & Reference", SettingsSubpage.GLOSSARY, listOf("glossary", "library", "knowledge", "mental models", "terms", "dictionary", "definitions", "packs")),
@@ -247,6 +251,8 @@ fun SettingsScreen(
     var currentSubpage by remember { mutableStateOf(SettingsSubpage.HUB) }
     var searchQuery by remember { mutableStateOf("") }
     val isLifetimePremiumActive by viewModel.isLifetimePremiumActive.collectAsStateWithLifecycle()
+    val activeProfile by viewModel.activeProfileFlow.collectAsStateWithLifecycle()
+    val isResettingData by viewModel.isResettingData.collectAsStateWithLifecycle()
 
     // Resets to HUB on tab re-selection
     LaunchedEffect(resetTrigger) {
@@ -1970,6 +1976,37 @@ fun SettingsScreen(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Reset Profile Data (Issue 05)
+                ResetProfileDataSection(
+                    activeProfile = activeProfile,
+                    isResetting = isResettingData,
+                    onExecuteReset = { categories ->
+                        viewModel.performDataReset(categories) { result ->
+                            if (result.isCompleteSuccess) {
+                                Toast.makeText(
+                                    context,
+                                    "Successfully reset ${result.successfulCategories.size} categories for ${activeProfile?.name ?: "Personal Profile"}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } else if (result.isPartialSuccess) {
+                                Toast.makeText(
+                                    context,
+                                    "Reset ${result.successfulCategories.size} categories. Failed: ${result.failedCategories.keys.joinToString { it.title }}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    "Data reset failed: ${result.failedCategories.values.firstOrNull() ?: "Unknown error"}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    }
+                )
             }
         }
 
@@ -2908,5 +2945,237 @@ private fun NotificationToggleRow(
     ) {
         Text(title, fontSize = 14.sp)
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun ResetProfileDataSection(
+    activeProfile: ProfileEntity?,
+    isResetting: Boolean,
+    onExecuteReset: (Set<ResetCategory>) -> Unit
+) {
+    var selectedCategories by remember { mutableStateOf<Set<ResetCategory>>(emptySet()) }
+    var showConfirmDialog by remember { mutableStateOf(false) }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("card_reset_profile_data")
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header row with Icon, Title, and Profile Badge
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteSweep,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Reset Profile Data",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                }
+
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = activeProfile?.emoji?.takeIf { it.isNotBlank() } ?: "👤",
+                            fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = activeProfile?.name?.takeIf { it.isNotBlank() } ?: "Personal",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Selectively reset productivity modules strictly for the active profile. Your profile identity, survey responses, and lock security are strictly preserved.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Select All / Deselect All Controls
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (selectedCategories.isEmpty()) {
+                        "No categories selected"
+                    } else {
+                        "Selected: ${selectedCategories.size} of ${ResetCategory.values().size}"
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (selectedCategories.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(
+                        onClick = { selectedCategories = ResetCategory.values().toSet() },
+                        enabled = selectedCategories.size < ResetCategory.values().size && !isResetting,
+                        modifier = Modifier.testTag("btn_reset_select_all")
+                    ) {
+                        Text("Select All", fontSize = 12.sp)
+                    }
+                    TextButton(
+                        onClick = { selectedCategories = emptySet() },
+                        enabled = selectedCategories.isNotEmpty() && !isResetting,
+                        modifier = Modifier.testTag("btn_reset_deselect_all")
+                    ) {
+                        Text("Deselect All", fontSize = 12.sp)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Checkbox List for each ResetCategory
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                ResetCategory.values().forEach { category ->
+                    val isChecked = category in selectedCategories
+                    Surface(
+                        color = if (isChecked) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
+                        else MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isChecked) MaterialTheme.colorScheme.error.copy(alpha = 0.4f)
+                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = !isResetting) {
+                                selectedCategories = if (isChecked) {
+                                    selectedCategories - category
+                                } else {
+                                    selectedCategories + category
+                                }
+                            }
+                            .testTag("reset_category_item_${category.name.lowercase()}")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isChecked,
+                                onCheckedChange = { checked ->
+                                    selectedCategories = if (checked) {
+                                        selectedCategories + category
+                                    } else {
+                                        selectedCategories - category
+                                    }
+                                },
+                                enabled = !isResetting,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(category.iconEmoji, fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = category.title,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = category.description,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Destructive Action Button
+            Button(
+                onClick = { showConfirmDialog = true },
+                enabled = selectedCategories.isNotEmpty() && !isResetting,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                ),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("btn_open_reset_confirm")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DeleteSweep,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (selectedCategories.isEmpty()) {
+                        "Select Categories to Reset"
+                    } else {
+                        "Reset Selected Data (${selectedCategories.size})"
+                    },
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+
+    if (showConfirmDialog) {
+        ResetDataConfirmationDialog(
+            profileName = activeProfile?.name,
+            profileEmoji = activeProfile?.emoji,
+            selectedCategories = selectedCategories.toList(),
+            isLoading = isResetting,
+            onConfirmReset = {
+                val targets = selectedCategories
+                onExecuteReset(targets)
+                showConfirmDialog = false
+                selectedCategories = emptySet()
+            },
+            onDismiss = {
+                showConfirmDialog = false
+            }
+        )
     }
 }

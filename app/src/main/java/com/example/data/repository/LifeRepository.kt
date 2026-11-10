@@ -33,6 +33,8 @@ import com.example.domain.subscription.SubscriptionPaymentItem
 import com.example.domain.subscription.PriceHistoryItem
 import com.example.domain.subscription.SubscriptionStatus
 import com.example.domain.subscription.BillStatus
+import com.example.domain.reset.ResetCategory
+import com.example.domain.reset.ResetExecutionResult
 import com.example.domain.subscription.SubscriptionScheduleEngine
 import com.example.data.local.entities.SubscriptionEntity
 import com.example.data.local.entities.BillingOccurrenceEntity
@@ -203,8 +205,84 @@ class LifeRepository(
             database.glossaryDao().deleteUserDataForProfile(id)
             database.mcpDao().deleteServersForProfile(id)
             database.mcpDao().clearAuditLogs(id)
+            shiftDao.deleteAllShiftsForProfile(id)
+            shiftDao.deleteAllRotationsForProfile(id)
+            shiftDao.deleteAllAssignmentsForProfile(id)
+            giveGetDao.deleteAllTransactionsForProfile(id)
         }
         return deleted > 0
+    }
+
+    /**
+     * Executes data reset for the given categories strictly scoped to [profileId].
+     * Never deletes the profile identity, security, or records of other profiles.
+     */
+    suspend fun resetCategoriesForProfile(profileId: Long, categories: Set<ResetCategory>): ResetExecutionResult {
+        val successful = mutableListOf<ResetCategory>()
+        val failed = mutableMapOf<ResetCategory, String>()
+
+        categories.forEach { category ->
+            try {
+                database.withTransaction {
+                    when (category) {
+                        ResetCategory.TASKS -> {
+                            taskRepository.deleteAllTasksForProfile(profileId)
+                        }
+                        ResetCategory.HABITS -> {
+                            habitDao.deleteAllHabitsForProfile(profileId)
+                        }
+                        ResetCategory.PROJECTS -> {
+                            projectDao.deleteAllProjectsForProfile(profileId)
+                            projectWorkspaceDao.deleteAllItemsForProfile(profileId)
+                            projectWorkspaceDao.deleteAllViewsForProfile(profileId)
+                            projectWorkspaceDao.deleteAllCustomStatusesForProfile(profileId)
+                            projectWorkspaceDao.deleteAllCustomPropertiesForProfile(profileId)
+                        }
+                        ResetCategory.LABELS -> {
+                            labelDao.deleteAllLabelsForProfile(profileId)
+                        }
+                        ResetCategory.PLANS -> {
+                            planDao.deleteAllPlansForProfile(profileId)
+                        }
+                        ResetCategory.SHIFTS -> {
+                            shiftDao.deleteAllShiftsForProfile(profileId)
+                            shiftDao.deleteAllRotationsForProfile(profileId)
+                            shiftDao.deleteAllAssignmentsForProfile(profileId)
+                        }
+                        ResetCategory.GIVE_GET -> {
+                            giveGetDao.deleteAllTransactionsForProfile(profileId)
+                        }
+                        ResetCategory.TRACKERS -> {
+                            trackerRepository.deleteAllTrackersForProfile(profileId)
+                        }
+                        ResetCategory.SUBSCRIPTIONS -> {
+                            subscriptionRepository.deleteAllSubscriptionsForProfile(profileId)
+                        }
+                        ResetCategory.MEDICATIONS -> {
+                            medicationDao.deleteAllMedicationsForProfile(profileId)
+                        }
+                        ResetCategory.HONEYCOMB -> {
+                            honeycombShortcutDao.deleteAllShortcutsForProfile(profileId)
+                        }
+                        ResetCategory.GAMIFICATION -> {
+                            resetGamificationProgress()
+                        }
+                        ResetCategory.TRASH -> {
+                            trashDao.deleteAllTrashForProfile(profileId)
+                        }
+                    }
+                }
+                successful.add(category)
+            } catch (e: Exception) {
+                failed[category] = e.message ?: "Reset operation failed"
+            }
+        }
+
+        return ResetExecutionResult(
+            totalRequested = categories.size,
+            successfulCategories = successful,
+            failedCategories = failed
+        )
     }
 
     // --- Release 3 Phase 5 Batch 05C: Profile Survey (#19) ---

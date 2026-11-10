@@ -100,10 +100,15 @@ import com.example.domain.subscription.SubscriptionScheduleEngine
 import com.example.data.backup.DataExportImportManager
 import com.example.data.local.AppDatabase
 import com.example.domain.legal.LegalDocuments
+import com.example.domain.reset.ResetCategory
+import com.example.domain.reset.ResetExecutionResult
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -482,6 +487,17 @@ class LifeViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = listOf(ProfileEntity.createDefaultPersonal())
+    )
+
+    val activeProfileFlow: StateFlow<ProfileEntity?> = combine(
+        allProfilesFlow,
+        activeProfileIdFlow
+    ) { profiles, activeId ->
+        profiles.firstOrNull { it.id == activeId }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
     )
 
     // Batch 05C: App-Entry Profile Selection & Onboarding Survey Flows (#9, #19)
@@ -3385,6 +3401,47 @@ class LifeViewModel(
             } ?: DataExportImportManager.RestoreResult.Error("Unable to open input stream for selected backup file.")
         } catch (e: Exception) {
             DataExportImportManager.RestoreResult.Error("Error reading backup file: ${e.message}", e)
+        }
+    }
+
+    // --- Profile Data Selective Reset (Issue 05) ---
+    private val _isResettingData = MutableStateFlow(false)
+    val isResettingData: StateFlow<Boolean> = _isResettingData.asStateFlow()
+
+    private val _resetResult = MutableSharedFlow<ResetExecutionResult>()
+    val resetResult: SharedFlow<ResetExecutionResult> = _resetResult.asSharedFlow()
+
+    suspend fun executeDataReset(categories: Set<ResetCategory>): ResetExecutionResult {
+        if (_isResettingData.value) {
+            return ResetExecutionResult(
+                totalRequested = categories.size,
+                successfulCategories = emptyList(),
+                failedCategories = categories.associateWith { "Reset operation already in progress" }
+            )
+        }
+        _isResettingData.value = true
+        try {
+            val profileId = activeProfileIdFlow.value
+            val result = repository.resetCategoriesForProfile(profileId, categories)
+            if (result.successfulCategories.isNotEmpty()) {
+                try {
+                    WidgetRefreshCoordinator.notifyAllWidgetsChanged(getApplication())
+                } catch (_: Exception) {}
+            }
+            _resetResult.emit(result)
+            return result
+        } finally {
+            _isResettingData.value = false
+        }
+    }
+
+    fun performDataReset(
+        categories: Set<ResetCategory>,
+        onComplete: (ResetExecutionResult) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val result = executeDataReset(categories)
+            onComplete(result)
         }
     }
 

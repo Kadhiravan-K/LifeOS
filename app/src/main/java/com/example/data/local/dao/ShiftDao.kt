@@ -77,4 +77,13 @@ interface ShiftDao {
 
     @Query("DELETE FROM shift_assignments WHERE profileId = :profileId AND dateIso = :dateIso")
     suspend fun deleteAssignmentForDate(profileId: Long, dateIso: String)
+
+    @Query("DELETE FROM shifts WHERE profileId = :profileId")
+    suspend fun deleteAllShiftsForProfile(profileId: Long)
+
+    @Query("DELETE FROM shift_rotations WHERE profileId = :profileId")
+    suspend fun deleteAllRotationsForProfile(profileId: Long)
+
+    @Query("DELETE FROM shift_assignments WHERE profileId = :profileId")
+    suspend fun deleteAllAssignmentsForProfile(profileId: Long)
 }
